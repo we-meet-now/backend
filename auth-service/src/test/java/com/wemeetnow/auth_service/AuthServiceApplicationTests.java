@@ -1,10 +1,10 @@
-package com.wemeetnow.auth_service.demo;
+package com.wemeetnow.auth_service;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class DemoApplicationTests {
+class AuthServiceApplicationTests {
 
 	@Test
 	void contextLoads() {

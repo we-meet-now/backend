@@ -6,8 +6,7 @@ import lombok.*;
 import org.springframework.lang.Nullable;
 
 @Entity
-@Getter
-@Setter
+@Getter @Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @ToString
 @Table(name = "user")

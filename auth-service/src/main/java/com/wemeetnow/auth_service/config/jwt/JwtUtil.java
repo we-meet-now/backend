@@ -4,23 +4,24 @@ import com.wemeetnow.auth_service.domain.enums.Role;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 
+import static com.wemeetnow.auth_service.config.jwt.JwtExpirationEnums.ACCESS_TOKEN_EXPIRATION_TIME;
+import static com.wemeetnow.auth_service.config.jwt.JwtExpirationEnums.REFRESH_TOKEN_EXPIRATION_TIME;
+
 @Slf4j
 @Component
 public class JwtUtil {
-    private static long ACCESS_TOKEN_EXPIRATION_TIME = 30 * 1000; // 30 sec
-    private static long REFRESH_TOKEN_EXPIRATION_TIME = 5 * 60 * 1000; // 5 min
     private static String SECRET_KEY;
 
-//    @Value("${jwt.secret}")
+    @Value("${jwt.secret}")
     private void setSecretKey(String key){
-//        this.SECRET_KEY = key;
-        this.SECRET_KEY = "secretkeysecretkeysecretkeysecretkeysecretkeysecretkeysecretkeysecretkey";
+        this.SECRET_KEY = key;
     }
 
     public static Claims extractAllClaims(String token) {
@@ -55,11 +56,11 @@ public class JwtUtil {
     }
 
     public String generateAccessToken(Long userId, String email, Role role) {
-        return doGenerateToken(userId, email, role, ACCESS_TOKEN_EXPIRATION_TIME);
+        return doGenerateToken(userId, email, role, ACCESS_TOKEN_EXPIRATION_TIME.getValue());
     }
 
     public String generateRefreshToken(Long userId, String email, Role role) {
-        return doGenerateToken(userId, email, role, REFRESH_TOKEN_EXPIRATION_TIME);
+        return doGenerateToken(userId, email, role, REFRESH_TOKEN_EXPIRATION_TIME.getValue());
     }
 
     private String doGenerateToken(Long userId, String email, Role role, long expireTime) {

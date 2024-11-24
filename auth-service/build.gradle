@@ -22,7 +22,7 @@ ext {
 }
 
 dependencies {
-//	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
@@ -37,7 +37,13 @@ dependencies {
 	implementation 'redis.clients:jedis:4.3.1' // 'org.springframework.data.redis.connection.RedisConnectionFactory' that could not be found 에러 해결
 	implementation 'org.apache.commons:commons-pool2:2.11.1'
 
-//	runtimeOnly 'com.mysql:mysql-connector-j'
+	// webflux 라이브러리의 webclient 로 http 요청 구현
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+
+	// 테스트용 화면단으로 thymeleaf
+	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+
+	runtimeOnly 'com.mysql:mysql-connector-j'
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 	annotationProcessor 'org.projectlombok:lombok'

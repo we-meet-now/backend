@@ -27,4 +27,13 @@ public class UserJoinRequestDto {
                 .role(Role.ROLE_USER)
                 .build();
     }
+    public static UserJoinRequestDto fromKakaoDto(KakaoUserInfoResponseDto infoDto, Role kakaoUserRole) {
+        return UserJoinRequestDto.builder()
+                    .email(infoDto.getKakaoAccount().getEmail())
+                    .password("Qwe123!!")
+                    .nickname(infoDto.getKakaoAccount().getProfile().getNickName())
+                    .username(infoDto.getKakaoAccount().name)
+                    .role(kakaoUserRole)
+                    .build();
+    }
 }

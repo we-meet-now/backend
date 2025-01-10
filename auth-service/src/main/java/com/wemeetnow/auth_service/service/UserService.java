@@ -45,7 +45,7 @@ public class UserService{
         User user = joinRequestDto.toEntity(passwordEncoder.encode(password));
         User savedUser = userRepository.save(user);
         log.info("savedUser = ", savedUser);
-        UserJoinResponseDto responseDto = UserJoinResponseDto.toDto(savedUser);
+        UserJoinResponseDto responseDto = UserJoinResponseDto.fromEntity(savedUser);
         return responseDto;
     }
     public UserLoginResponseDto login(UserLoginRequestDto loginRequestDto){

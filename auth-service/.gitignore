@@ -1,3 +1,8 @@
+# authentication
+../auth-service/src/main/resources/application-auth.properties
+# db
+../auth-service/src/main/resources/application-db.properties
+# default
 HELP.md
 .gradle
 build/

@@ -55,7 +55,7 @@ public class KakaoService {
 
         return kakaoTokenResponseDto.getAccessToken();
     }
-    public KakaoUserInfoResponseDto getUserInfo(String accessToken) {
+    public KakaoUserInfoResponseDto getUserInfo(String kakaoAccessToken) {
 
         KakaoUserInfoResponseDto userInfo = WebClient.create(KAUTH_USER_URL_HOST)
                 .get()
@@ -63,7 +63,7 @@ public class KakaoService {
                         .scheme("https")
                         .path("/v2/user/me")
                         .build(true))
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken) // access token 인가
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + kakaoAccessToken) // access token 인가
                 .header(HttpHeaders.CONTENT_TYPE, HttpHeaderValues.APPLICATION_X_WWW_FORM_URLENCODED.toString())
                 .retrieve()
                 //TODO : Custom Exception

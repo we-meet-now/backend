@@ -29,12 +29,14 @@ public class SecurityConfig {
         httpSecurity.csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(authorizeRequest ->
                         authorizeRequest
+//                                .anyRequest().permitAll()
                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/v1/users/join")).permitAll()
                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/v1/users/login")).permitAll()
                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/v1/users/logout")).permitAll()
                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/v1/users/reissue")).permitAll()
                                 // .requestMatchers(AntPathRequestMatcher.antMatcher(PERMIT_URL[4])).permitAll()
                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/v1/login/page")).permitAll() // 카카오로그인테스트용
+                                .requestMatchers(AntPathRequestMatcher.antMatcher("/callback")).permitAll() // 카카오로그인테스트용
                         )
                 .headers(
                         headersConfigurer -> headersConfigurer.frameOptions(

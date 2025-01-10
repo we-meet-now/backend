@@ -4,7 +4,6 @@ import com.wemeetnow.auth_service.dto.KakaoUserInfoResponseDto;
 import com.wemeetnow.auth_service.service.KakaoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cloud.client.loadbalancer.Response;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -35,6 +34,7 @@ public class KakaoLoginController {
                 KakaoUserInfoResponseDto userInfo = kakaoService.getUserInfo(accessToken);
                 for (String key : userInfo.getProperties().keySet()) {
                     log.info("userInfo.get({}): {}", key, userInfo.getProperties().get(key));
+                    body.put(key, userInfo.getProperties().get(key));
                 }
             }
         } catch (Exception e) {

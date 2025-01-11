@@ -85,12 +85,27 @@ public class KakaoService {
         return userInfo;
     }
 
-    public User getUserFromAuthID(Long id) {
+    public User findByAuthID(Long authId) { // 카카오에서 지정한 authId로 사용자 찾기
         User retUser = null;
         try {
-            Optional<User> findUser = userRepository.findById(id);
+            Optional<User> findUser = userRepository.findById(authId);
             if (!findUser.isPresent()) {
-                log.info("사용자가 존재하지 않습니다.");
+                log.info("해당 AuthID로 가입된 사용자는 존재하지 않습니다.(authId: {})", authId);
+            } else {
+                retUser = findUser.get();
+            }
+        } catch (Exception e) {
+            log.error("raised error: {}", e.getMessage());
+        }
+        return retUser;
+    }
+
+    public User findByEmail(String email) {
+        User retUser = null;
+        try {
+            Optional<User> findUser = userRepository.findByEmail(email);
+            if (!findUser.isPresent()) {
+                log.info("해당 이메일로 가입된 사용자는 없습니다.(email: {})", email);
             } else {
                 retUser = findUser.get();
             }

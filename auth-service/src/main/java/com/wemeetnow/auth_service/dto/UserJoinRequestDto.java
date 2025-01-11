@@ -18,13 +18,14 @@ public class UserJoinRequestDto {
     private String username;
     private Role role;
 
-    public User toEntity(String enCodedPassword) {
+    public User toEntity(String enCodedPassword, String provider) {
         return User.builder()
                 .email(this.email)
                 .password(enCodedPassword)
                 .username(this.username)
                 .nickname(this.nickname)
                 .role(Role.ROLE_USER)
+                .provider(provider)
                 .build();
     }
     public static UserJoinRequestDto fromKakaoDto(KakaoUserInfoResponseDto infoDto, Role kakaoUserRole) {

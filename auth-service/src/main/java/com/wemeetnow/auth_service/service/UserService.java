@@ -43,7 +43,7 @@ public class UserService{
         if(!passwordCorrect.equals(passwordCorrect)){
             throw new ApplicationContextException("비밀번호가 일치하지 않습니다.");
         }
-        User user = joinRequestDto.toEntity(passwordEncoder.encode(password));
+        User user = joinRequestDto.toEntity(passwordEncoder.encode(password), "KAKAO");
         User savedUser = userRepository.save(user);
         UserJoinResponseDto responseDto = UserJoinResponseDto.fromEntity(savedUser);
         return responseDto;

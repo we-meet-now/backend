@@ -39,33 +39,29 @@ public class KakaoLoginController {
             log.info("code: {}", code);
             if(code != null || !code.isEmpty() || !code.isBlank()) {
                 String kakaoAccessToken = kakaoService.getAccessTokenFromKakao(code);
-                body.put("kakaoAccessToken", kakaoAccessToken);
                 KakaoUserInfoResponseDto userInfo = kakaoService.getUserInfo(kakaoAccessToken);
                 for (String key : userInfo.getProperties().keySet()) {
                     log.info("userInfo.get({}): {}", key, userInfo.getProperties().get(key));
                     body.put(key, userInfo.getProperties().get(key));
                 }
-                User findUser = kakaoService.getUserFromAuthID(userInfo.getId());
+                // User findUser = kakaoService.getUserFromAuthID(userInfo.getId());
+                User findUser = kakaoService.findByEmail(userInfo.getKakaoAccount().getEmail());
                 Role kakaoUserRole = Role.valueOf("ROLE_USER");
-                Long userId = 0L;
                 String statusCd = "";
                 String msg = "";
                 // NOTE isEmailVerified (이메일 인증 여부) 등의 조건을 비교해서 validation 로직 추가하기
                 // NOTE: AUTH_ID 로 찾기 -> AUTH_ID를 key로 두기 -> 테이블 변경 및 저장로직 변경 필요
                 if (findUser == null) { // 신규 사용자인 경우(회원가입 진행)
                     UserJoinResponseDto joinResponseDto = userService.join(UserJoinRequestDto.fromKakaoDto(userInfo, kakaoUserRole));
-                    joinResponseDto.getEmail();
-                    findUser = userService.getUserById(userId);
+                    findUser = userService.getUserByEmail(joinResponseDto.getEmail());
                     statusCd = "2100";
                     msg = "회원가입에 성공했습니다.";
                 } else { // 이미 가입된 사용지 인 경우(로그인 진행)
-                    // userId = findUser.getEmail();
-                    userId = findUser.getId();
                     statusCd = "2000";
                     msg = "로그인에 성공했습니다.";
                 }
-                String customAccessToken = jwtUtil.generateAccessToken(userId, findUser.getEmail(), findUser.getRole());
-                String customRefreshToken = jwtUtil.generateRefreshToken(userId, findUser.getEmail(), findUser.getRole());
+                String customAccessToken = jwtUtil.generateAccessToken(findUser.getId(), findUser.getEmail(), findUser.getRole());
+                String customRefreshToken = jwtUtil.generateRefreshToken(findUser.getId(), findUser.getEmail(), findUser.getRole());
                 body.put("accessToken", customAccessToken);
                 body.put("refreshToken", customRefreshToken);
                 body.put("statusCd", statusCd);

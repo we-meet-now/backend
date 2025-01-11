@@ -31,6 +31,7 @@ public class UserJoinRequestDto {
         return UserJoinRequestDto.builder()
                     .email(infoDto.getKakaoAccount().getEmail())
                     .password("Qwe123!!")
+                    .passwordCorrect("Qwe123!!")
                     .nickname(infoDto.getKakaoAccount().getProfile().getNickName())
                     .username(infoDto.getKakaoAccount().name)
                     .role(kakaoUserRole)

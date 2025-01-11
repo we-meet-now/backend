@@ -31,6 +31,7 @@ public class UserService{
 
     @Transactional
     public UserJoinResponseDto join(UserJoinRequestDto joinRequestDto) {
+        log.info("회원가입 로직 진행");
         String email = joinRequestDto.getEmail();
         String password = joinRequestDto.getPassword();
         String passwordCorrect = joinRequestDto.getPasswordCorrect();
@@ -44,7 +45,6 @@ public class UserService{
         }
         User user = joinRequestDto.toEntity(passwordEncoder.encode(password));
         User savedUser = userRepository.save(user);
-        log.info("savedUser = ", savedUser);
         UserJoinResponseDto responseDto = UserJoinResponseDto.fromEntity(savedUser);
         return responseDto;
     }

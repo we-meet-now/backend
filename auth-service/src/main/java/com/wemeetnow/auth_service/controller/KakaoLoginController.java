@@ -48,17 +48,28 @@ public class KakaoLoginController {
                 User findUser = kakaoService.getUserFromAuthID(userInfo.getId());
                 Role kakaoUserRole = Role.valueOf("ROLE_USER");
                 Long userId = 0L;
+                String statusCd = "";
+                String msg = "";
                 // NOTE isEmailVerified (이메일 인증 여부) 등의 조건을 비교해서 validation 로직 추가하기
+                // NOTE: AUTH_ID 로 찾기 -> AUTH_ID를 key로 두기 -> 테이블 변경 및 저장로직 변경 필요
                 if (findUser == null) { // 신규 사용자인 경우(회원가입 진행)
                     UserJoinResponseDto joinResponseDto = userService.join(UserJoinRequestDto.fromKakaoDto(userInfo, kakaoUserRole));
-                    userId = joinResponseDto.getUserId();
+                    joinResponseDto.getEmail();
+                    findUser = userService.getUserById(userId);
+                    statusCd = "2100";
+                    msg = "회원가입에 성공했습니다.";
                 } else { // 이미 가입된 사용지 인 경우(로그인 진행)
+                    // userId = findUser.getEmail();
                     userId = findUser.getId();
+                    statusCd = "2000";
+                    msg = "로그인에 성공했습니다.";
                 }
                 String customAccessToken = jwtUtil.generateAccessToken(userId, findUser.getEmail(), findUser.getRole());
                 String customRefreshToken = jwtUtil.generateRefreshToken(userId, findUser.getEmail(), findUser.getRole());
                 body.put("accessToken", customAccessToken);
                 body.put("refreshToken", customRefreshToken);
+                body.put("statusCd", statusCd);
+                body.put("msg", msg);
             }
         } catch (Exception e) {
             log.error("raised error: {}", e.getMessage());

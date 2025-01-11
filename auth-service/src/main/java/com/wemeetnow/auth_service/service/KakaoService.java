@@ -1,7 +1,9 @@
 package com.wemeetnow.auth_service.service;
 
+import com.wemeetnow.auth_service.domain.User;
 import com.wemeetnow.auth_service.dto.KakaoTokenResponseDto;
 import com.wemeetnow.auth_service.dto.KakaoUserInfoResponseDto;
+import com.wemeetnow.auth_service.repository.UserRepository;
 import io.netty.handler.codec.http.HttpHeaderValues;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,10 +15,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.util.Optional;
+
 @Slf4j
-@RequiredArgsConstructor
 @Service
+@RequiredArgsConstructor
 public class KakaoService {
+    @Autowired
+    private UserRepository userRepository;
     private String clientId;
     private final String KAUTH_TOKEN_URL_HOST;
     private final String KAUTH_USER_URL_HOST;
@@ -77,5 +83,20 @@ public class KakaoService {
         log.info("[ Kakao Service ] ProfileImageUrl ---> {} ", userInfo.getKakaoAccount().getProfile().getProfileImageUrl());
 
         return userInfo;
+    }
+
+    public User getUserFromAuthID(Long id) {
+        User retUser = null;
+        try {
+            Optional<User> findUser = userRepository.findById(id);
+            if (!findUser.isPresent()) {
+                log.info("사용자가 존재하지 않습니다.");
+            } else {
+                retUser = findUser.get();
+            }
+        } catch (Exception e) {
+            log.error("raised error: {}", e.getMessage());
+        }
+        return retUser;
     }
 }

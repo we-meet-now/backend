@@ -10,7 +10,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class UserJoinResponseDto {
     private Long userId;
+    private String email;
     public static UserJoinResponseDto fromEntity(User user){
-        return new UserJoinResponseDto(user.getId());
+        return new UserJoinResponseDto(user.getId(), user.getEmail());
     }
 }

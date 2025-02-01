@@ -43,6 +43,9 @@ dependencies {
 	// 테스트용 화면단으로 thymeleaf
 	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
 
+	// swagger-ui
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui'
+
 	runtimeOnly 'com.mysql:mysql-connector-j'
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'

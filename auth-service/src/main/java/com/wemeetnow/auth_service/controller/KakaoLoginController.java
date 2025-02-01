@@ -28,6 +28,7 @@ public class KakaoLoginController {
     private final UserService userService;
     private final JwtUtil jwtUtil;
 
+    @CrossOrigin(origins = "https://localhost:3000")
     @GetMapping("/callback")
     public ResponseEntity<?> callback(@RequestParam("code") String code) {
         // NOTE 카카오로부터 받은 code를 카카오에 토큰발급 요청하면 사용자 정보가 담겨져있는 토큰 받을 수 있다

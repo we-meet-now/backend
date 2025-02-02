@@ -37,7 +37,7 @@ public class SecurityConfig {
                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/v1/users/logout")).permitAll()
                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/v1/users/reissue")).permitAll()
                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/v1/login/page")).permitAll() // 카카오로그인 테스트용
-                                .requestMatchers(AntPathRequestMatcher.antMatcher("/api/v1/stores/recommend-one")).permitAll() // 맛집 추천받기 테스트용
+                                .requestMatchers(AntPathRequestMatcher.antMatcher("/api/v1/stores/**")).permitAll() // 맛집 추천받기 테스트용
                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/callback")).permitAll() // 카카오로그인 테스트용
                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/swagger-ui/**")).permitAll() // Swagger-ui
                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/h2-console/**")).permitAll()

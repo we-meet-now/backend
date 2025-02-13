@@ -5,6 +5,9 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.lang.Nullable;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Getter @Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -32,8 +35,11 @@ public class User extends BaseTime {
 
     @Enumerated(EnumType.STRING)
     private Role role;
+    
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true) // 양방향 매핑하기 위함
+    private List<Friend> friends = new ArrayList<>();
 
-    // TODO 친구, 채팅 필드 필요
+    // TODO 채팅 필드 필요
 
     @Nullable
     private String phoneNumber;

@@ -45,6 +45,7 @@ public class SecurityConfig {
                                 .requestMatchers(AntPathRequestMatcher.antMatcher( "/error")).permitAll()
                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/swagger-resources/**")).permitAll()
                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/v3/api-docs/**")).permitAll()
+                                .requestMatchers(AntPathRequestMatcher.antMatcher("/api/v1/friends/**")).permitAll()
                         )
                 .headers(
                         headersConfigurer -> headersConfigurer.frameOptions(

@@ -20,10 +20,10 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/users")
-@Slf4j
 public class UserApiController {
     private final UserService userService;
     private final JwtUtil jwtUtil;

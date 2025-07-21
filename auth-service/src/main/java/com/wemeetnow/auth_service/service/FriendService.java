@@ -11,4 +11,6 @@ public interface FriendService {
     int acceptNewFriend(Long receiveUserId, Long sendUserId, FriendStatus friendStatus);
 
     int sendNewFriend(Long sendUserId, Long receiveUserId, FriendStatus friendStatus);
+
+    int updateFriendStatus(String statusType, Long loginUserId, Long targetUserId);
 }

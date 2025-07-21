@@ -31,4 +31,9 @@ public interface FriendRepository extends JpaRepository<Friend, Long> {
     int sendNewFriend(@Param("sendUserId") Long sendUserId,
                       @Param("receiveUserId") Long receiveUserId,
                       @Param("friendStatus") FriendStatus friendStatus);
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE Friend f SET f.friendStatus = :friendStatus WHERE f.user.id = :loginUserId AND f.senderId = :targetUserId")
+    int updateFriendStatus(String friendStatus, Long loginUserId, Long targetUserId);
 }

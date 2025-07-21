@@ -32,4 +32,9 @@ public class FriendServiceImpl implements FriendService {
     public int sendNewFriend(Long sendUserId, Long receiveUserId, FriendStatus friendStatus) {
         return friendRepository.sendNewFriend(sendUserId, receiveUserId, friendStatus);
     }
+
+    @Override
+    public int updateFriendStatus(String friendStatus, Long loginUserId, Long targetUserId) {
+        return friendRepository.updateFriendStatus(friendStatus, loginUserId, targetUserId);
+    }
 }

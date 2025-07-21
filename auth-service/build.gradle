@@ -46,6 +46,9 @@ dependencies {
 	// swagger-ui
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui'
 
+	// JPA SQL log에서 파라미터 변수값 읽기위함
+	implementation("p6spy:p6spy:3.9.1")
+
 	runtimeOnly 'com.mysql:mysql-connector-j'
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'

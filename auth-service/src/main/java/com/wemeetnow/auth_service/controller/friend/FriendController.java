@@ -2,6 +2,7 @@ package com.wemeetnow.auth_service.controller.friend;
 
 import com.wemeetnow.auth_service.config.jwt.JwtUtil;
 import com.wemeetnow.auth_service.domain.User;
+import com.wemeetnow.auth_service.domain.enums.FriendStatus;
 import com.wemeetnow.auth_service.dto.FriendInfoDto;
 import com.wemeetnow.auth_service.service.FriendService;
 import com.wemeetnow.auth_service.service.UserService;
@@ -66,10 +67,13 @@ public class FriendController {
             Optional<User> sendUserOpt = userService.getUserById(sendUserId);// 친구추가 보낸 사용자 정보
 
             int resultCnt = 0;
+            FriendStatus friendStatus = FriendStatus.NEW;
             if (sendUserOpt != null && sendUserOpt.isPresent()) {
                 // TODO senderId가 존재하는 사용자 인가? 신고당한 사람은 아닌가? 검증하는 로직 필요
                 // 친구 생성 로직
-                resultCnt = friendService.acceptNewFriend(receiveUserId, sendUserOpt.get().getId());
+                log.info("sendUserOpt.get().getId(): [{}]", sendUserOpt.get().getId());// 2
+                log.info("friendStatus.getStatus(): [{}]", friendStatus.getStatus());
+                resultCnt = friendService.acceptNewFriend(receiveUserId, sendUserOpt.get().getId(), friendStatus);
 
                 log.info("resultCnt: ", resultCnt);
             } else {
@@ -87,15 +91,32 @@ public class FriendController {
         return ResponseEntity.status(status).body(body);
     }
 
-    // TODO 친구 초대 보내기 기능 구현예정
+
     @CrossOrigin(origins = "https://localhost:3000")
     @PostMapping("/send-new-friend")
     public ResponseEntity sendNewFriend(@RequestBody Map<String, Object> reqMap) {
         HttpStatus status = HttpStatus.OK;
         Map<String, Object> body  = new HashMap<>();
         try {
+            Long sendUserId = 2L;
 
-            body.put("data", "");
+            Long receiveUserId = Long.valueOf((String) reqMap.get("receiveUserId")); // 친구초대 받을 사용자 id
+            Optional<User> receiveUserOpt = userService.getUserById(receiveUserId);// 친구추가 보낸 사용자 정보
+
+            int resultCnt = 0;
+            FriendStatus friendStatus = FriendStatus.WAIT;
+            if (receiveUserOpt != null && receiveUserOpt.isPresent()) {
+                // TODO receiveUserId 가 존재하는 사용자 인가? 신고당한 사람은 아닌가? 검증하는 로직 필요
+                // 친구 생성 로직
+                resultCnt = friendService.sendNewFriend(sendUserId, receiveUserOpt.get().getId(), friendStatus); // CHECK 왜 REPORTED 값이 들어갈까??
+                System.out.println("friendStatus = " + friendStatus);
+
+                log.info("resultCnt: ", resultCnt);
+            } else {
+                log.info("해당 요청을 보낸사람은 존재하지 않습니다.");
+            }
+
+            body.put("data", "1");
             body.put("result", "success");
         } catch (Exception e) {
             status = HttpStatus.BAD_REQUEST;
@@ -105,4 +126,7 @@ public class FriendController {
         }
         return ResponseEntity.status(status).body(body);
     }
+
+    // TODO 친구요청 거절 API
+
 }

@@ -1,7 +1,7 @@
 package com.wemeetnow.auth_service.repository;
 
 import com.wemeetnow.auth_service.domain.Friend;
-import com.wemeetnow.auth_service.domain.User;
+import com.wemeetnow.auth_service.domain.enums.FriendStatus;
 import com.wemeetnow.auth_service.dto.FriendInfoDto;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -20,6 +20,15 @@ public interface FriendRepository extends JpaRepository<Friend, Long> {
 
     @Modifying
     @Transactional
-    @Query(value = "INSERT INTO friend(sender_id, user_id, friend_status) VALUE(:sendUserId, :receiveUserId, 'NEW' )", nativeQuery = true)
-    int acceptNewFriend(@Param("receiveUserId") Long receiveUserId, @Param("sendUserId")Long sendUserId);
+    @Query("UPDATE Friend f SET f.friendStatus = :friendStatus WHERE f.user.id = :receiveUserId AND f.senderId = :sendUserId")
+    int acceptNewFriend(@Param("receiveUserId") Long receiveUserId,
+                        @Param("sendUserId") Long sendUserId,
+                        @Param("friendStatus") FriendStatus friendStatus);
+
+    @Modifying
+    @Transactional
+    @Query(value = "INSERT INTO friend(sender_id, user_id, friend_status) VALUE(:sendUserId, :receiveUserId, :#{#friendStatus.name()} )", nativeQuery = true)
+    int sendNewFriend(@Param("sendUserId") Long sendUserId,
+                      @Param("receiveUserId") Long receiveUserId,
+                      @Param("friendStatus") FriendStatus friendStatus);
 }

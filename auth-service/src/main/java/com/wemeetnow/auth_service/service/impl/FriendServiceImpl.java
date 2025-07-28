@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -36,5 +37,14 @@ public class FriendServiceImpl implements FriendService {
     @Override
     public int updateFriendStatus(String friendStatus, Long loginUserId, Long targetUserId) {
         return friendRepository.updateFriendStatus(friendStatus, loginUserId, targetUserId);
+    }
+
+    @Override
+    public int deleteFriendOne(Map<String, Object> paramMap) {
+        return friendRepository.deleteFriendOne(
+                (String) paramMap.get("friendStatus")
+                ,(Long) paramMap.get("loginUserId")
+                ,(Long) paramMap.get("targetUserId")
+        );
     }
 }

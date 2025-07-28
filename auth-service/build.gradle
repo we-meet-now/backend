@@ -59,6 +59,12 @@ dependencies {
 	testImplementation 'org.springframework.security:spring-security-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
+	// JSR-305 (When.MAYBE 경고 해결)
+	compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
+
+	// 테스트
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
 }
 
 dependencyManagement {
@@ -69,4 +75,9 @@ dependencyManagement {
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+tasks.withType(JavaCompile) {
+	options.encoding = 'UTF-8'
+	options.compilerArgs += ["-parameters"]
 }

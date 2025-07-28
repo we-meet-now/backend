@@ -158,4 +158,47 @@ public class FriendController {
         }
         return ResponseEntity.status(status).body(body);
     }
+
+    @CrossOrigin(origins = "https://localhost:3000")
+    @PostMapping("/delete")
+    public ResponseEntity deleteFriendOne(@RequestBody Map<String, Object> reqMap) {
+        HttpStatus status = HttpStatus.OK;
+        Map<String, Object> body = new HashMap<>();
+        Long loginUserId = 1L; // TODO 토큰에서 로그인한 사용자 정보 추출
+        Long targetUserId = null;
+        String friendStatus = FriendStatus.DEL.getStatus();
+        Map<String, Object> paramMap = new HashMap<>();
+        try {
+            targetUserId = (Long) reqMap.get("targetId");
+            paramMap.put("loginUserId", loginUserId);
+            paramMap.put("targetUserId", targetUserId);
+            paramMap.put("friendStatus", friendStatus);
+            int retVal = friendService.deleteFriendOne(paramMap);
+            log.info("retVal: {}", retVal);
+            String statusMsg = "";
+            String code = "";
+            String message = "";
+            if (retVal == 1) {
+                code = "2004"; // 삭제성공
+                statusMsg = "success";
+                message = "success to delete friend with id = " + targetUserId;
+            } else if (retVal == 0) {
+                code = "40004";
+                statusMsg = "no data";
+                message = "삭제할 행을 찾지 못했습니다. 로그인한사용자 id(" + loginUserId + ")와 targetId(" + targetUserId + ")" + "값을 확인해주세요.";
+            } else {
+                code = "50001";
+                statusMsg = "server error";
+                message = "알수없는 시스템 오류가 발생했습니다. retVal:  " + retVal + ", 로그인한사용자 id(" + loginUserId + ")와 targetId(" + targetUserId + ")" + "값을 확인해주세요.";
+            }
+            body.put("code", code);
+            body.put("status", statusMsg);
+            body.put("message", message);
+        } catch (Exception e) {
+            log.error("raised error: {}", e.getMessage());
+            body.put("status", "fail");
+            body.put("message", "fail to delete friend with id = " + targetUserId);
+        }
+        return ResponseEntity.status(status).body(body);
+    }
 }

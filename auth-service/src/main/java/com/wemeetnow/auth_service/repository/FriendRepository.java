@@ -36,4 +36,10 @@ public interface FriendRepository extends JpaRepository<Friend, Long> {
     @Transactional
     @Query("UPDATE Friend f SET f.friendStatus = :friendStatus WHERE f.user.id = :loginUserId AND f.senderId = :targetUserId")
     int updateFriendStatus(String friendStatus, Long loginUserId, Long targetUserId);
+
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE Friend f SET f.friendStatus = :friendStatus WERE f.user_id = :loginUserId AND f.senderId = :targetUserId")
+    int deleteFriendOne(String friendStatus, Long loginUserId, Long targetUserId);
 }

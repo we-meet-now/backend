@@ -76,6 +76,11 @@ public class StoreController {
             resStore1.put("store_address_land", "행신동 761-6");
             resStore1.put("store_sub_category", "샤브샤브");
             resStore1.put("recommend_reason", "샤브야는 샤브샤브 전문점으로 고객 평가가 높고, 식당 분위기와 음식 퀄리티가 좋아 친구들과 모임하기에 적합합니다. 또한, 샤브야 메뉴 중에서도 강한 향신료나 매운 음식을 피할 수 있는 옵션이 다양하게 제공되어 25대 연령의 고객들에게 즐거운 식사를 제공할 것으로 기대됩니다.");
+            resStore1.put("thumbnail_url", "http://t1.daumcdn.net/place/3F10BCE7BEB94F37A28C67AA9CECD7C7");
+            resStore1.put("open_status", "영업중");
+            resStore1.put("open_time", " 11:00 ~ 22:00");
+            resStore1.put("tel_num", "031-971-9979");
+            resStore1.put("review_cnt", "71");
 
             Map<String, Object> resStore2 = new HashMap<>();
             resStore2.put("store_name", "소담촌 행신점");
@@ -84,6 +89,11 @@ public class StoreController {
             resStore2.put("store_address_land", "행신동 762-5");
             resStore2.put("store_sub_category", "샤브샤브");
             resStore2.put("recommend_reason", "샤브샤브 전문점으로 다양한 재료를 선택하여 담백하고 부담 없이 즐길 수 있습니다. 또한 조용한 분위기의 공간으로 친구들과 편안하게 대화하며 식사하기 좋습니다.");
+            resStore2.put("thumbnail_url", "http://t1.kakaocdn.net/mystore/69DC26CA0B2B4EF8A91D8BFFA1EBF25D");
+            resStore2.put("open_status", "브레이크타임");
+            resStore2.put("open_time", " 15:00 ~ 17:00");
+            resStore2.put("tel_num", "031-979-9900");
+            resStore2.put("review_cnt", "31");
 
             Map<String, Object> resStore3 = new HashMap<>();
             resStore3.put("store_name", "선식당 행신본점");
@@ -92,6 +102,11 @@ public class StoreController {
             resStore3.put("store_address_land", "행신동 633-23");
             resStore3.put("store_sub_category", "양식");
             resStore3.put("recommend_reason", "양식 메뉴가 주를 이루어 강한 향신료나 매운 음식을 피하면서도 맛있는 식사를 할 수 있습니다. 깔끔한 분위기로 친구들과 모임을 갖기에 적합한 장소입니다.");
+            resStore3.put("thumbnail_url", "http://t1.daumcdn.net/place/B1E0D29D4865414CAE0EC1AED35678F4");
+            resStore3.put("open_status", "휴무일");
+            resStore3.put("open_time", "휴무일 일요일");
+            resStore3.put("tel_num", "02-511-6247");
+            resStore3.put("review_cnt", "311");
             bodyList.add(resStore1);
             bodyList.add(resStore2);
             bodyList.add(resStore3);

@@ -13,8 +13,5 @@ public interface FriendService {
 
     int sendNewFriend(Long sendUserId, Long receiveUserId, FriendStatus friendStatus);
 
-    int updateFriendStatus(String statusType, Long loginUserId, Long targetUserId);
-
-    // Soft delete 로 친구 삭제
-    int deleteFriendOne(Map<String, Object> paramMap);
+    int updateFriendStatus(FriendStatus statusType, Long loginUserId, Long targetUserId);
 }

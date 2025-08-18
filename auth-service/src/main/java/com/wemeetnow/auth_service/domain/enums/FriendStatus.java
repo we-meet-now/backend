@@ -11,4 +11,15 @@ public enum FriendStatus {
         this.status = status;
         this.desc = desc;
     }
+
+    public static FriendStatus getFriendStatusFromStr(String friendStatusStr) {
+        FriendStatus retFriendStatus = null;
+        for (FriendStatus fs : FriendStatus.values()) {
+            if (fs.getStatus().equals(friendStatusStr)) {
+                retFriendStatus = fs;
+                break;
+            }
+        }
+        return retFriendStatus;
+    }
 }

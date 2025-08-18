@@ -32,20 +32,27 @@ public class FriendController {
     // 친구목록 조회 API
     @CrossOrigin(origins = "https://localhost:3000")
     @GetMapping("/list")
-    public ResponseEntity getFriendList(@RequestBody Map<String, Object> reqMap) {
+    public ResponseEntity getFriendList() {
         HttpStatus status = HttpStatus.OK;
         Map<String, Object> body  = new HashMap<>();
+        String code = "";
+        String message = "";
         try {
-            String accessToken = (String) reqMap.get("accessToken");
-            String refreshToken = (String) reqMap.get("refreshToken");
-            Long userId = JwtUtil.getId(accessToken);
+//            String accessToken = (String) reqMap.get("accessToken");
+//            String refreshToken = (String) reqMap.get("refreshToken");
+//            Long loginUserId = JwtUtil.getId(accessToken);
+            Long loginUserId = 1L;
 
-            List<FriendInfoDto> friendInfoDtos = friendService.getFriendList(userId);
+            List<FriendInfoDto> friendInfoDtos = friendService.getFriendList(loginUserId);
+            code = "2001";
+            body.put("code", code);
             body.put("data", friendInfoDtos);
             body.put("result", "success");
         } catch (Exception e) {
             status = HttpStatus.BAD_REQUEST;
             log.error("raised error: {}", e.getMessage());
+            code = "5100";
+            body.put("code", code);
             body.put("data", null);
             body.put("result", "fail");
         }
@@ -137,6 +144,7 @@ public class FriendController {
         HttpStatus status = HttpStatus.OK;
         Map<String, Object> body  = new HashMap<>();
         int resultCnt = 0;
+        FriendStatus newFriendStatus = FriendStatus.getFriendStatusFromStr((String) reqMap.get("friendStatus"));
         try {
             Long loginUserId = 2L; // TODO token에서 로그인한 사용자id 추출해야됨
 
@@ -147,7 +155,7 @@ public class FriendController {
                 body.put("message", "변경할 상태값을 선택해주세요.");
                 status = HttpStatus.NOT_ACCEPTABLE;
             } else {
-                resultCnt = friendService.updateFriendStatus((String) reqMap.get("friendStatus"), loginUserId, targetUserId);
+                resultCnt = friendService.updateFriendStatus(newFriendStatus, loginUserId, targetUserId);
                 body.put("message", "success");
                 status = HttpStatus.ACCEPTED;
             }
@@ -166,18 +174,16 @@ public class FriendController {
         Map<String, Object> body = new HashMap<>();
         Long loginUserId = 1L; // TODO 토큰에서 로그인한 사용자 정보 추출
         Long targetUserId = null;
-        String friendStatus = FriendStatus.DEL.getStatus();
-        Map<String, Object> paramMap = new HashMap<>();
+        FriendStatus friendStatus = FriendStatus.DEL;
+        String statusMsg = "";
+        String code = "";
+        String message = "";
+
         try {
-            targetUserId = (Long) reqMap.get("targetId");
-            paramMap.put("loginUserId", loginUserId);
-            paramMap.put("targetUserId", targetUserId);
-            paramMap.put("friendStatus", friendStatus);
-            int retVal = friendService.deleteFriendOne(paramMap);
+            targetUserId = Long.valueOf((String) reqMap.get("targetUserId"));
+            int retVal = friendService.updateFriendStatus(friendStatus, loginUserId, targetUserId);
             log.info("retVal: {}", retVal);
-            String statusMsg = "";
-            String code = "";
-            String message = "";
+
             if (retVal == 1) {
                 code = "2004"; // 삭제성공
                 statusMsg = "success";
@@ -196,6 +202,7 @@ public class FriendController {
             body.put("message", message);
         } catch (Exception e) {
             log.error("raised error: {}", e.getMessage());
+            body.put("code", "51000");
             body.put("status", "fail");
             body.put("message", "fail to delete friend with id = " + targetUserId);
         }

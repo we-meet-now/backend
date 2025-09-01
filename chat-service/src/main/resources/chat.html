@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>STOMP.js Chat Test</title>
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+</head>
+<body>
+<h2>STOMP.js 채팅 테스트</h2>
+
+<!-- 사용자 이름 입력 -->
+<input id="usernameInput" type="text" placeholder="이름을 입력하세요">
+<button onclick="joinChat()">입장</button>
+<button onclick="disconnect()">나가기</button>
+<br><br>
+
+<!-- 채팅 메시지 입력 -->
+<input id="messageInput" type="text" placeholder="메시지를 입력하세요" disabled>
+<button id="sendBtn" onclick="sendMessage()" disabled>보내기</button>
+
+<ul id="messages"></ul>
+
+<script>
+    let stompClient = null;
+    let username = null;
+
+    function joinChat() {
+      username = document.getElementById("usernameInput").value.trim();
+      if (!username) {
+        alert("이름을 입력하세요!");
+        return;
+      }
+
+      const socket = new SockJS("http://localhost:8080/ws-chat");
+      stompClient = Stomp.over(socket);
+
+      stompClient.connect({}, frame => {
+        console.log("Connected: " + frame);
+
+        // 메시지 구독
+        stompClient.subscribe("/topic/public", message => {
+          const msg = JSON.parse(message.body);
+          console.log("받은 메시지:", msg);
+
+          const li = document.createElement("li");
+          if (msg.type === "JOIN") {
+            li.innerText = msg.sender + " 님이 입장하셨습니다.";
+          } else if (msg.type === "LEAVE") {
+            li.innerText = msg.sender + " 님이 퇴장하셨습니다.";
+          } else if (msg.type === "CHAT") {
+            li.innerText = msg.sender + ": " + msg.content;
+          }
+          document.getElementById("messages").appendChild(li);
+        });
+
+        // 입장 알림
+        stompClient.send("/app/chat.addUser", {}, JSON.stringify({
+          sender: username,
+          type: "JOIN"
+        }));
+
+        // UI 활성화
+        document.getElementById("messageInput").disabled = false;
+        document.getElementById("sendBtn").disabled = false;
+      });
+    }
+
+    function disconnect() {
+      if (stompClient !== null && username) {
+        // 퇴장 알림
+        stompClient.send("/app/chat.addUser", {}, JSON.stringify({
+          sender: username,
+          type: "LEAVE"
+        }));
+        stompClient.disconnect();
+        console.log("Disconnected");
+      }
+
+      document.getElementById("messageInput").disabled = true;
+      document.getElementById("sendBtn").disabled = true;
+    }
+
+    function sendMessage() {
+      const msgContent = document.getElementById("messageInput").value.trim();
+      if (msgContent && stompClient) {
+        stompClient.send("/app/chat.sendMessage", {}, JSON.stringify({
+          sender: username,
+          content: msgContent,
+          type: "CHAT"
+        }));
+        document.getElementById("messageInput").value = "";
+      }
+    }
+  </script>
+</body>
+</html>

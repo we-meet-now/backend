@@ -30,7 +30,10 @@ public class User extends BaseTime {
     @Column(unique = true)
     private String nickname;
     private String provider;
+    @Column(name = "email_auth")
     private Boolean emailAuth;
+
+    @Column(name = "img_url")
     private String imgUrl = "https://velog.velcdn.com/images/kyunghwan1207/post/ce34e29d-643a-4d52-8c1f-6f55232294c7/image.png";
 
     @Enumerated(EnumType.STRING)
@@ -41,7 +44,7 @@ public class User extends BaseTime {
 
     // TODO 채팅 필드 필요
 
-    @Nullable
+    @Column(name = "phone_number")
     private String phoneNumber;
 
     @Builder

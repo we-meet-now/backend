@@ -19,7 +19,10 @@ public class ChatRoom extends BaseTime{
     @Column(name = "chat_room_id")
     private Long chatRoomId;
 
+    @Column(name = "place_id")
     private Long placeId;
+
+    @Column(name = "chat_room_nm")
     private String chatRoomNm;
 
 }

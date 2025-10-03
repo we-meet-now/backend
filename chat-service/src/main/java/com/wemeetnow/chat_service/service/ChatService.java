@@ -43,7 +43,7 @@ public class ChatService {
         return chatRepository.save(chat);
     }
 
-    public List<Chat> getMessages(Long roomId) {
+    public List<Chat> getChatList(Long roomId) {
         return chatRepository.findByChatRoomId(roomId);
     }
 }

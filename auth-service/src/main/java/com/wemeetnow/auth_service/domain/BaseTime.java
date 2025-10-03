@@ -18,18 +18,20 @@ import java.time.LocalDateTime;
 public class BaseTime {
     @CreatedDate
     @Column(
+            name = "inp_date",
             updatable = false,
             nullable = false,
             columnDefinition = "DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6)")
     private LocalDateTime inpDate;
     @LastModifiedDate
-    @Column(nullable = true)
+    @Column(name = "mdfy_date")
     private LocalDateTime mdfyDate;
 
     @CreatedBy
-    @Column(updatable = false)
+    @Column(name = "inp_user_id", updatable = false)
     private String inpUserId;
 
     @LastModifiedBy
+    @Column(name = "mdfy_user_id")
     private String mdfyUserId;
 }

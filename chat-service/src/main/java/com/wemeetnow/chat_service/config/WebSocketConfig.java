@@ -21,12 +21,12 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         System.out.println("WebSocketConfig.registerStompEndpoints - STOMP 엔드포인트 등록");
 
-        // SockJS를 사용하는 엔드포인트 등록 (이것이 중요!)
+        // SockJS를 사용하는 엔드포인트 등록
         registry.addEndpoint("/ws-chat")
                 .setAllowedOriginPatterns("*")
-                .withSockJS();  // 이 부분이 꼭 필요합니다!
+                .withSockJS();
 
-        // SockJS 없는 순수 WebSocket도 추가 (선택사항)
+        // SockJS 없는 순수 WebSocket도 추가
         registry.addEndpoint("/ws-chat")
                 .setAllowedOriginPatterns("*");
     }

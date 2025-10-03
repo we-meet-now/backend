@@ -32,7 +32,7 @@
         return;
       }
 
-      const socket = new SockJS("http://localhost:8080/ws-chat");
+      const socket = new SockJS("http://13.125.253.229:6113/ws-chat");
       stompClient = Stomp.over(socket);
 
       stompClient.connect({}, frame => {

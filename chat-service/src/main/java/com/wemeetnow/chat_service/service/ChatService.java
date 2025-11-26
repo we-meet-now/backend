@@ -3,15 +3,19 @@ package com.wemeetnow.chat_service.service;
 import com.wemeetnow.chat_service.domain.Chat;
 import com.wemeetnow.chat_service.domain.ChatRoom;
 import com.wemeetnow.chat_service.domain.enums.ChatType;
+import com.wemeetnow.chat_service.dto.ChatResponseDto;
 import com.wemeetnow.chat_service.repository.ChatRepository;
 import com.wemeetnow.chat_service.repository.ChatRoomRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ChatService {
@@ -32,15 +36,24 @@ public class ChatService {
     }
 
     @Transactional
-    public Chat saveMessage(Long roomId, Long userId, String message, ChatType chatType) {
-        Chat chat = Chat.builder()
-                .chatRoomId(roomId)
-                .userId(userId)
-                .message(message)
-                .chatType(chatType)
-                .notReadCount(0)
-                .build();
-        return chatRepository.save(chat);
+    public ChatResponseDto saveMessage(Long roomId, Long userId, String message, ChatType chatType) throws Exception {
+        Chat savedChat = null;
+        try {
+            Chat chat = Chat.builder()
+                    .chatRoomId(roomId)
+                    .userId(userId)
+                    .message(message)
+                    .chatType(chatType)
+                    .notReadCount(0)
+                    .build();
+            savedChat = chatRepository.save(chat); // 여기서 inpDate 등이 자동 생성됨
+            return ChatResponseDto.fromEntity(savedChat);
+        } catch (Exception e) {
+            log.error("raised error: {}", e.getMessage());
+            throw new Exception();
+        }
+        // 엔티티가 아닌 DTO를 반환
+
     }
 
     public List<Chat> getChatList(Long roomId) {

@@ -12,7 +12,7 @@ import org.hibernate.annotations.ColumnDefault;
 @AllArgsConstructor
 @Builder
 @Table(name = "chat")
-public class Chat {
+public class Chat extends BaseTime {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -35,11 +35,13 @@ public class Chat {
     @Column(name = "chat_type")
     private ChatType chatType;
 
+    @Builder.Default
     @Column(name = "update_yn", length = 1, nullable = false)
     @ColumnDefault("'N'")
-    private char updateYn;
+    private char updateYn = 'N';
 
+    @Builder.Default
     @Column(name = "delete_yn", length = 1, nullable = false)
     @ColumnDefault("'N'")
-    private char deleteYn;
+    private char deleteYn = 'N';
 }

@@ -10,6 +10,7 @@ import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.CrossOrigin;
 
 @Slf4j
 @Controller
@@ -32,6 +33,7 @@ public class ChatController {
 //        chatMessage.setContent(chatMessage.getSender() + " 님이 입장했습니다.");
 //        return chatMessage;
 //    }
+    @CrossOrigin(origins = "http://localhost:5173")
     @MessageMapping("/chat.sendMessage")
     @SendTo("/topic/public")
     public Chat sendMessage(@Payload ChatDto chatDto) {
@@ -45,6 +47,7 @@ public class ChatController {
         );
     }
 
+    @CrossOrigin(origins = "http://localhost:5173")
     @MessageMapping("/chat.addUser")
     @SendTo("/topic/public")
     public Chat addUser(@Payload ChatDto chatMessageDto) {

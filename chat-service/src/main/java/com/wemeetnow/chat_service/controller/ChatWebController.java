@@ -1,20 +1,14 @@
 package com.wemeetnow.chat_service.controller;
 
 import com.wemeetnow.chat_service.domain.Chat;
-import com.wemeetnow.chat_service.domain.ChatRoom;
 import com.wemeetnow.chat_service.service.ChatRoomService;
 import com.wemeetnow.chat_service.service.ChatService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.coyote.Response;
-import org.aspectj.weaver.ast.Instanceof;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -29,6 +23,7 @@ public class ChatWebController {
     private final ChatService chatService;
     private final ChatRoomService chatRoomService;
 
+    @CrossOrigin(origins = "http://localhost:5173")
     @GetMapping("/roomId={roomId}")
     public ResponseEntity enterChatRoom(@PathVariable("roomId") Long roomId, HttpServletRequest request) {
         log.info("request: {}", request);

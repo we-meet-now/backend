@@ -7,13 +7,13 @@ import lombok.ToString;
 
 @Getter
 @Setter
-@ToString
 public class ChatDto {
     private Long chatRoomId;
     private Long userId;
     private String message;
     private ChatType chatType;
 
+    @Override
     public String toString() {
         return String.format("chatRoomId : %d, userId : %d, message: %s, chatType: %s",
                 chatRoomId, userId, message, chatType);

@@ -71,25 +71,39 @@ public class JwtUtil {
         claims.put("email", email);
         claims.put("role", role);
         log.info("22enter doGenerateToken()" + SECRET_KEY);
+//        return Jwts.builder()
+//                .setClaims(claims)
+//                .setIssuedAt(new Date(System.currentTimeMillis()))
+//                .setExpiration(new Date(System.currentTimeMillis() + expireTime))
+//                .signWith(getSigningKey(SECRET_KEY), SignatureAlgorithm.HS256)
+//                .compact();
         return Jwts.builder()
                 .setClaims(claims)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + expireTime))
-                .signWith(getSigningKey(SECRET_KEY), SignatureAlgorithm.HS256)
+                .signWith(getSigningKey(SECRET_KEY)) // 알고리즘 자동 감지
                 .compact();
     }
 
     public static Boolean validateToken(String token) {
         try {
-            Jwts.parser().setSigningKey(SECRET_KEY).parseClaimsJws(token);
-            return !isExpired(token);
-        } catch(SecurityException | MalformedJwtException e) {
+            // parserBuilder() 와 getSigningKey() 를 사용하도록 수정
+            Jwts.parserBuilder()
+                    .setSigningKey(getSigningKey(SECRET_KEY))
+                    .build()
+                    .parseClaimsJws(token);
+            // 파싱 성공 시(만료 토큰은 ExpiredJwtException 발생) 유효한 토큰임
+            return true;
+        } catch (ExpiredJwtException e) {
+            log.error("Expired JWT token"); // 만료 예외 처리
+            return false;
+        } catch (SecurityException | MalformedJwtException e) {
             log.error("Invalid JWT signature");
             return false;
-        } catch(UnsupportedJwtException e) {
+        } catch (UnsupportedJwtException e) {
             log.error("Unsupported JWT token");
             return false;
-        } catch(IllegalArgumentException e) {
+        } catch (IllegalArgumentException e) {
             log.error("JWT token is invalid");
             return false;
         }

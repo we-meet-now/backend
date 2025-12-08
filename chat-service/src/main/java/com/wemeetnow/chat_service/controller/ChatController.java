@@ -11,6 +11,7 @@ import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.CrossOrigin;
 
 @Slf4j
 @Controller
@@ -19,6 +20,21 @@ public class ChatController {
 
     private final ChatService chatService;
 
+    //    @MessageMapping("/chat.sendMessage")
+//    @SendTo("/topic/public")
+//    public ChatMessage sendMessage(@Payload ChatMessage chatMessage) {
+//        System.out.println("chatMessage.getContent() = " + chatMessage.getContent());
+//        return chatMessage;
+//    }
+//
+//    @MessageMapping("/chat.addUser")
+//    @SendTo("/topic/public")
+//    public ChatMessage addUser(@Payload ChatMessage chatMessage) {
+//        System.out.println("chatMessage.getContent() = " + chatMessage.getContent());
+//        chatMessage.setContent(chatMessage.getSender() + " 님이 입장했습니다.");
+//        return chatMessage;
+//    }
+    @CrossOrigin(origins = "http://localhost:5173")
     @MessageMapping("/chat.sendMessage")
     @SendTo("/topic/public")
     public ChatResponseDto sendMessage(@Payload ChatDto chatDto) throws Exception {
@@ -32,6 +48,7 @@ public class ChatController {
         );
     }
 
+    @CrossOrigin(origins = "http://localhost:5173")
     @MessageMapping("/chat.addUser")
     @SendTo("/topic/public")
     public ChatResponseDto addUser(@Payload ChatDto chatMessageDto) throws Exception {

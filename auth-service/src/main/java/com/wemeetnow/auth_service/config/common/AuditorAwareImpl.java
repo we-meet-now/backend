@@ -18,7 +18,8 @@ public class AuditorAwareImpl implements AuditorAware<String> {
 
     @Override
     public Optional<String> getCurrentAuditor() {
-        String userName = principalDetails.getUsername() == null ? "system" : principalDetails.getUsername();
+
+        String userName = principalDetails == null ? "system" : principalDetails.getUsername();
 
         return Optional.of(userName);
     }

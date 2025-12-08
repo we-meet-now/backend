@@ -2,10 +2,7 @@ package com.wemeetnow.auth_service.controller;
 
 import com.wemeetnow.auth_service.config.jwt.JwtUtil;
 import com.wemeetnow.auth_service.domain.User;
-import com.wemeetnow.auth_service.dto.UserJoinRequestDto;
-import com.wemeetnow.auth_service.dto.UserJoinResponseDto;
-import com.wemeetnow.auth_service.dto.UserLoginRequestDto;
-import com.wemeetnow.auth_service.dto.UserLoginResponseDto;
+import com.wemeetnow.auth_service.dto.*;
 import com.wemeetnow.auth_service.service.UserService;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,6 +10,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.coyote.Response;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -63,5 +61,36 @@ public class UserApiController {
     public ResponseEntity getUsersAll() {
         List<User> allUsers = userService.getAllUsers();
         return new ResponseEntity(allUsers, HttpStatus.OK);
+    }
+
+    @GetMapping("/get-id")
+    public ResponseEntity<AuthUserDto> getUserIdFromAccessToken(HttpServletRequest request) {
+        String statusCd = "5000";
+        String statusMsg = "fail";
+        AuthUserDto authUserDto = null;
+        try {
+            String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+            String token = authorizationHeader.replace("Bearer ", "");
+            if (JwtUtil.isExpired(token)) {
+                return new ResponseEntity(HttpStatus.UNAUTHORIZED);
+            }
+            Long userId = JwtUtil.getId(token);
+            statusCd = "2000";
+            statusMsg = "success";
+            authUserDto = AuthUserDto.builder()
+                    .userId(userId)
+                    .statusCd(statusCd)
+                    .statusMsg(statusMsg)
+                    .build();
+        } catch (Exception e) {
+            log.error("raised error: {}", e.getMessage());
+            authUserDto = AuthUserDto.builder()
+                    .userId(0L)
+                    .statusCd(statusCd)
+                    .statusMsg(e.getMessage())
+                    .build();
+            return ResponseEntity.ok(authUserDto);
+        }
+        return ResponseEntity.ok(authUserDto);
     }
 }

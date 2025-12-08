@@ -9,8 +9,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.coyote.Response;
-import org.aspectj.weaver.ast.Instanceof;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -29,6 +27,7 @@ public class ChatWebController {
     private final ChatRoomService chatRoomService;
     private final String AUTH_HEADER = "Authorization";
 
+    @CrossOrigin(origins = "http://localhost:5173")
     @GetMapping("/roomId={roomId}")
     public ResponseEntity enterChatRoom(@PathVariable("roomId") Long roomId, HttpServletRequest request) {
         log.info("request: {}", request);

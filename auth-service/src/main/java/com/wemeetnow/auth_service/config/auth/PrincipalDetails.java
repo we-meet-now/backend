@@ -32,6 +32,9 @@ public class PrincipalDetails implements UserDetails {
         collect.add(new GrantedAuthority() {
             @Override
             public String getAuthority() {
+                if (user == null) {
+                    return "#Null";
+                }
                 return user.getRole().toString();
             }
         });
@@ -40,11 +43,17 @@ public class PrincipalDetails implements UserDetails {
 
     @Override
     public String getPassword() {
+        if (this.user == null) {
+            return "#NUll";
+        }
         return user.getPassword();
     }
 
     @Override
     public String getUsername() {
+        if (this.user == null) {
+            return "#Null";
+        }
         return user.getUsername();
     }
 

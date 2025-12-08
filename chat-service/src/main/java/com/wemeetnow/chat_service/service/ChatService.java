@@ -75,7 +75,7 @@ public class ChatService {
         RestClient restClient = restClientBuilder.baseUrl(authServiceUrl).build();
 
         return restClient.get()
-                .uri("/api/auth/validate")
+                .uri("/api/v1/users/get-id")
                 .header(HttpHeaders.AUTHORIZATION, authorizationHeader) // Bearer 토큰 전달
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()

@@ -27,37 +27,6 @@ public class ChatWebController {
     private final ChatRoomService chatRoomService;
     private final String AUTH_HEADER = "Authorization";
 
-    @CrossOrigin(origins = "http://localhost:5173")
-    @GetMapping("/roomId={roomId}")
-    public ResponseEntity enterChatRoom(@PathVariable("roomId") Long roomId, HttpServletRequest request) {
-        log.info("request: {}", request);
-        log.info("roomId: {}", roomId);
-        log.info("roomId.getClass: {}", roomId.getClass());
-        String statusCode = "5000";
-        HttpStatus httpStatus = HttpStatus.OK;
-        Long loginedUserId = 0L;
-        Map<String, Object> bodyMap = new HashMap<>();
-        List<Chat> chatList = new ArrayList<>();
-        try {
-//            String accessToken = jwtUtil.getAccessTokenFromHeader(request);
-//            if (!JwtUtil.isExpired(accessToken)) {
-//                loginedUserId = JwtUtil.getId(accessToken);
-//                statusCode = "2000";
-//                chatRoomList = chatRoomService.findByUserId(loginedUserId);
-//            }
-            loginedUserId = 1L;
-            statusCode = "2000";
-            chatList = chatService.getChatList(roomId);
-        } catch (Exception e) {
-            log.error("raised error: {}", e.getMessage());
-            statusCode = "5005";
-        } finally {
-            bodyMap.put("loginedUserId", loginedUserId);
-            bodyMap.put("statusCode", statusCode);
-            bodyMap.put("chatList", chatList);
-        }
-        return ResponseEntity.status(httpStatus).body(bodyMap);
-    }
 
     @PostMapping("/check-access-token")
     public void checkAccessToken(@RequestHeader(AUTH_HEADER) String token) {

@@ -1,10 +1,13 @@
 package com.wemeetnow.chat_service.controller;
 
 import com.wemeetnow.chat_service.config.jwt.JwtUtil;
+import com.wemeetnow.chat_service.domain.Chat;
 import com.wemeetnow.chat_service.domain.ChatRoom;
 import com.wemeetnow.chat_service.dto.AuthUserDto;
+import com.wemeetnow.chat_service.dto.AuthUserResponse;
 import com.wemeetnow.chat_service.dto.CreateChatRoomRequestDto;
 import com.wemeetnow.chat_service.service.ChatRoomService;
+import com.wemeetnow.chat_service.service.ChatService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -27,11 +30,12 @@ import java.util.Map;
 @RequestMapping("/api/v1/chat-rooms")
 public class ChatRoomController {
     private final ChatRoomService chatRoomService;
-    private final JwtUtil jwtUtil;
+    private final ChatService chatService;
+    private final String AUTH_HEADER = "Authorization";
 
     @CrossOrigin(origins = "http://localhost:5173")
     @GetMapping("")
-    public ResponseEntity getChatRoomListByUserId(HttpServletRequest request, HttpServletResponse response) {
+    public ResponseEntity getChatRoomListByUserId(@RequestHeader(AUTH_HEADER) String token, HttpServletRequest request, HttpServletResponse response) {
         log.info("request: {}", request);
         HttpStatus httpStatus = HttpStatus.OK;
         Long loginedUserId = 0L;
@@ -45,7 +49,8 @@ public class ChatRoomController {
 //                statusCode = "2000";
 //                chatRoomList = chatRoomService.findByUserId(loginedUserId);
 //            }
-            loginedUserId = 1L;
+            AuthUserResponse authUserResponse = chatService.isValidAccessToken(token);
+            loginedUserId = authUserResponse.getUserId();
             statusCode = "2000";
             chatRoomList = chatRoomService.findByUserId(loginedUserId);
 
@@ -59,6 +64,40 @@ public class ChatRoomController {
         }
         return ResponseEntity.status(httpStatus).body(bodyMap);
     }
+
+    @CrossOrigin(origins = "http://localhost:5173")
+    @GetMapping("/roomId={roomId}")
+    public ResponseEntity enterChatRoom(@PathVariable("roomId") Long roomId, HttpServletRequest request, @RequestHeader(AUTH_HEADER) String token) {
+        log.info("request: {}", request);
+        log.info("roomId: {}", roomId);
+        log.info("roomId.getClass: {}", roomId.getClass());
+        String statusCode = "5000";
+        HttpStatus httpStatus = HttpStatus.OK;
+        Long loginedUserId = 0L;
+        Map<String, Object> bodyMap = new HashMap<>();
+        List<Chat> chatList = new ArrayList<>();
+        try {
+//            String accessToken = jwtUtil.getAccessTokenFromHeader(request);
+//            if (!JwtUtil.isExpired(accessToken)) {
+//                loginedUserId = JwtUtil.getId(accessToken);
+//                statusCode = "2000";
+//                chatRoomList = chatRoomService.findByUserId(loginedUserId);
+//            }
+            AuthUserResponse authUserResponse = chatService.isValidAccessToken(token);
+            loginedUserId = authUserResponse.getUserId();
+            statusCode = "2000";
+            chatList = chatService.getChatList(roomId);
+        } catch (Exception e) {
+            log.error("raised error: {}", e.getMessage());
+            statusCode = "5005";
+        } finally {
+            bodyMap.put("loginedUserId", loginedUserId);
+            bodyMap.put("statusCode", statusCode);
+            bodyMap.put("chatList", chatList);
+        }
+        return ResponseEntity.status(httpStatus).body(bodyMap);
+    }
+
 
     @CrossOrigin(origins = "http://localhost:5173")
     @PostMapping("/create-one")

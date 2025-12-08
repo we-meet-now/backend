@@ -2,19 +2,18 @@ package com.wemeetnow.chat_service.controller;
 
 import com.wemeetnow.chat_service.domain.Chat;
 import com.wemeetnow.chat_service.domain.ChatRoom;
+import com.wemeetnow.chat_service.dto.AuthUserResponse;
 import com.wemeetnow.chat_service.service.ChatRoomService;
 import com.wemeetnow.chat_service.service.ChatService;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.coyote.Response;
 import org.aspectj.weaver.ast.Instanceof;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -28,6 +27,7 @@ import java.util.Map;
 public class ChatWebController {
     private final ChatService chatService;
     private final ChatRoomService chatRoomService;
+    private final String AUTH_HEADER = "Authorization";
 
     @GetMapping("/roomId={roomId}")
     public ResponseEntity enterChatRoom(@PathVariable("roomId") Long roomId, HttpServletRequest request) {
@@ -58,5 +58,15 @@ public class ChatWebController {
             bodyMap.put("chatList", chatList);
         }
         return ResponseEntity.status(httpStatus).body(bodyMap);
+    }
+
+    @PostMapping("/check-access-token")
+    public void checkAccessToken(@RequestHeader(AUTH_HEADER) String token) {
+        try {
+            AuthUserResponse authUserResponse = chatService.isValidAccessToken(token);
+            log.info("authUserResponse.getUserId(): {}", authUserResponse.getUserId());
+        } catch (Exception e) {
+            log.error("raised error: {}", e.getMessage());
+        }
     }
 }

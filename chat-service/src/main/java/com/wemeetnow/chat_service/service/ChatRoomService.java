@@ -1,9 +1,14 @@
 package com.wemeetnow.chat_service.service;
 
+import com.wemeetnow.chat_service.domain.Chat;
 import com.wemeetnow.chat_service.domain.ChatParticipant;
+import com.wemeetnow.chat_service.domain.ChatRead;
 import com.wemeetnow.chat_service.domain.ChatRoom;
 import com.wemeetnow.chat_service.dto.AuthUserDto;
+import com.wemeetnow.chat_service.dto.EnterRoomResponseDto;
 import com.wemeetnow.chat_service.repository.ChatParticipantRepository;
+import com.wemeetnow.chat_service.repository.ChatReadRepository;
+import com.wemeetnow.chat_service.repository.ChatRepository;
 import com.wemeetnow.chat_service.repository.ChatRoomRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -21,6 +27,8 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class ChatRoomService {
     private final ChatRoomRepository chatRoomRepository;
+    private final ChatRepository chatRepository;
+    private final ChatReadRepository chatReadRepository;
     private final RestClient.Builder restClientBuilder;
     @Value("${external.auth-service.url}")
     private String AUTH_SERVICE_URL;
@@ -50,5 +58,26 @@ public class ChatRoomService {
             return null;
         }
 
+    }
+    public EnterRoomResponseDto enterRoomAndMarkRead(Long roomId, Long userId) {
+        String statusCode = "2000";
+        String statusMsg = "success";
+        int markedCount = 0;
+        try {
+            List<Chat> unreadChats = chatRepository.findUnreadChatsForUser(roomId, userId, LocalDateTime.now());
+            for (Chat chat : unreadChats) {
+                if (!chatReadRepository.existsByChatIdAndUserId(chat.getChatId(), userId)) {
+                    ChatRead chatRead = new ChatRead(chat.getChatId(), userId);
+                    chatReadRepository.save(chatRead);
+                    markedCount++;
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error in enterRoomAndMarkRead: {}", e.getMessage());
+            statusCode = "5005";
+            statusMsg = "fail";
+            markedCount = 0;
+        }
+        return new EnterRoomResponseDto(statusCode, statusMsg, markedCount);
     }
 }

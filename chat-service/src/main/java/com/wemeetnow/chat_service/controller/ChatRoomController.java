@@ -3,9 +3,7 @@ package com.wemeetnow.chat_service.controller;
 import com.wemeetnow.chat_service.config.jwt.JwtUtil;
 import com.wemeetnow.chat_service.domain.Chat;
 import com.wemeetnow.chat_service.domain.ChatRoom;
-import com.wemeetnow.chat_service.dto.AuthUserDto;
-import com.wemeetnow.chat_service.dto.AuthUserResponse;
-import com.wemeetnow.chat_service.dto.CreateChatRoomRequestDto;
+import com.wemeetnow.chat_service.dto.*;
 import com.wemeetnow.chat_service.service.ChatRoomService;
 import com.wemeetnow.chat_service.service.ChatService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -41,26 +39,24 @@ public class ChatRoomController {
         Long loginedUserId = 0L;
         String statusCode = "5000";
         Map<String, Object> bodyMap = new HashMap<>();
-        List<ChatRoom> chatRoomList = new ArrayList<>();
+        List<ChatRoomWithNotReadCountDto> chatRoomListWithNotReadCount = new ArrayList<>();
         try {
-//            String accessToken = jwtUtil.getAccessTokenFromHeader(request);
-//            if (!JwtUtil.isExpired(accessToken)) {
-//                loginedUserId = JwtUtil.getId(accessToken);
-//                statusCode = "2000";
-//                chatRoomList = chatRoomService.findByUserId(loginedUserId);
-//            }
             AuthUserResponse authUserResponse = chatService.isValidAccessToken(token);
             loginedUserId = authUserResponse.getUserId();
             statusCode = "2000";
-            chatRoomList = chatRoomService.findByUserId(loginedUserId);
+            List<ChatRoom> chatRoomList = chatRoomService.findByUserId(loginedUserId);
 
+            for (ChatRoom chatRoom : chatRoomList) {
+                int notReadCount = chatService.getNotReadCountByRoomIdAndUserId(chatRoom.getChatRoomId(), loginedUserId);
+                chatRoomListWithNotReadCount.add(new ChatRoomWithNotReadCountDto(chatRoom, notReadCount));
+            }
         } catch (Exception e) {
             log.error("raised error: {}", e.getMessage());
             statusCode = "5005";
         } finally {
             bodyMap.put("statusCode", statusCode);
             bodyMap.put("loginedUserId", loginedUserId);
-            bodyMap.put("chatRoomList", chatRoomList);
+            bodyMap.put("chatRoomList", chatRoomListWithNotReadCount);
         }
         return ResponseEntity.status(httpStatus).body(bodyMap);
     }
@@ -127,5 +123,32 @@ public class ChatRoomController {
             bodyMap.put("chatRoomList", chatRoomList);
         }
         return ResponseEntity.status(httpStatus).body(bodyMap);
+    }
+    // Add to ChatRoomController.java
+
+    @CrossOrigin(origins = "http://localhost:5173")
+    @GetMapping("/enter-room/roomId={roomId}")
+    public ResponseEntity<EnterRoomResponseDto> enterRoomAndMarkRead(
+            @PathVariable("roomId") Long roomId,
+            HttpServletRequest request) {
+        String statusCode = "5000";
+        HttpStatus httpStatus = HttpStatus.OK;
+        EnterRoomResponseDto responseDto = null;
+        try {
+            String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+            String token = authorizationHeader.replace("Bearer ", "");
+            AuthUserResponse authUserResponse = chatService.isValidAccessToken(token);
+            Long loginedUserId = authUserResponse.getUserId();
+            responseDto = chatRoomService.enterRoomAndMarkRead(roomId, loginedUserId);
+        } catch (Exception e) {
+            log.error("raised error: {}", e.getMessage());
+            statusCode = "5005";
+            responseDto = EnterRoomResponseDto.builder()
+                    .statusCode(statusCode)
+                    .statusMsg("fail")
+                    .markedReadCount(0)
+                    .build();
+        }
+        return ResponseEntity.status(httpStatus).body(responseDto);
     }
 }

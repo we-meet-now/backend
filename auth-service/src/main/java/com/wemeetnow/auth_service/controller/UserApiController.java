@@ -47,10 +47,6 @@ public class UserApiController {
                 return new ResponseEntity(HttpStatus.UNAUTHORIZED);
             }
             Claims claims = JwtUtil.extractAllClaims(token);
-            // JwtUtil.getEmail(token);
-            log.info("claims.get(\"email\") = " + claims.get("email"));
-            // JwtUtil.getId(token);
-            log.info("claims.get(\"userId\") = " + claims.get("userId"));
             return new ResponseEntity(claims, HttpStatus.OK);
         } catch (Exception e) {
             log.error("raised error: ", e);

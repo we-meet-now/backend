@@ -85,4 +85,7 @@ public class ChatService {
                 })
                 .body(AuthUserResponse.class);
     }
+    public int getNotReadCountByRoomIdAndUserId(Long roomId, Long userId) {
+        return chatRepository.countNotReadByRoomIdAndUserId(roomId, userId);
+    }
 }

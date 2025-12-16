@@ -64,8 +64,8 @@ public class ChatService {
 
     }
 
-    public List<Chat> getChatList(Long roomId) {
-        return chatRepository.findByChatRoomId(roomId);
+    public List<Chat> getChatList(Long roomId, Long userId) {
+        return chatRepository.findByChatRoomIdAndUserId(roomId, userId);
     }
 
     public AuthUserResponse isValidAccessToken(String token) {

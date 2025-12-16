@@ -3,11 +3,13 @@ package com.wemeetnow.chat_service;
 import jakarta.annotation.PostConstruct;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
 import java.util.TimeZone;
 
 @EnableJpaAuditing // @CreatedDate 붙은 필드 인식
+@EnableFeignClients // MSA로 다른 서비스 호출 가능함
 @SpringBootApplication
 public class ChatServiceApplication {
 

@@ -1,6 +1,5 @@
 package com.wemeetnow.chat_service.controller;
 
-import com.wemeetnow.chat_service.domain.Chat;
 import com.wemeetnow.chat_service.domain.enums.ChatType;
 import com.wemeetnow.chat_service.dto.ChatDto;
 import com.wemeetnow.chat_service.dto.ChatResponseDto;
@@ -63,6 +62,4 @@ public class ChatController {
                 ChatType.ENTER // chatType 예: ENTER
         );
     }
-    
-    // TODO LEAVE 기능 만들기
 }

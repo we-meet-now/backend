@@ -7,10 +7,8 @@ import com.wemeetnow.auth_service.service.UserService;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.coyote.Response;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -88,5 +86,20 @@ public class UserApiController {
             return ResponseEntity.ok(authUserDto);
         }
         return ResponseEntity.ok(authUserDto);
+    }
+    @GetMapping("/userId={userId}")
+    public ResponseEntity<ChatParticipantUserDto> getUserById(@PathVariable("userId") Long userId) {
+        User findUser = userService.getUserById(userId).orElse(null);
+        if (findUser == null) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        ChatParticipantUserDto responseDto = ChatParticipantUserDto.builder()
+                .userId(findUser.getId())
+                .email(findUser.getEmail())
+                .nickname(findUser.getNickname())
+                .imgUrl(findUser.getImgUrl())
+                .phoneNumber(findUser.getPhoneNumber())
+                .build();
+        return ResponseEntity.ok(responseDto);
     }
 }

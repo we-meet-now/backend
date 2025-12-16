@@ -73,16 +73,10 @@ public class ChatRoomController {
         Map<String, Object> bodyMap = new HashMap<>();
         List<Chat> chatList = new ArrayList<>();
         try {
-//            String accessToken = jwtUtil.getAccessTokenFromHeader(request);
-//            if (!JwtUtil.isExpired(accessToken)) {
-//                loginedUserId = JwtUtil.getId(accessToken);
-//                statusCode = "2000";
-//                chatRoomList = chatRoomService.findByUserId(loginedUserId);
-//            }
             AuthUserResponse authUserResponse = chatService.isValidAccessToken(token);
             loginedUserId = authUserResponse.getUserId();
             statusCode = "2000";
-            chatList = chatService.getChatList(roomId);
+            chatList = chatService.getChatList(roomId, loginedUserId);
         } catch (Exception e) {
             log.error("raised error: {}", e.getMessage());
             statusCode = "5005";
@@ -150,5 +144,28 @@ public class ChatRoomController {
                     .build();
         }
         return ResponseEntity.status(httpStatus).body(responseDto);
+    }
+
+    @CrossOrigin(origins = "http://localhost:5173")
+    @GetMapping("/leave-room/roomId={roomId}")
+    public ResponseEntity<Map<String, Object>> leaveChatRoom(
+            @PathVariable("roomId") Long roomId,
+            HttpServletRequest request,
+            @RequestHeader("Authorization") String token) {
+        Map<String, Object> bodyMap = new HashMap<>();
+        String statusCode = "5000";
+        HttpStatus httpStatus = HttpStatus.OK;
+        try {
+            AuthUserResponse authUserResponse = chatService.isValidAccessToken(token);
+            Long userId = authUserResponse.getUserId();
+            chatRoomService.leaveRoom(roomId, userId);
+            statusCode = "2000";
+        } catch (Exception e) {
+            log.error("raised error: {}", e.getMessage());
+            statusCode = "5005";
+            httpStatus = HttpStatus.INTERNAL_SERVER_ERROR;
+        }
+        bodyMap.put("statusCode", statusCode);
+        return ResponseEntity.status(httpStatus).body(bodyMap);
     }
 }

@@ -30,6 +30,8 @@ public class ChatRoomService {
     private final ChatRepository chatRepository;
     private final ChatReadRepository chatReadRepository;
     private final RestClient.Builder restClientBuilder;
+    private final ChatParticipantRepository chatParticipantsRepository;
+
     @Value("${external.auth-service.url}")
     private String AUTH_SERVICE_URL;
 
@@ -80,4 +82,10 @@ public class ChatRoomService {
         }
         return new EnterRoomResponseDto(statusCode, statusMsg, markedCount);
     }
+    // ChatRoomService.java
+    @Transactional
+    public void leaveRoom(Long roomId, Long userId) {
+        chatParticipantsRepository.deleteByChatRoomIdAndUserId(roomId, userId);
+    }
+
 }

@@ -168,4 +168,20 @@ public class ChatRoomController {
         bodyMap.put("statusCode", statusCode);
         return ResponseEntity.status(httpStatus).body(bodyMap);
     }
+
+    @PostMapping("/invite-anonymous")
+    public ResponseEntity<Map<String, Object>> inviteAnonymous() {
+        Map<String, Object> bodyMap = new HashMap<>();
+        String statusCode = "5000";
+        Long chatRoomId = null;
+        try {
+            chatRoomId = chatRoomService.createAnonymousChatRoom();
+            statusCode = "2000";
+        } catch (Exception e) {
+            statusCode = "5005";
+        }
+        bodyMap.put("statusCode", statusCode);
+        bodyMap.put("chatRoomId", chatRoomId);
+        return ResponseEntity.status(HttpStatus.OK).body(bodyMap);
+    }
 }

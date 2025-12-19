@@ -88,4 +88,12 @@ public class ChatRoomService {
         chatParticipantsRepository.deleteByChatRoomIdAndUserId(roomId, userId);
     }
 
+    @Transactional
+    public Long createAnonymousChatRoom() {
+        ChatRoom chatRoom = ChatRoom.builder()
+                .chatRoomNm("Anonymous Room")
+                .build();
+        chatRoomRepository.save(chatRoom);
+        return chatRoom.getChatRoomId();
+    }
 }

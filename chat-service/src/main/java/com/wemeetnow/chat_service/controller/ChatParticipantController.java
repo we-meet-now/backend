@@ -65,4 +65,32 @@ public class ChatParticipantController {
         }
         return ResponseEntity.status(httpStatus).body(bodyMap);
     }
+    @GetMapping("/anonymous-chat-roomId={roomId}")
+    public ResponseEntity getAnonymousChatParticipants(@PathVariable("roomId") Long roomId) {
+        HttpStatus httpStatus = HttpStatus.OK;
+        Long loginedUserId = 0L;
+        String statusCode = "5000";
+        Map<String, Object> bodyMap = new HashMap<>();
+        List<ChatParticipant> chatParticipantList = new ArrayList<>();
+        List<ChatParticipantUserDto> userInfoList = new ArrayList<>();
+        try {
+            statusCode = "2000";
+            chatParticipantList = chatParticipantService.findByAnonymousChatRoomId(roomId);
+
+            // 각 userId에 대해 사용자 정보 조회
+            for (ChatParticipant chatParticipant : chatParticipantList) {
+                ChatParticipantUserDto userInfo = authServiceClient.getUserById(chatParticipant.getUserId());
+                userInfoList.add(userInfo);
+            }
+        } catch (Exception e) {
+            log.error("raised error: {}", e.getMessage());
+            statusCode = "5005";
+        } finally {
+            bodyMap.put("statusCode", statusCode);
+            bodyMap.put("loginedUserId", loginedUserId);
+            bodyMap.put("chatParticipantList", chatParticipantList);
+            bodyMap.put("userInfoList", userInfoList);
+        }
+        return ResponseEntity.status(httpStatus).body(bodyMap);
+    }
 }

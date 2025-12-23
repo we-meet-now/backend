@@ -26,4 +26,6 @@ public interface ChatParticipantRepository extends JpaRepository<ChatParticipant
     @Modifying
     @Query("UPDATE ChatParticipant cp SET cp.useYn = 'N' WHERE cp.chatRoomId = :roomId AND cp.userId = :userId")
     void deleteByChatRoomIdAndUserId(@Param("roomId") Long roomId, @Param("userId") Long userId);
+    @Query("SELECT cp FROM ChatParticipant cp WHERE cp.chatRoomId = :roomId AND cp.useYn = 'Y'")
+    List<ChatParticipant> findByAnonymousChatRoomId(Long roomId);
 }

@@ -89,11 +89,20 @@ public class ChatRoomService {
     }
 
     @Transactional
-    public Long createAnonymousChatRoom() {
+    public Long createAnonymousChatRoom(Long userId, String chatRoomNm) {
         ChatRoom chatRoom = ChatRoom.builder()
-                .chatRoomNm("Anonymous Room")
+                .chatRoomNm(chatRoomNm)
+                .inpUserId(String.valueOf(userId))
                 .build();
         chatRoomRepository.save(chatRoom);
+
+        ChatParticipant chatParticipant = ChatParticipant.builder()
+                .chatRoomId(chatRoom.getChatRoomId())
+                .userId(userId)
+                .useYn('Y')
+                .build();
+        chatParticipantsRepository.save(chatParticipant);
+
         return chatRoom.getChatRoomId();
     }
 }

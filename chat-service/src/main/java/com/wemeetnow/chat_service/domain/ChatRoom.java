@@ -25,4 +25,13 @@ public class ChatRoom extends BaseTime{
     @Column(name = "chat_room_nm")
     private String chatRoomNm;
 
+    @Transient
+    private String inpUserId;
+
+    @Builder
+    public ChatRoom(String chatRoomNm, String inpUserId) {
+        this.chatRoomNm = chatRoomNm;
+        super.setInpUserId(inpUserId);
+    }
+
 }

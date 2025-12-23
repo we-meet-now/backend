@@ -13,5 +13,9 @@ public class ChatParticipantService {
     private final ChatParticipantRepository chatParticipantRepository;
 
     public List<Long> findByChatRoomId(Long roomId, Long userId) {
-        return chatParticipantRepository.findByChatRoomId(roomId, userId); }
+        return chatParticipantRepository.findByChatRoomId(roomId, userId);
+    }
+    public List<ChatParticipant> findByAnonymousChatRoomId(Long roomId) {
+        return chatParticipantRepository.findByAnonymousChatRoomId(roomId);
+    }
 }

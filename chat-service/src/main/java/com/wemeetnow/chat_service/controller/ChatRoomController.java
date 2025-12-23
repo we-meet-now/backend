@@ -169,14 +169,20 @@ public class ChatRoomController {
         return ResponseEntity.status(httpStatus).body(bodyMap);
     }
 
-    @PostMapping("/invite-anonymous")
-    public ResponseEntity<Map<String, Object>> inviteAnonymous() {
+    @PostMapping("/create-anonymous-room")
+    public ResponseEntity<Map<String, Object>> inviteAnonymous(HttpServletRequest request, CreateAnonymousChatRoomRequestDto requestDto) {
         Map<String, Object> bodyMap = new HashMap<>();
         String statusCode = "5000";
         Long chatRoomId = null;
+        String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        String token = authorizationHeader.replace("Bearer ", "");
+        AuthUserResponse authUserResponse = chatService.isValidAccessToken(token);
+        Long loginedUserId = authUserResponse.getUserId();
         try {
-            chatRoomId = chatRoomService.createAnonymousChatRoom();
+            String chatRoomNm = requestDto.getChatRoomNm();
+            chatRoomId = chatRoomService.createAnonymousChatRoom(loginedUserId, chatRoomNm);
             statusCode = "2000";
+            bodyMap.put("inviteAnnonymousUrl", "http://localhost:6113/chat-participants/anonymous-chat-roomId=" + chatRoomId);
         } catch (Exception e) {
             statusCode = "5005";
         }

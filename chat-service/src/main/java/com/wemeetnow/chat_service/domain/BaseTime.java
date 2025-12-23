@@ -34,4 +34,8 @@ public class BaseTime {
     @LastModifiedBy
     @Column(name = "mdfy_user_id")
     private String mdfyUserId;
+
+    protected void setInpUserId(String inpUserId) {
+        this.inpUserId = inpUserId;
+    }
 }

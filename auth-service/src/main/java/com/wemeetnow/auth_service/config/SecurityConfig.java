@@ -47,6 +47,7 @@ public class SecurityConfig {
                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/swagger-resources/**")).permitAll()
                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/v3/api-docs/**")).permitAll()
                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/v1/friends/**")).permitAll()
+                                .requestMatchers(AntPathRequestMatcher.antMatcher("/api/v1/users/create-random-nickname")).permitAll()
                         )
                 .headers(
                         headersConfigurer -> headersConfigurer.frameOptions(

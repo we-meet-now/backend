@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 
 @Service
 @RequiredArgsConstructor
@@ -105,5 +106,19 @@ public class UserService{
             log.error("사용자가 존재하지 않습니다.");
             throw new Exception("사용자가 존재하지 않습니다.");
         }
+    }
+    private static final String[] ADJECTIVES = {
+            "행복한", "용감한", "귀여운", "똑똑한", "신나는", "멋진", "재미있는"
+    };
+    private static final String[] NOUNS = {
+            "호랑이", "토끼", "사자", "여우", "곰", "다람쥐", "고양이"
+    };
+    private final Random random = new Random();
+
+    public String createRandomNickname() {
+        String adjective = ADJECTIVES[random.nextInt(ADJECTIVES.length)];
+        String noun = NOUNS[random.nextInt(NOUNS.length)];
+        int number = 100 + random.nextInt(900);
+        return adjective + noun + number;
     }
 }

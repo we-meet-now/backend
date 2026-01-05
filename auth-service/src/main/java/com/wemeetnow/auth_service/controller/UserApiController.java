@@ -14,7 +14,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -99,6 +101,33 @@ public class UserApiController {
                 .nickname(findUser.getNickname())
                 .imgUrl(findUser.getImgUrl())
                 .phoneNumber(findUser.getPhoneNumber())
+                .build();
+        return ResponseEntity.ok(responseDto);
+    }
+
+    @GetMapping("/create-random-nickname")
+    public ResponseEntity<DefaultResponseDto<RandomNicknameResponseDto>> createRandomNickname() {
+        Map<String, RandomNicknameResponseDto> body = new HashMap<>();
+        String statusCd = "";
+        DefaultResponseDto<RandomNicknameResponseDto> responseDto = null;
+        RandomNicknameResponseDto randomNicknameResponseDto = null;
+        String message = "default message";
+        try {
+            String randomNickname = userService.createRandomNickname();
+            statusCd = "2000";
+            message = "success";
+            randomNicknameResponseDto = new RandomNicknameResponseDto(randomNickname);
+            body.put("randomNickname", randomNicknameResponseDto);
+        } catch (Exception e) {
+            log.error("raised error: {}", e.getMessage());
+            statusCd = "5000";
+            message = e.getMessage();
+            body.put("randomNickname", null);
+        }
+        responseDto = DefaultResponseDto.<RandomNicknameResponseDto>builder()
+                .statusCd(statusCd)
+                .message(message)
+                .body(body)
                 .build();
         return ResponseEntity.ok(responseDto);
     }

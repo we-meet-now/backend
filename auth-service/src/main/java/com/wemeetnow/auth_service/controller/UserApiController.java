@@ -59,6 +59,9 @@ public class UserApiController {
         return new ResponseEntity(allUsers, HttpStatus.OK);
     }
 
+    /**
+     * accessToken으로 user_id 조회
+     * */
     @GetMapping("/get-id")
     public ResponseEntity<AuthUserDto> getUserIdFromAccessToken(HttpServletRequest request) {
         String statusCd = "5000";
@@ -89,6 +92,39 @@ public class UserApiController {
         }
         return ResponseEntity.ok(authUserDto);
     }
+    /**
+     * accessToken으로 유저 정보 조회
+     * */
+    @GetMapping("/get-user-info")
+    public ResponseEntity<ChatParticipantUserDto> getUserInfoFromAccessToken(HttpServletRequest request) {
+        try {
+            String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+            String token = authorizationHeader.replace("Bearer ", "");
+            if (JwtUtil.isExpired(token)) {
+                return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+            }
+            Long userId = JwtUtil.getId(token);
+            User findUser = userService.getUserById(userId).orElse(null);
+            if (findUser == null) {
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            }
+            ChatParticipantUserDto responseDto = ChatParticipantUserDto.builder()
+                    .userId(findUser.getId())
+                    .email(findUser.getEmail())
+                    .nickname(findUser.getNickname())
+                    .imgUrl(findUser.getImgUrl())
+                    .phoneNumber(findUser.getPhoneNumber())
+                    .build();
+            return ResponseEntity.ok(responseDto);
+        } catch (Exception e) {
+            log.error("raised error: {}", e.getMessage());
+            return new ResponseEntity<>(HttpStatus.BAD_GATEWAY);
+        }
+    }
+
+    /**
+     * userId로 유저 정보 조회
+     * */
     @GetMapping("/userId={userId}")
     public ResponseEntity<ChatParticipantUserDto> getUserById(@PathVariable("userId") Long userId) {
         User findUser = userService.getUserById(userId).orElse(null);

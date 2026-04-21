@@ -6,10 +6,12 @@ import com.wemeetnow.chat_service.domain.ChatRoom;
 import com.wemeetnow.chat_service.dto.*;
 import com.wemeetnow.chat_service.service.ChatRoomService;
 import com.wemeetnow.chat_service.service.ChatService;
+import com.wemeetnow.chat_service.service.ChatUserInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -30,6 +32,9 @@ public class ChatRoomController {
     private final ChatRoomService chatRoomService;
     private final ChatService chatService;
     private final String AUTH_HEADER = "Authorization";
+
+    @Value("${chat-service.url}")
+    private String chatServiceUrl;
 
     @CrossOrigin(origins = "http://localhost:5173")
     @GetMapping("")
@@ -89,6 +94,9 @@ public class ChatRoomController {
     }
 
 
+    /**
+     * 사용자 여러명 초대하면서 생성하는 채팅방
+     * */
     @CrossOrigin(origins = "http://localhost:5173")
     @PostMapping("/create-one")
     public ResponseEntity createOnChatRoom(@RequestBody CreateChatRoomRequestDto createChatRoomRequestDto, HttpServletRequest request) {
@@ -101,13 +109,13 @@ public class ChatRoomController {
             String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
             String accessToken = authorizationHeader.replace("Bearer ", "");
             AuthUserDto authUserDto = chatRoomService.fetchUserFromAuthService(accessToken);
+            String chatRoomNm = "";
 //            String accessToken = jwtUtil.getAccessTokenFromHeader(request);
 //            if (!JwtUtil.isExpired(accessToken)) {
 //                loginedUserId = JwtUtil.getId(accessToken);
 //                statusCode = "2000";
 //                chatRoomList = chatRoomService.findByUserId(loginedUserId);
 //            }
-
             log.info("authUserDto.getUserId: {}", authUserDto.getUserId());
         } catch (Exception e) {
             log.error("raised error: {}", e.getMessage());
@@ -179,10 +187,17 @@ public class ChatRoomController {
         AuthUserResponse authUserResponse = chatService.isValidAccessToken(token);
         Long loginedUserId = authUserResponse.getUserId();
         try {
-            String chatRoomNm = requestDto.getChatRoomNm();
-            chatRoomId = chatRoomService.createAnonymousChatRoom(loginedUserId, chatRoomNm);
+            ChatUserInfo loginedUserInfo = chatRoomService.fetchUserInfoFromAuthService(token);
+            StringBuilder chatRoomNm = new StringBuilder();
+            if (requestDto.getMeetType().equals("")) {
+                chatRoomNm.append(loginedUserInfo.getUsername()).append("의 아무거나 다 좋은 모임");
+            } else {
+                chatRoomNm.append(loginedUserInfo.getUsername()).append("의 ").append(requestDto.getMeetType());
+            }
+
+            chatRoomId = chatRoomService.createAnonymousChatRoom(loginedUserId, chatRoomNm.toString(), requestDto);
             statusCode = "2000";
-            bodyMap.put("inviteAnnonymousUrl", "http://localhost:6113/chat-participants/anonymous-chat-roomId=" + chatRoomId);
+            bodyMap.put("inviteAnnonymousUrl",  chatServiceUrl + "/chat-participants/anonymous-chat-roomId=" + chatRoomId);
         } catch (Exception e) {
             statusCode = "5005";
         }

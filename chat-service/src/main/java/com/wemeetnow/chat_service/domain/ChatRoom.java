@@ -3,13 +3,10 @@ package com.wemeetnow.chat_service.domain;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDateTime;
-
 @Entity
 @Getter @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 @ToString
 @Table(name = "chat_room")
 public class ChatRoom extends BaseTime{
@@ -25,12 +22,18 @@ public class ChatRoom extends BaseTime{
     @Column(name = "chat_room_nm")
     private String chatRoomNm;
 
-    @Transient
-    private String inpUserId;
+    @Column(name = "meet_type")
+    private String meetType;
+
+    @Column(name = "meet_time")
+    private String meetTime;
 
     @Builder
-    public ChatRoom(String chatRoomNm, String inpUserId) {
+    public ChatRoom(String chatRoomNm, Long placeId, String meetType, String meetTime, String inpUserId) {
         this.chatRoomNm = chatRoomNm;
+        this.placeId = placeId;
+        this.meetType = meetType;
+        this.meetTime = meetTime;
         super.setInpUserId(inpUserId);
     }
 

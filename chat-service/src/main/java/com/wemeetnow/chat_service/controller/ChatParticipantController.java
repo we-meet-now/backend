@@ -82,6 +82,8 @@ public class ChatParticipantController {
                 ChatParticipantUserDto userInfo = authServiceClient.getUserById(chatParticipant.getUserId());
                 userInfoList.add(userInfo);
             }
+            // TODO 채팅정보 조회 로직 구현
+
         } catch (Exception e) {
             log.error("raised error: {}", e.getMessage());
             statusCode = "5005";

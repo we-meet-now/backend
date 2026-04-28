@@ -6,6 +6,7 @@ import com.wemeetnow.auth_service.dto.UserJoinRequestDto;
 import com.wemeetnow.auth_service.dto.UserJoinResponseDto;
 import com.wemeetnow.auth_service.dto.UserLoginRequestDto;
 import com.wemeetnow.auth_service.dto.UserLoginResponseDto;
+import org.springframework.http.ResponseEntity;
 import com.wemeetnow.auth_service.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -41,18 +42,20 @@ public class UserService{
             throw new ApplicationContextException("이미 가입된 이메일입니다.");
         });
 
-        if(!passwordCorrect.equals(passwordCorrect)){
-            throw new ApplicationContextException("비밀번호가 일치하지 않습니다.");
+        if(!password.equals(passwordCorrect)){
+            throw new com.wemeetnow.auth_service.exception.InvalidPasswordException("비밀번호가 일치하지 않습니다.");
         }
         User user = joinRequestDto.toEntity(passwordEncoder.encode(password), "KAKAO");
         User savedUser = userRepository.save(user);
         UserJoinResponseDto responseDto = UserJoinResponseDto.fromEntity(savedUser);
         return responseDto;
     }
-    public UserLoginResponseDto login(UserLoginRequestDto loginRequestDto){
-        User findUser = userRepository.findByEmail(loginRequestDto.getEmail()).orElseThrow(() -> new ApplicationContextException("이메일에 존재하는 계정이 없습니다."));
+    public ResponseEntity<UserLoginResponseDto> login(UserLoginRequestDto loginRequestDto){
+        User findUser = userRepository.findByEmail(loginRequestDto.getEmail())
+                .orElseThrow(() -> new ApplicationContextException("이메일에 존재하는 계정이 없습니다."));
         if(!passwordEncoder.matches(loginRequestDto.getPassword(), findUser.getPassword())) {
-            throw new ApplicationContextException("비밀번호가 일치하지 않습니다.");
+            // 200 OK로 응답, 내부 statusCode와 message만 커스텀
+            return ResponseEntity.ok(UserLoginResponseDto.fail(401, "비밀번호가 일치하지 않습니다."));
         }
         // expiration date 까지 설정해서 token return 함
         String accessToken = jwtUtil.generateAccessToken(findUser.getId(), findUser.getEmail(), findUser.getRole());
@@ -63,7 +66,7 @@ public class UserService{
         log.info("refreshToken: {}", refreshToken);
 
         UserLoginResponseDto responseDto = new UserLoginResponseDto(accessToken, refreshToken);
-        return responseDto;
+        return ResponseEntity.ok(responseDto);
     }
     public User getUserByEmail(String email){
         return userRepository.findByEmail(email).orElseThrow(() -> new UsernameNotFoundException("일치하는 사용자 이메일이 없습니다."));

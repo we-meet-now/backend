@@ -118,7 +118,7 @@ public class ChatRoomService {
                 .chatRoomNm(chatRoomNm)
                 .placeId((long) requestDto.getPlaceId())
                 .meetTime(requestDto.getMeetTime())
-                .meetTime(requestDto.getMeetType())
+                .meetType(requestDto.getMeetType())
                 .inpUserId(String.valueOf(userId))
                 .build();
         chatRoomRepository.save(chatRoom);

@@ -25,18 +25,40 @@ public class JwtUtil {
     }
 
     public static Claims extractAllClaims(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(getSigningKey(SECRET_KEY))
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
+        try {
+            return Jwts.parserBuilder()
+                    .setSigningKey(getSigningKey(SECRET_KEY))
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
+        } catch (Exception e) {
+            log.error("raised error: {}",e.getMessage());
+            return null;
+        }
     }
 
     public static String getEmail(String token) {
-        return extractAllClaims(token).get("email", String.class);
+        Claims claims = extractAllClaims(token);
+        if (claims != null) {
+            return claims.get("email", String.class);
+        } else {
+            return "emptyString";
+        }
+
     }
     public static Long getId(String token){
-        return extractAllClaims(token).get("userId", Long.class);
+        Claims claims = extractAllClaims(token);
+        if (claims != null) {
+            Object userIdObj = claims.get("userId");
+            if (userIdObj instanceof Integer) {
+                return ((Integer) userIdObj).longValue();
+            } else if (userIdObj instanceof Long) {
+                return (Long) userIdObj;
+            } else if (userIdObj instanceof String) {
+                return Long.parseLong((String) userIdObj);
+            }
+        }
+        return 0L;
     }
 
     private static Key getSigningKey(String secretKey) {
@@ -48,33 +70,53 @@ public class JwtUtil {
         try {
             Date expiration = extractAllClaims(token).getExpiration();
             return expiration.before(new Date());
-        } catch (MalformedJwtException e) {
+        } catch (MalformedJwtException malError) {
+            log.error("Invalid JWT token(MalformedJwtException): {}", malError.getMessage());
             return true;
-        } catch (ExpiredJwtException e) {
+        } catch (ExpiredJwtException expError) {
+            log.error("Expired JWT token(ExpiredJwtException): {}", expError.getMessage());
             return true;
         }
     }
 
     public String generateAccessToken(Long userId, String email, Role role) {
-        return doGenerateToken(userId, email, role, ACCESS_TOKEN_EXPIRATION_TIME.getValue());
+        try {
+            return doGenerateToken(userId, email, role, ACCESS_TOKEN_EXPIRATION_TIME.getValue());
+        } catch (Exception e) {
+            log.error("raised error: {}",e.getMessage());
+            return "emptyString";
+        }
+
     }
 
     public String generateRefreshToken(Long userId, String email, Role role) {
-        return doGenerateToken(userId, email, role, REFRESH_TOKEN_EXPIRATION_TIME.getValue());
+        try {
+            return doGenerateToken(userId, email, role, REFRESH_TOKEN_EXPIRATION_TIME.getValue());
+        }
+         catch (Exception e) {
+            log.error("raised error: {}",e.getMessage());
+            return "emptyString";
+        }
     }
 
     private String doGenerateToken(Long userId, String email, Role role, long expireTime) {
-        Claims claims = Jwts.claims();
-        claims.put("userId", userId);
-        claims.put("email", email);
-        claims.put("role", role);
-        log.info("22enter doGenerateToken()" + SECRET_KEY);
-        return Jwts.builder()
-                .setClaims(claims)
-                .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + expireTime))
-                .signWith(getSigningKey(SECRET_KEY), SignatureAlgorithm.HS256)
-                .compact();
+        try {
+            Claims claims = Jwts.claims();
+            claims.put("userId", userId);
+            claims.put("email", email);
+            claims.put("role", role);
+            log.info("22enter doGenerateToken()" + SECRET_KEY);
+            return Jwts.builder()
+                    .setClaims(claims)
+                    .setIssuedAt(new Date(System.currentTimeMillis()))
+                    .setExpiration(new Date(System.currentTimeMillis() + expireTime))
+                    .signWith(getSigningKey(SECRET_KEY), SignatureAlgorithm.HS256)
+                    .compact();
+        } catch (Exception e) {
+            log.error("raised error: {}",e.getMessage());
+            return "emptyString";
+        }
+
     }
 
     public static Boolean validateToken(String token) {

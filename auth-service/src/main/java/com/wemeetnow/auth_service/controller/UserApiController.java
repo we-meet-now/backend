@@ -34,7 +34,7 @@ public class UserApiController {
     @PostMapping("/login")
     public ResponseEntity<UserLoginResponseDto> login(@RequestBody UserLoginRequestDto requestDto){
         log.info("UserLoginRequestDto = [{}]", requestDto);
-        UserLoginResponseDto responseDto = userService.login(requestDto);
+        UserLoginResponseDto responseDto = userService.login(requestDto).getBody();
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(responseDto);
     }
     @GetMapping("/check-is-logined")
@@ -101,15 +101,19 @@ public class UserApiController {
             String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
             String token = authorizationHeader.replace("Bearer ", "");
             if (JwtUtil.isExpired(token)) {
+                log.info("토큰이 유효하지 않습니다.");
                 return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
             }
             Long userId = JwtUtil.getId(token);
             User findUser = userService.getUserById(userId).orElse(null);
             if (findUser == null) {
+                log.info("사용자가 존재하지 않습니다.");
                 return new ResponseEntity<>(HttpStatus.NOT_FOUND);
             }
+            log.info("findUser = [{}]", findUser);
             ChatParticipantUserDto responseDto = ChatParticipantUserDto.builder()
                     .userId(findUser.getId())
+                    .username(findUser.getUsername())
                     .email(findUser.getEmail())
                     .nickname(findUser.getNickname())
                     .imgUrl(findUser.getImgUrl())

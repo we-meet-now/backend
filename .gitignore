@@ -1,0 +1,30 @@
+### db, auth properties ###
+service-discovery/src/main/resources-env/dev/application-db.properties
+service-discovery/src/main/resources-env/dev/application-auth.properties
+service-discovery/src/main/resources-env/prod1/application-db.properties
+service-discovery/src/main/resources-env/prod1/application-auth.properties
+
+### db, auth properties ###
+apigateway-service/src/main/resources-env/dev/application-db.properties
+apigateway-service/src/main/resources-env/dev/application-auth.properties
+apigateway-service/src/main/resources-env/prod1/application-db.properties
+apigateway-service/src/main/resources-env/prod1/application-auth.properties
+
+### db, auth properties ###
+auth-service/src/main/resources-env/dev/application-db.properties
+auth-service/src/main/resources-env/dev/application-auth.properties
+auth-service/src/main/resources-env/prod1/application-db.properties
+auth-service/src/main/resources-env/prod1/application-auth.properties
+
+### db, auth properties ###
+chat-service/src/main/resources-env/dev/application-db.properties
+chat-service/src/main/resources-env/dev/application-auth.properties
+chat-service/src/main/resources-env/prod1/application-db.properties
+chat-service/src/main/resources-env/prod1/application-auth.properties
+
+
+### db, auth properties ###
+store-service/src/main/resources-env/dev/application-db.properties
+store-service/src/main/resources-env/dev/application-auth.properties
+store-service/src/main/resources-env/prod1/application-db.properties
+store-service/src/main/resources-env/prod1/application-auth.properties

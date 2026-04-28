@@ -81,3 +81,27 @@ tasks.withType(JavaCompile) {
 	options.encoding = 'UTF-8'
 	options.compilerArgs += ["-parameters"]
 }
+
+tasks {
+	processResources {
+		duplicatesStrategy = org.gradle.api.file.DuplicatesStrategy.INCLUDE
+	}
+}
+
+def profile = "local"
+
+sourceSets {
+	main {
+		resources {
+			srcDir "src/main/resources-env/${profile}"
+		}
+	}
+}
+
+bootJar {
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+springBoot {
+	mainClass = 'com.wemeetnow.authservice.AuthServiceApplication'
+}

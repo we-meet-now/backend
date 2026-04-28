@@ -5,6 +5,7 @@ import com.wemeetnow.chat_service.domain.ChatParticipant;
 import com.wemeetnow.chat_service.domain.ChatRead;
 import com.wemeetnow.chat_service.domain.ChatRoom;
 import com.wemeetnow.chat_service.dto.AuthUserDto;
+import com.wemeetnow.chat_service.dto.CreateAnonymousChatRoomRequestDto;
 import com.wemeetnow.chat_service.dto.EnterRoomResponseDto;
 import com.wemeetnow.chat_service.repository.ChatParticipantRepository;
 import com.wemeetnow.chat_service.repository.ChatReadRepository;
@@ -61,6 +62,29 @@ public class ChatRoomService {
         }
 
     }
+
+    public ChatUserInfo fetchUserInfoFromAuthService(String token) {
+        try {
+            String jwtHeader = token.startsWith("Bearer ") ? token : "Bearer " + token;
+
+            RestClient restClient = restClientBuilder
+                    .baseUrl(AUTH_SERVICE_URL)
+                    .build();
+
+            // Auth Service 호출: 6112 포트로 요청
+            return restClient.get()
+                    .uri("/api/v1/users/get-user-info")
+                    .header("Authorization", jwtHeader)
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .body(ChatUserInfo.class);
+        } catch (Exception e) {
+            log.error("raised error: {}", e.getMessage());
+            return null;
+        }
+    }
+
+
     public EnterRoomResponseDto enterRoomAndMarkRead(Long roomId, Long userId) {
         String statusCode = "2000";
         String statusMsg = "success";
@@ -89,9 +113,12 @@ public class ChatRoomService {
     }
 
     @Transactional
-    public Long createAnonymousChatRoom(Long userId, String chatRoomNm) {
+    public Long createAnonymousChatRoom(Long userId, String chatRoomNm, CreateAnonymousChatRoomRequestDto requestDto) {
         ChatRoom chatRoom = ChatRoom.builder()
                 .chatRoomNm(chatRoomNm)
+                .placeId((long) requestDto.getPlaceId())
+                .meetTime(requestDto.getMeetTime())
+                .meetType(requestDto.getMeetType())
                 .inpUserId(String.valueOf(userId))
                 .build();
         chatRoomRepository.save(chatRoom);

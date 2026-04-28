@@ -7,5 +7,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class CreateAnonymousChatRoomRequestDto {
-    private String chatRoomNm;
+    private String meetTime;
+    private String meetType;
+    private int placeId;
 }

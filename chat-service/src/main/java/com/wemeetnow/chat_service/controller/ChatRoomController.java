@@ -99,32 +99,23 @@ public class ChatRoomController {
      * */
     @CrossOrigin(origins = "http://localhost:5173")
     @PostMapping("/create-one")
-    public ResponseEntity createOnChatRoom(@RequestBody CreateChatRoomRequestDto createChatRoomRequestDto, HttpServletRequest request) {
-        HttpStatus httpStatus = HttpStatus.OK;
-        String statusCode = "5000";
-        Map<String, Object> bodyMap = new HashMap<>();
-        List<ChatRoom> chatRoomList = new ArrayList<>();
-
-        try {
-            String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-            String accessToken = authorizationHeader.replace("Bearer ", "");
-            AuthUserDto authUserDto = chatRoomService.fetchUserFromAuthService(accessToken);
-            String chatRoomNm = "";
-//            String accessToken = jwtUtil.getAccessTokenFromHeader(request);
-//            if (!JwtUtil.isExpired(accessToken)) {
-//                loginedUserId = JwtUtil.getId(accessToken);
-//                statusCode = "2000";
-//                chatRoomList = chatRoomService.findByUserId(loginedUserId);
-//            }
-            log.info("authUserDto.getUserId: {}", authUserDto.getUserId());
-        } catch (Exception e) {
-            log.error("raised error: {}", e.getMessage());
-            statusCode = "5005";
-        } finally {
-            bodyMap.put("statusCode", statusCode);
-            bodyMap.put("chatRoomList", chatRoomList);
-        }
-        return ResponseEntity.status(httpStatus).body(bodyMap);
+    public ResponseEntity<CommonApiResponse<CreateOneChatRoomResponseDto>> createOnChatRoom(@RequestBody CreateChatRoomRequestDto createChatRoomRequestDto, HttpServletRequest request) {
+        String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        String accessToken = authorizationHeader.replace("Bearer ", "");
+        AuthUserDto authUserDto = chatRoomService.fetchUserFromAuthService(accessToken);
+        String inpUserId = String.valueOf(authUserDto.getUserId());
+        Long chatRoomId = chatRoomService.createOnChatRoom(
+                inpUserId,
+                createChatRoomRequestDto.getChatRoomNm(),
+                createChatRoomRequestDto.getParticipantIds()
+        );
+        CreateOneChatRoomResponseDto responseDto = new CreateOneChatRoomResponseDto(chatRoomId);
+        CommonApiResponse<CreateOneChatRoomResponseDto> response = CommonApiResponse.<CreateOneChatRoomResponseDto>builder()
+                .statusCode("2001")
+                .data(responseDto)
+                .message("채팅방 생성 성공")
+                .build();
+        return ResponseEntity.status(HttpStatus.OK).body(response);
     }
     // Add to ChatRoomController.java
 

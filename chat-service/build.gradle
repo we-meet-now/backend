@@ -39,7 +39,7 @@ dependencies {
 	implementation 'redis.clients:jedis:4.3.1'
 	implementation 'org.apache.commons:commons-pool2:2.11.1'
 
-	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0'
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
 
 	implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
 
@@ -84,5 +84,6 @@ bootJar {
 }
 
 springBoot {
-	mainClass = 'com.wemeetnow.chatservice.ChatServiceApplication'
+	mainClass = 'com.wemeetnow.chat_service.ChatServiceApplication'
 }
+

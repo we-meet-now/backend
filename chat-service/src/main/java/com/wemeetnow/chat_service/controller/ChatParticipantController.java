@@ -33,6 +33,9 @@ public class ChatParticipantController {
     private final ChatParticipantService chatParticipantService;
     private final AuthServiceClient authServiceClient;
 
+    /**
+     * 채팅방 참여한 User 정보 조회
+     * */
     @GetMapping("/roomId={roomId}")
     public ResponseEntity getChatParticipants(@PathVariable("roomId") Long roomId, HttpServletRequest request) {
         log.info("request: {}", request);
@@ -65,6 +68,10 @@ public class ChatParticipantController {
         }
         return ResponseEntity.status(httpStatus).body(bodyMap);
     }
+
+    /**
+     * 채팅방 비회원으로 입장한 User 정보 조회
+     * */
     @GetMapping("/anonymous-chat-roomId={roomId}")
     public ResponseEntity getAnonymousChatParticipants(@PathVariable("roomId") Long roomId) {
         HttpStatus httpStatus = HttpStatus.OK;

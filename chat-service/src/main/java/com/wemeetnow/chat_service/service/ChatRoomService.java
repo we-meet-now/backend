@@ -33,6 +33,30 @@ public class ChatRoomService {
     private final RestClient.Builder restClientBuilder;
     private final ChatParticipantRepository chatParticipantsRepository;
 
+    /**
+     * 채팅방 생성 및 참여자 정보 저장
+     */
+    @Transactional
+    public Long createOnChatRoom(String inpUserId, String chatRoomNm, List<Long> participantIds) {
+        ChatRoom chatRoom = ChatRoom.builder()
+                .chatRoomNm(chatRoomNm)
+                .placeId(null)
+                .meetTime(null)
+                .meetType(null)
+                .inpUserId(inpUserId)
+                .build();
+        chatRoomRepository.save(chatRoom);
+
+        for (Long userId : participantIds) {
+            ChatParticipant chatParticipant = ChatParticipant.builder()
+                    .chatRoomId(chatRoom.getChatRoomId())
+                    .userId(userId)
+                    .useYn('Y')
+                    .build();
+            chatParticipantsRepository.save(chatParticipant);
+        }
+        return chatRoom.getChatRoomId();
+    }
     @Value("${external.auth-service.url}")
     private String AUTH_SERVICE_URL;
 

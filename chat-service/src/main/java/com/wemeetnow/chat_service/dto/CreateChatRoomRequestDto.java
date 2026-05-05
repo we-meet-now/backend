@@ -8,6 +8,6 @@ import java.util.List;
 @Getter
 @Setter
 public class CreateChatRoomRequestDto {
-    String meetTime;
+    String chatRoomNm;
     List<Long> participantIds;
 }

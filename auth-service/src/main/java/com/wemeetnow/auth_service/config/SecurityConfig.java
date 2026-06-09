@@ -23,8 +23,10 @@ import org.springframework.web.filter.CorsFilter;
 @EnableWebSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
-    // NOTE value 로 aws 서버 ip 받아서 corsFilter 수정하기
     private final UserService userService;
+
+    @Value("${front.url}")
+    private String frontUrl;
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
         httpSecurity.addFilterBefore(corsFilter(), CorsFilter.class)
@@ -73,14 +75,13 @@ public class SecurityConfig {
     @Bean
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
-        config.addAllowedOrigin("http://localhost:3000"); // React의 localhost 주소
-        config.addAllowedOrigin("http://localhost:6113"); // chatService의 localhost 주소
-        config.addAllowedHeader("*"); // 모든 헤더 허용
-        config.addAllowedMethod("*"); // 모든 HTTP 메서드 허용
-        config.setAllowCredentials(true); // 쿠키 사용을 허용하려면 true로 설정
+        config.addAllowedOrigin(frontUrl);       // application.properties의 front.url (환경별 관리)
+        config.addAllowedHeader("*");
+        config.addAllowedMethod("*");
+        config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config); // 모든 경로에 대해 CORS 설정 적용
+        source.registerCorsConfiguration("/**", config);
 
         return new CorsFilter(source);
     }

@@ -69,7 +69,8 @@ tasks {
 	}
 }
 
-def profile = "local"
+// -Pprofile=dev 로 전달된 값을 읽고, 없으면 기본값 "local" 사용
+def profile = project.hasProperty('profile') ? project.property('profile') : 'local'
 
 sourceSets {
 	main {

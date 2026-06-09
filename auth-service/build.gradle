@@ -43,8 +43,6 @@ dependencies {
 	// 테스트용 화면단으로 thymeleaf
 	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
 
-	// swagger-ui
-	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui'
 
 	// JPA SQL log에서 파라미터 변수값 읽기위함
 	implementation("p6spy:p6spy:3.9.1")
@@ -88,7 +86,8 @@ tasks {
 	}
 }
 
-def profile = "local"
+// -Pprofile=dev 로 전달된 값을 읽고, 없으면 기본값 "local" 사용
+def profile = project.hasProperty('profile') ? project.property('profile') : 'local'
 
 sourceSets {
 	main {
@@ -103,5 +102,5 @@ bootJar {
 }
 
 springBoot {
-	mainClass = 'com.wemeetnow.authservice.AuthServiceApplication'
+	mainClass = 'com.wemeetnow.auth_service.AuthServiceApplication'
 }

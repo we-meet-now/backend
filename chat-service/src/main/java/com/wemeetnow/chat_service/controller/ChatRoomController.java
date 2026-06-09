@@ -1,29 +1,29 @@
 package com.wemeetnow.chat_service.controller;
 
-import com.wemeetnow.chat_service.config.jwt.JwtUtil;
 import com.wemeetnow.chat_service.domain.Chat;
 import com.wemeetnow.chat_service.domain.ChatRoom;
 import com.wemeetnow.chat_service.dto.*;
 import com.wemeetnow.chat_service.service.ChatRoomService;
 import com.wemeetnow.chat_service.service.ChatService;
 import com.wemeetnow.chat_service.service.ChatUserInfo;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestClient;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
+@Tag(name = "채팅방 API", description = "채팅방 생성, 조회, 입장, 퇴장 관련 API")
 @Slf4j
 @RestController
 @RequiredArgsConstructor
@@ -36,70 +36,98 @@ public class ChatRoomController {
     @Value("${chat-service.url}")
     private String chatServiceUrl;
 
-    @CrossOrigin(origins = "http://localhost:5173")
+    @Operation(
+            summary = "내 채팅방 목록 조회",
+            description = "JWT 토큰으로 로그인한 사용자가 참여 중인 채팅방 목록과 " +
+                          "각 채팅방의 읽지 않은 메시지 수를 함께 반환합니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "채팅방 목록 조회 성공",
+                    content = @Content(schema = @Schema(implementation = ChatRoomListResponseDto.class))),
+            @ApiResponse(responseCode = "500", description = "서버 오류 (토큰 인증 실패 등)",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
     @GetMapping("")
-    public ResponseEntity getChatRoomListByUserId(@RequestHeader(AUTH_HEADER) String token, HttpServletRequest request, HttpServletResponse response) {
+    public ResponseEntity<CommonApiResponse<ChatRoomListResponseDto>> getChatRoomListByUserId(
+            @RequestHeader(AUTH_HEADER) String token,
+            HttpServletRequest request) {
         log.info("request: {}", request);
-        HttpStatus httpStatus = HttpStatus.OK;
-        Long loginedUserId = 0L;
-        String statusCode = "5000";
-        Map<String, Object> bodyMap = new HashMap<>();
-        List<ChatRoomWithNotReadCountDto> chatRoomListWithNotReadCount = new ArrayList<>();
-        try {
-            AuthUserResponse authUserResponse = chatService.isValidAccessToken(token);
-            loginedUserId = authUserResponse.getUserId();
-            statusCode = "2000";
-            List<ChatRoom> chatRoomList = chatRoomService.findByUserId(loginedUserId);
+        AuthUserResponse authUserResponse = chatService.isValidAccessToken(token);
+        Long loginedUserId = authUserResponse.getUserId();
+        List<ChatRoom> chatRoomList = chatRoomService.findByUserId(loginedUserId);
 
-            for (ChatRoom chatRoom : chatRoomList) {
-                int notReadCount = chatService.getNotReadCountByRoomIdAndUserId(chatRoom.getChatRoomId(), loginedUserId);
-                chatRoomListWithNotReadCount.add(new ChatRoomWithNotReadCountDto(chatRoom, notReadCount));
-            }
-        } catch (Exception e) {
-            log.error("raised error: {}", e.getMessage());
-            statusCode = "5005";
-        } finally {
-            bodyMap.put("statusCode", statusCode);
-            bodyMap.put("loginedUserId", loginedUserId);
-            bodyMap.put("chatRoomList", chatRoomListWithNotReadCount);
-        }
-        return ResponseEntity.status(httpStatus).body(bodyMap);
+        List<ChatRoomWithNotReadCountDto> chatRoomListWithNotReadCount = chatRoomList.stream()
+                .map(chatRoom -> new ChatRoomWithNotReadCountDto(
+                        chatRoom,
+                        chatService.getNotReadCountByRoomIdAndUserId(chatRoom.getChatRoomId(), loginedUserId)
+                ))
+                .toList();
+
+        ChatRoomListResponseDto responseDto = ChatRoomListResponseDto.builder()
+                .loginedUserId(loginedUserId)
+                .chatRoomList(chatRoomListWithNotReadCount)
+                .build();
+
+        return ResponseEntity.ok(CommonApiResponse.<ChatRoomListResponseDto>builder()
+                .statusCode("2000")
+                .data(responseDto)
+                .message("채팅방 목록 조회 성공")
+                .build());
     }
 
-    @CrossOrigin(origins = "http://localhost:5173")
+    @Operation(
+            summary = "채팅방 입장 (채팅 내역 조회)",
+            description = "채팅방 ID로 해당 채팅방의 전체 채팅 내역을 조회합니다. " +
+                          "로그인한 사용자 ID와 채팅 목록을 함께 반환합니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "채팅방 입장 및 채팅 내역 조회 성공",
+                    content = @Content(schema = @Schema(implementation = EnterChatRoomResponseDto.class))),
+            @ApiResponse(responseCode = "500", description = "서버 오류 (토큰 인증 실패, 잘못된 roomId 등)",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
     @GetMapping("/roomId={roomId}")
-    public ResponseEntity enterChatRoom(@PathVariable("roomId") Long roomId, HttpServletRequest request, @RequestHeader(AUTH_HEADER) String token) {
-        log.info("request: {}", request);
+    public ResponseEntity<CommonApiResponse<EnterChatRoomResponseDto>> enterChatRoom(
+            @PathVariable("roomId") Long roomId,
+            HttpServletRequest request,
+            @RequestHeader(AUTH_HEADER) String token) {
         log.info("roomId: {}", roomId);
-        log.info("roomId.getClass: {}", roomId.getClass());
-        String statusCode = "5000";
-        HttpStatus httpStatus = HttpStatus.OK;
-        Long loginedUserId = 0L;
-        Map<String, Object> bodyMap = new HashMap<>();
-        List<Chat> chatList = new ArrayList<>();
-        try {
-            AuthUserResponse authUserResponse = chatService.isValidAccessToken(token);
-            loginedUserId = authUserResponse.getUserId();
-            statusCode = "2000";
-            chatList = chatService.getChatList(roomId, loginedUserId);
-        } catch (Exception e) {
-            log.error("raised error: {}", e.getMessage());
-            statusCode = "5005";
-        } finally {
-            bodyMap.put("loginedUserId", loginedUserId);
-            bodyMap.put("statusCode", statusCode);
-            bodyMap.put("chatList", chatList);
-        }
-        return ResponseEntity.status(httpStatus).body(bodyMap);
+        AuthUserResponse authUserResponse = chatService.isValidAccessToken(token);
+        Long loginedUserId = authUserResponse.getUserId();
+        List<Chat> chatList = chatService.getChatList(roomId, loginedUserId);
+
+        EnterChatRoomResponseDto responseDto = EnterChatRoomResponseDto.builder()
+                .loginedUserId(loginedUserId)
+                .chatList(chatList)
+                .build();
+
+        return ResponseEntity.ok(CommonApiResponse.<EnterChatRoomResponseDto>builder()
+                .statusCode("2000")
+                .data(responseDto)
+                .message("채팅방 입장 성공")
+                .build());
     }
 
 
     /**
      * 사용자 여러명 초대하면서 생성하는 채팅방
-     * */
-    @CrossOrigin(origins = "http://localhost:5173")
+     */
+    @Operation(
+            summary = "채팅방 생성 (다중 참여자 초대)",
+            description = "채팅방 이름과 참여자 ID 목록을 받아 채팅방을 생성하고, " +
+                          "요청한 사용자 및 초대된 참여자들을 채팅방에 등록합니다. " +
+                          "Authorization 헤더의 JWT 토큰으로 요청자를 식별합니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "채팅방 생성 성공",
+                    content = @Content(schema = @Schema(implementation = CreateOneChatRoomResponseDto.class))),
+            @ApiResponse(responseCode = "500", description = "서버 오류 (토큰 인증 실패, DB 저장 실패 등)",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
     @PostMapping("/create-one")
-    public ResponseEntity<CommonApiResponse<CreateOneChatRoomResponseDto>> createOnChatRoom(@RequestBody CreateChatRoomRequestDto createChatRoomRequestDto, HttpServletRequest request) {
+    public ResponseEntity<CommonApiResponse<CreateOneChatRoomResponseDto>> createOnChatRoom(
+            @RequestBody CreateChatRoomRequestDto createChatRoomRequestDto,
+            HttpServletRequest request) {
         String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
         String accessToken = authorizationHeader.replace("Bearer ", "");
         AuthUserDto authUserDto = chatRoomService.fetchUserFromAuthService(accessToken);
@@ -117,9 +145,18 @@ public class ChatRoomController {
                 .build();
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
-    // Add to ChatRoomController.java
 
-    @CrossOrigin(origins = "http://localhost:5173")
+    @Operation(
+            summary = "채팅방 입장 처리 및 읽음 처리",
+            description = "채팅방에 입장할 때 읽지 않은 메시지를 읽음 처리합니다. " +
+                          "읽음 처리된 메시지 수를 반환합니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "읽음 처리 성공",
+                    content = @Content(schema = @Schema(implementation = EnterRoomResponseDto.class))),
+            @ApiResponse(responseCode = "500", description = "서버 오류",
+                    content = @Content(schema = @Schema(implementation = EnterRoomResponseDto.class)))
+    })
     @GetMapping("/enter-room/roomId={roomId}")
     public ResponseEntity<EnterRoomResponseDto> enterRoomAndMarkRead(
             @PathVariable("roomId") Long roomId,
@@ -145,57 +182,69 @@ public class ChatRoomController {
         return ResponseEntity.status(httpStatus).body(responseDto);
     }
 
-    @CrossOrigin(origins = "http://localhost:5173")
+    @Operation(
+            summary = "채팅방 퇴장",
+            description = "로그인한 사용자를 해당 채팅방에서 퇴장(참여자 제거)시킵니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "채팅방 퇴장 성공"),
+            @ApiResponse(responseCode = "500", description = "서버 오류 (토큰 인증 실패 등)",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
     @GetMapping("/leave-room/roomId={roomId}")
-    public ResponseEntity<Map<String, Object>> leaveChatRoom(
+    public ResponseEntity<CommonApiResponse<Void>> leaveChatRoom(
             @PathVariable("roomId") Long roomId,
-            HttpServletRequest request,
             @RequestHeader("Authorization") String token) {
-        Map<String, Object> bodyMap = new HashMap<>();
-        String statusCode = "5000";
-        HttpStatus httpStatus = HttpStatus.OK;
-        try {
-            AuthUserResponse authUserResponse = chatService.isValidAccessToken(token);
-            Long userId = authUserResponse.getUserId();
-            chatRoomService.leaveRoom(roomId, userId);
-            statusCode = "2000";
-        } catch (Exception e) {
-            log.error("raised error: {}", e.getMessage());
-            statusCode = "5005";
-            httpStatus = HttpStatus.INTERNAL_SERVER_ERROR;
-        }
-        bodyMap.put("statusCode", statusCode);
-        return ResponseEntity.status(httpStatus).body(bodyMap);
+        AuthUserResponse authUserResponse = chatService.isValidAccessToken(token);
+        Long userId = authUserResponse.getUserId();
+        chatRoomService.leaveRoom(roomId, userId);
+
+        return ResponseEntity.ok(CommonApiResponse.<Void>builder()
+                .statusCode("2000")
+                .data(null)
+                .message("채팅방 퇴장 성공")
+                .build());
     }
 
+    @Operation(
+            summary = "익명(비로그인) 채팅방 생성",
+            description = "로그인한 사용자가 모임 유형(meetType)을 지정하여 익명 채팅방을 생성합니다. " +
+                          "생성 완료 후 익명 참여자 초대 URL을 반환합니다. " +
+                          "meetType이 비어있으면 '아무거나 다 좋은 모임'으로 채팅방 이름이 설정됩니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "익명 채팅방 생성 성공",
+                    content = @Content(schema = @Schema(implementation = InviteAnonymousResponseDto.class))),
+            @ApiResponse(responseCode = "500", description = "서버 오류 (토큰 인증 실패, DB 저장 실패 등)",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
     @PostMapping("/create-anonymous-room")
-    public ResponseEntity<Map<String, Object>> inviteAnonymous(HttpServletRequest request, @RequestBody CreateAnonymousChatRoomRequestDto requestDto) {
-        Map<String, Object> bodyMap = new HashMap<>();
-        String statusCode = "5000";
-        Long chatRoomId = null;
+    public ResponseEntity<CommonApiResponse<InviteAnonymousResponseDto>> inviteAnonymous(
+            HttpServletRequest request,
+            @RequestBody CreateAnonymousChatRoomRequestDto requestDto) {
         String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
         String token = authorizationHeader.replace("Bearer ", "");
         AuthUserResponse authUserResponse = chatService.isValidAccessToken(token);
         Long loginedUserId = authUserResponse.getUserId();
         log.info("loginedUserId: {}", loginedUserId);
-        try {
-            ChatUserInfo loginedUserInfo = chatRoomService.fetchUserInfoFromAuthService(token);
-            StringBuilder chatRoomNm = new StringBuilder();
-            if (requestDto.getMeetType().equals("")) {
-                chatRoomNm.append(loginedUserInfo.getUsername()).append("의 아무거나 다 좋은 모임");
-            } else {
-                chatRoomNm.append(loginedUserInfo.getUsername()).append("의 ").append(requestDto.getMeetType());
-            }
 
-            chatRoomId = chatRoomService.createAnonymousChatRoom(loginedUserId, chatRoomNm.toString(), requestDto);
-            statusCode = "2000";
-            bodyMap.put("inviteAnnonymousUrl",  chatServiceUrl + "/chat-participants/anonymous-chat-roomId=" + chatRoomId);
-        } catch (Exception e) {
-            statusCode = "5005";
-            log.error("raised error: {}", e.getMessage());
-        }
-        bodyMap.put("statusCode", statusCode);
-        bodyMap.put("chatRoomId", chatRoomId);
-        return ResponseEntity.status(HttpStatus.OK).body(bodyMap);
+        ChatUserInfo loginedUserInfo = chatRoomService.fetchUserInfoFromAuthService(token);
+        String chatRoomNm = requestDto.getMeetType().isBlank()
+                ? loginedUserInfo.getUsername() + "의 아무거나 다 좋은 모임"
+                : loginedUserInfo.getUsername() + "의 " + requestDto.getMeetType();
+
+        Long chatRoomId = chatRoomService.createAnonymousChatRoom(loginedUserId, chatRoomNm, requestDto);
+        String inviteUrl = chatServiceUrl + "/chat-participants/anonymous-chat-roomId=" + chatRoomId;
+
+        InviteAnonymousResponseDto responseDto = InviteAnonymousResponseDto.builder()
+                .chatRoomId(chatRoomId)
+                .inviteAnonymousUrl(inviteUrl)
+                .build();
+
+        return ResponseEntity.ok(CommonApiResponse.<InviteAnonymousResponseDto>builder()
+                .statusCode("2000")
+                .data(responseDto)
+                .message("익명 채팅방 생성 성공")
+                .build());
     }
 }

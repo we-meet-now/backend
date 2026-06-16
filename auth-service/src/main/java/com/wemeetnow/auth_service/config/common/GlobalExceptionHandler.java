@@ -2,7 +2,9 @@ package com.wemeetnow.auth_service.config.common;
 
 
 import com.fasterxml.jackson.databind.JsonMappingException;
+import com.wemeetnow.auth_service.dto.CommonApiResponse;
 import com.wemeetnow.auth_service.dto.StoreRecommendRequestDto;
+import com.wemeetnow.auth_service.exception.InvalidPasswordException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -65,5 +67,28 @@ public class GlobalExceptionHandler {
         } catch (NoSuchFieldException e) {
             return "알 수 없는 필드";
         }
+    }
+    @ExceptionHandler(InvalidPasswordException.class)
+    public ResponseEntity<CommonApiResponse<Void>> handleInvalidPassword(InvalidPasswordException ex) {
+        log.error("InvalidPasswordException: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                CommonApiResponse.<Void>builder()
+                        .statusCode("4001")
+                        .data(null)
+                        .message(ex.getMessage())
+                        .build()
+        );
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<CommonApiResponse<Void>> handleException(Exception ex) {
+        log.error("Unhandled exception: ", ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                CommonApiResponse.<Void>builder()
+                        .statusCode("5005")
+                        .data(null)
+                        .message(ex.getMessage() != null ? ex.getMessage() : "서버 오류가 발생했습니다.")
+                        .build()
+        );
     }
 }

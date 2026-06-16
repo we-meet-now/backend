@@ -1,0 +1,120 @@
+name: Deploy auth-service to EC2 (dev)
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - 'auth-service/**'
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy auth-service
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 소스 체크아웃
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      # 2. JDK 17 설정
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # 3. Gradle 캐시 (빌드 속도 향상)
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-auth-${{ hashFiles('auth-service/**/*.gradle*', 'auth-service/**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-auth-
+
+      # 4. Gradle 실행 권한 부여
+      - name: Grant execute permission for gradlew
+        run: chmod +x auth-service/gradlew
+
+      # 5. dev 프로필로 빌드 (테스트 skip)
+      - name: Build with Gradle (profile=dev)
+        run: |
+          cd auth-service
+          ./gradlew clean build -Pprofile=dev -x test
+
+      # 6. EC2에 JAR 파일 전송 (SCP)
+      - name: Copy JAR to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_PORT }}
+          source: "auth-service/build/libs/auth-service-0.0.1-SNAPSHOT.jar"
+          target: "/wasapp/transfer/"
+          strip_components: 3
+
+      # 7. EC2에서 서비스 재시작
+      - name: Deploy & Restart auth-service on EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_PORT }}
+          script: |
+            set -e
+
+            # 로그 디렉토리 생성
+            mkdir -p /wasapp/logfs/auth-service
+
+            # 기존 프로세스 종료 (6112 포트)
+            echo ">>> Stopping auth-service (port 6112)..."
+            PID=$(lsof -t -i:6112 2>/dev/null || true)
+            if [ -n "$PID" ]; then
+              kill -15 $PID
+              sleep 5
+              # 아직 살아있으면 강제 종료
+              kill -9 $PID 2>/dev/null || true
+              echo ">>> auth-service stopped (PID: $PID)"
+            else
+              echo ">>> auth-service is not running"
+            fi
+
+            # 기존 JAR 백업
+            if [ -f /wasapp/auth-service-0.0.1-SNAPSHOT.jar ]; then
+              cp /wasapp/auth-service-0.0.1-SNAPSHOT.jar \
+                /wasapp/auth-service-0.0.1-SNAPSHOT.jar.bak
+              echo ">>> Backup created"
+            fi
+
+            # 새 JAR 이동
+            mv /wasapp/transfer/auth-service-0.0.1-SNAPSHOT.jar \
+               /wasapp/auth-service-0.0.1-SNAPSHOT.jar
+            echo ">>> New JAR deployed"
+
+            # 서비스 재시작
+            nohup java -Xms128m -Xmx256m \
+              -jar /wasapp/auth-service-0.0.1-SNAPSHOT.jar \
+              > /wasapp/logfs/auth-service/auth-service.log 2>&1 &
+
+            echo ">>> auth-service started (PID: $!)"
+
+            # 기동 확인 (최대 60초 대기)
+            echo ">>> Waiting for auth-service to start..."
+            for i in $(seq 1 12); do
+              sleep 5
+              if lsof -i:6112 > /dev/null 2>&1; then
+                echo ">>> auth-service is running on port 6112 ✅"
+                exit 0
+              fi
+              echo ">>> Waiting... ($((i * 5))s)"
+            done
+
+            echo ">>> auth-service failed to start ❌"
+            tail -50 /wasapp/logfs/auth-service/auth-service.log
+            exit 1
+

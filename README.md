@@ -100,3 +100,45 @@ nohup java -Xms256m -Xmx512m -jar auth-service-0.0.1-SNAPSHOT.jar --server.port=
 nohup java -Xms256m -Xmx512m -jar chat-service-0.0.1-SNAPSHOT.jar --server.port=6113 > /wasapp/logfs/chat-service/chat-service.log 2>&1 &
 ```
 
+# Render & Railway MySQL 배포 및 연동 가이드
+
+Render에서 Spring Boot 애플리케이션을 배포하고, Railway에서 제공하는 MySQL 데이터베이스와 안전하게 연동하는 과정에서 발생한 트러블슈팅과 최종 해결 방법을 정리한 가이드입니다.
+
+---
+
+## 1. 문제 상황 (Issue)
+Render에 Spring Boot 애플리케이션(`auth-service`) 배포 시, 애플리케이션 초기 구동 단계에서 다음과 같은 에러가 발생하며 배포가 실패했습니다.
+* **에러 메시지:** `java.lang.NullPointerException` 및 `Communications link failure` (SQL Error: 0, SQLState: 08S01)
+* **원인:** Spring Boot가 구동되면서 DDL 실행 또는 데이터베이스 검증을 위해 Railway MySQL에 연결을 시도했으나, 네트워크 연결(Connection)을 수립하지 못함.
+
+---
+
+## 2. 주요 원인 분석
+
+### ① 보안 정보 노출 위험 (Hardcoded Credentials)
+초기 설정 파일(`application-db.properties`)에 데이터베이스 접속 주소, 비밀번호, JWT Secret 키가 평문(Raw Text)으로 기록되어 있어 GitHub에 그대로 Push될 경우 심각한 보안 위협이 있었습니다.
+
+### ② 드라이버 암호화 통신 옵션 누락
+Railway MySQL은 외부 환경에서 접속할 때 암호화 통신 방지 완화 파라미터(`allowPublicKeyRetrieval=true&useSSL=false`)가 URL 뒤에 붙지 않으면, 보안 메커니즘으로 인해 외부 컨테이너(Render)의 접속 패킷을 거부하여 `Communications link failure`를 유발합니다.
+
+### ③ 빌드 시점(Docker Build) 환경 변수 주입 한계
+스프링 속성 파일에 `${DB_URL}`과 같이 플레이스홀더를 사용하더라도, Render의 **Docker 빌드(Jar 생성) 시점**에 해당 환경 변수가 인식되지 않으면 기본값(`localhost:3306`)으로 Jar 파일이 빌드되어 버립니다. 이로 인해 런타임에 대시보드 환경 변수가 무시되는 현상이 발생했습니다.
+
+---
+
+## 3. 최종 해결 및 조치 단계 (Solution)
+
+### 단계 1: Spring Boot 설정 파일 변수화 (`application-db.properties`)
+실제 중요한 값들을 제거하고, 시스템 환경 변수를 주입받도록 구조를 변경했습니다. 값이 없을 경우를 대비한 로컬 기본값(`:기본값`)도 함께 정의했습니다.
+
+```properties
+# MySQL 8 드라이버 설정
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+
+# 외부 환경 변수가 있으면 주입받고, 없으면 로컬 값 사용
+spring.datasource.url=${DB_URL:jdbc:mysql://localhost:3306/wemeetnow?serverTimezone=Asia/Seoul}
+spring.datasource.username=${DB_USER:root}
+spring.datasource.password=${DB_PASSWORD:Qwe123!!}
+
+# JWT 설정 변수화
+jwt.secret=${JWT_SECRET:default_local_secret_key_at_least_32_bytes_long!!}

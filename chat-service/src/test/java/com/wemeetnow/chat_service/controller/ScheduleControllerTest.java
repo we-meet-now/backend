@@ -45,7 +45,7 @@ class ScheduleControllerTest {
     @InjectMocks
     private ScheduleController scheduleController;
 
-    private static final String BASE_URL = "/api/v1/schedules";
+    private static final String BASE_URL = "/api/chat/v1/schedules";
     private static final String AUTH_TOKEN = "Bearer test-jwt-token";
     private static final Long SCHEDULE_ID = 10L;
     private static final Long USER_ID = 1L;
@@ -70,11 +70,11 @@ class ScheduleControllerTest {
     }
 
     // ──────────────────────────────────────────────────────────────
-    // POST /api/v1/schedules  →  일정 생성
+    // POST /api/chat/v1/schedules  →  일정 생성
     // ──────────────────────────────────────────────────────────────
 
     @Nested
-    @DisplayName("POST /api/v1/schedules - 일정 생성")
+    @DisplayName("POST /api/chat/v1/schedules - 일정 생성")
     class CreateScheduleControllerTests {
 
         @Test
@@ -131,11 +131,11 @@ class ScheduleControllerTest {
     }
 
     // ──────────────────────────────────────────────────────────────
-    // GET /api/v1/schedules/scheduleId={id}  →  일정 상세 조회
+    // GET /api/chat/v1/schedules/scheduleId={id}  →  일정 상세 조회
     // ──────────────────────────────────────────────────────────────
 
     @Nested
-    @DisplayName("GET /api/v1/schedules/scheduleId={id} - 일정 상세 조회")
+    @DisplayName("GET /api/chat/v1/schedules/scheduleId={id} - 일정 상세 조회")
     class GetScheduleDetailControllerTests {
 
         @Test
@@ -184,11 +184,11 @@ class ScheduleControllerTest {
     }
 
     // ──────────────────────────────────────────────────────────────
-    // PUT /api/v1/schedules/scheduleId={id}  →  일정 수정
+    // PUT /api/chat/v1/schedules/scheduleId={id}  →  일정 수정
     // ──────────────────────────────────────────────────────────────
 
     @Nested
-    @DisplayName("PUT /api/v1/schedules/scheduleId={id} - 일정 수정")
+    @DisplayName("PUT /api/chat/v1/schedules/scheduleId={id} - 일정 수정")
     class UpdateScheduleControllerTests {
 
         @Test
@@ -265,11 +265,11 @@ class ScheduleControllerTest {
     }
 
     // ──────────────────────────────────────────────────────────────
-    // PATCH /api/v1/schedules/scheduleId={id}/status  →  상태 변경
+    // PATCH /api/chat/v1/schedules/scheduleId={id}/status  →  상태 변경
     // ──────────────────────────────────────────────────────────────
 
     @Nested
-    @DisplayName("PATCH /api/v1/schedules/scheduleId={id}/status - 상태 변경")
+    @DisplayName("PATCH /api/chat/v1/schedules/scheduleId={id}/status - 상태 변경")
     class UpdateScheduleStatusControllerTests {
 
         @Test
@@ -316,11 +316,11 @@ class ScheduleControllerTest {
     }
 
     // ──────────────────────────────────────────────────────────────
-    // DELETE /api/v1/schedules/scheduleId={id}  →  일정 삭제
+    // DELETE /api/chat/v1/schedules/scheduleId={id}  →  일정 삭제
     // ──────────────────────────────────────────────────────────────
 
     @Nested
-    @DisplayName("DELETE /api/v1/schedules/scheduleId={id} - 일정 삭제")
+    @DisplayName("DELETE /api/chat/v1/schedules/scheduleId={id} - 일정 삭제")
     class DeleteScheduleControllerTests {
 
         @Test

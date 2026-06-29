@@ -35,7 +35,7 @@ public class ChatController {
 //    }
     @CrossOrigin(origins = "http://localhost:5173")
     @MessageMapping("/chat.sendMessage")
-    @SendTo("/topic/public")
+    @SendTo("/api/chat/v1/message/topic/public")
     public ChatResponseDto sendMessage(@Payload ChatDto chatDto) throws Exception {
         log.info("chatDto: {}", chatDto);
         // DB 저장 (단순 ID 참조 방식)
@@ -49,7 +49,7 @@ public class ChatController {
 
     @CrossOrigin(origins = "http://localhost:5173")
     @MessageMapping("/chat.addUser")
-    @SendTo("/topic/public")
+    @SendTo("/api/chat/v1/message/topic/public")
     public ChatResponseDto addUser(@Payload ChatDto chatMessageDto) throws Exception {
         // 입장 메시지 강제로 세팅
         String content = chatMessageDto.getUserId() + " 님이 입장했습니다.";

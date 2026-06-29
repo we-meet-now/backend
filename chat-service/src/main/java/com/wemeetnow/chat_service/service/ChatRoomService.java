@@ -75,7 +75,7 @@ public class ChatRoomService {
 
             // Auth Service 호출: 6112 포트로 요청
             return restClient.get()
-                    .uri("/api/v1/users/get-id")
+                    .uri("/api/auth/v1/users/get-id")
                     .header("Authorization", jwtHeader)
                     .accept(MediaType.APPLICATION_JSON)
                     .retrieve()
@@ -97,7 +97,7 @@ public class ChatRoomService {
 
             // Auth Service 호출: 6112 포트로 요청
             return restClient.get()
-                    .uri("/api/v1/users/get-user-info")
+                    .uri("/api/auth/v1/users/get-user-info")
                     .header("Authorization", jwtHeader)
                     .accept(MediaType.APPLICATION_JSON)
                     .retrieve()

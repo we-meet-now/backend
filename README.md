@@ -96,7 +96,7 @@ public class GlobalExceptionHandler {
 # 직접 실행
 ```bash
 cd /wasapp
-nohup java -jar  auth-service-0.0.1-SNAPSHOT.jar > /dev/null 2>&1 &
-nohup java -jar  chat-service-0.0.1-SNAPSHOT.jar > /dev/null 2>&1 &
+nohup java -Xms256m -Xmx512m -jar auth-service-0.0.1-SNAPSHOT.jar --server.port=6112 > /wasapp/logfs/auth-service/auth-service.log 2>&1 &
+nohup java -Xms256m -Xmx512m -jar chat-service-0.0.1-SNAPSHOT.jar --server.port=6113 > /wasapp/logfs/chat-service/chat-service.log 2>&1 &
 ```
 

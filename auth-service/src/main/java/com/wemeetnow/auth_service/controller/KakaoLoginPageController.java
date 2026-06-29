@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 @Controller
-@RequestMapping("/api/v1/login")
+@RequestMapping("/api/auth/v1/test/login")
 public class KakaoLoginPageController {
     @Value("${kakao.client_id}")
     private String client_id;

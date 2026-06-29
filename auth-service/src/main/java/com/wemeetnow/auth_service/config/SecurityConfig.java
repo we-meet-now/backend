@@ -34,24 +34,24 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorizeRequest ->
                         authorizeRequest
 //                                .anyRequest().permitAll()
-                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/v1/users/join")).permitAll()
-                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/v1/users/login")).permitAll()
-                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/v1/users/logout")).permitAll()
-                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/v1/users/reissue")).permitAll()
-                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/v1/users/get-id")).permitAll()
-                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/v1/users/get-user-info")).authenticated()
-                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/v1/login/page")).permitAll() // 카카오로그인 테스트용
-                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/v1/stores/**")).permitAll() // 맛집 추천받기 테스트용
-                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/callback")).permitAll() // 카카오로그인 테스트용
-                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/swagger-ui/**")).permitAll() // Swagger-ui
-                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/swagger-ui.html")).permitAll() // Swagger-ui
-                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/h2-console/**")).permitAll()
-                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/favicon.ico")).permitAll()
-                                 .requestMatchers(AntPathRequestMatcher.antMatcher( "/error")).permitAll()
-                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/swagger-resources/**")).permitAll()
-                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/v3/api-docs/**")).permitAll()
-                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/v1/friends/**")).permitAll()
-                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/v1/users/create-random-nickname")).permitAll()
+                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/join")).permitAll()
+                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/login")).permitAll()
+                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/logout")).permitAll()
+                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/reissue")).permitAll()
+                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/get-id")).permitAll()
+                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/get-user-info")).authenticated()
+                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/login/page")).permitAll() // 카카오로그인 테스트용
+                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/stores/**")).permitAll() // 맛집 추천받기 테스트용
+                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/kakao/callback")).permitAll() // 카카오로그인 테스트용
+                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/swagger-ui/**")).permitAll() // Swagger-ui
+                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/swagger-ui.html")).permitAll() // Swagger-ui
+                                .requestMatchers(AntPathRequestMatcher.antMatcher("/swagger-resources/**")).permitAll()
+                                .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/api-docs/**")).permitAll()
+                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/h2-console/**")).permitAll()
+                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/favicon.ico")).permitAll()
+                                 .requestMatchers(AntPathRequestMatcher.antMatcher( "/api/auth/v1/error")).permitAll()
+                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/friends/**")).permitAll()
+                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/create-random-nickname")).permitAll()
                         )
                 .headers(
                         headersConfigurer -> headersConfigurer.frameOptions(

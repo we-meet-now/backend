@@ -19,7 +19,7 @@ import java.util.Map;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/stores")
+@RequestMapping("/api/auth/v1/stores")
 public class StoreController {
     @Operation(summary = "매장 1개 추천", description = "추천된 5개의 매장 중 1개를 Map<>형태로 추천해준다.")
     @Parameter(name = "Map", description = "meetInfoMap")

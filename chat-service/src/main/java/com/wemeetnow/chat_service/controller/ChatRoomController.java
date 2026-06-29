@@ -27,7 +27,7 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/chat-rooms")
+@RequestMapping("/api/chat/v1/chat-rooms")
 public class ChatRoomController {
     private final ChatRoomService chatRoomService;
     private final ChatService chatService;

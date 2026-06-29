@@ -20,13 +20,13 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/schedules")
+@RequestMapping("/api/chat/v1/schedules")
 public class ScheduleController {
 
     private final ScheduleService scheduleService;
 
     // ─────────────────────────────────────────────────────────
-    // POST /api/v1/schedules  →  일정 생성
+    // POST /api/chat/v1/schedules  →  일정 생성
     // ─────────────────────────────────────────────────────────
 
     @Operation(
@@ -67,7 +67,7 @@ public class ScheduleController {
     }
 
     // ─────────────────────────────────────────────────────────
-    // GET /api/v1/schedules/scheduleId={scheduleId}  →  일정 상세 조회
+    // GET /api/chat/v1/schedules/scheduleId={scheduleId}  →  일정 상세 조회
     // ─────────────────────────────────────────────────────────
 
     @Operation(
@@ -106,7 +106,7 @@ public class ScheduleController {
     }
 
     // ─────────────────────────────────────────────────────────
-    // PUT /api/v1/schedules/scheduleId={scheduleId}  →  일정 전체 수정
+    // PUT /api/chat/v1/schedules/scheduleId={scheduleId}  →  일정 전체 수정
     // ─────────────────────────────────────────────────────────
 
     @Operation(
@@ -145,7 +145,7 @@ public class ScheduleController {
     }
 
     // ─────────────────────────────────────────────────────────
-    // PATCH /api/v1/schedules/scheduleId={scheduleId}/status  →  상태 변경
+    // PATCH /api/chat/v1/schedules/scheduleId={scheduleId}/status  →  상태 변경
     // ─────────────────────────────────────────────────────────
 
     @Operation(
@@ -183,7 +183,7 @@ public class ScheduleController {
     }
 
     // ─────────────────────────────────────────────────────────
-    // DELETE /api/v1/schedules/scheduleId={scheduleId}  →  일정 삭제
+    // DELETE /api/chat/v1/schedules/scheduleId={scheduleId}  →  일정 삭제
     // ─────────────────────────────────────────────────────────
 
     @Operation(

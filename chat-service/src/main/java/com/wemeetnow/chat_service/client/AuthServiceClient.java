@@ -10,6 +10,6 @@ import org.springframework.web.client.RestClient;
 
 @FeignClient(name = "auth-service", url = "${auth-service.url}")
 public interface AuthServiceClient {
-    @GetMapping("/api/v1/users/userId={userId}")
+    @GetMapping("/api/auth/v1/users/userId={userId}")
     ChatParticipantUserDto getUserById(@PathVariable("userId") Long userId);
 }

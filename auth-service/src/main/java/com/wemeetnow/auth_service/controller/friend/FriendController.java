@@ -21,7 +21,7 @@ import java.util.Optional;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/friends")
+@RequestMapping("/api/auth/v1/friends")
 public class FriendController {
 
 //    @Value("${front.url}")

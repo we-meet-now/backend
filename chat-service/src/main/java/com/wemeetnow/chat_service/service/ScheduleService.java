@@ -46,7 +46,7 @@ public class ScheduleService {
             String jwtHeader = token.startsWith("Bearer ") ? token : "Bearer " + token;
             RestClient restClient = restClientBuilder.baseUrl(AUTH_SERVICE_URL).build();
             return restClient.get()
-                    .uri("/api/v1/users/get-id")
+                    .uri("/api/auth/v1/users/get-id")
                     .header("Authorization", jwtHeader)
                     .accept(MediaType.APPLICATION_JSON)
                     .retrieve()

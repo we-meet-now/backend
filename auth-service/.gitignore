@@ -1,7 +1,11 @@
 # authentication
-../auth-service/src/main/resources/application-auth.properties
+../auth-service/src/main/resources-env/local/application-auth.properties
+../auth-service/src/main/resources-env/dev/application-auth.properties
+../auth-service/src/main/resources-env/prod1/application-auth.properties
 # db
-../auth-service/src/main/resources/application-db.properties
+../auth-service/src/main/resources-env/local/application-db.properties
+../auth-service/src/main/resources-env/dev/application-db.properties
+../auth-service/src/main/resources-env/prod1/application-db.properties
 # default
 HELP.md
 .gradle

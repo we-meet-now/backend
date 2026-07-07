@@ -52,6 +52,7 @@ public class SecurityConfig {
                                  .requestMatchers(AntPathRequestMatcher.antMatcher( "/api/auth/v1/error")).permitAll()
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/friends/**")).permitAll()
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/create-random-nickname")).permitAll()
+                                .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/email/send")).permitAll()
                         )
                 .headers(
                         headersConfigurer -> headersConfigurer.frameOptions(

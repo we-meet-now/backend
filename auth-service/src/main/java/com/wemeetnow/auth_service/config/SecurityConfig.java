@@ -77,6 +77,7 @@ public class SecurityConfig {
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
         config.addAllowedOrigin(frontUrl);       // application.properties의 front.url (환경별 관리)
+        config.addAllowedOrigin("http://localhost:5173"); // 로컬 개발 환경에서의 CORS 허용
         config.addAllowedHeader("*");
         config.addAllowedMethod("*");
         config.setAllowCredentials(true);

@@ -50,24 +50,22 @@ public class UserService{
         UserJoinResponseDto responseDto = UserJoinResponseDto.fromEntity(savedUser);
         return responseDto;
     }
-    public ResponseEntity<UserLoginResponseDto> login(UserLoginRequestDto loginRequestDto){
+    // 1. 리턴 타입을 깔끔하게 DTO 객체로 변경
+    public UserLoginResponseDto login(UserLoginRequestDto loginRequestDto){
         User findUser = userRepository.findByEmail(loginRequestDto.getEmail())
-                .orElseThrow(() -> new ApplicationContextException("이메일에 존재하는 계정이 없습니다."));
+                .orElseThrow(() -> new IllegalArgumentException("이메일에 존재하는 계정이 없습니다."));
+
         if(!passwordEncoder.matches(loginRequestDto.getPassword(), findUser.getPassword())) {
-            // 200 OK로 응답, 내부 statusCode와 message만 커스텀
-            return ResponseEntity.ok(UserLoginResponseDto.fail(401, "비밀번호가 일치하지 않습니다."));
+            // 2. 실패 시 ResponseEntity 대신 예외를 throw
+            throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
         }
-        // expiration date 까지 설정해서 token return 함
+
         String accessToken = jwtUtil.generateAccessToken(findUser.getId(), findUser.getEmail(), findUser.getRole());
         String refreshToken = jwtUtil.generateRefreshToken(findUser.getId(), findUser.getEmail(), findUser.getRole());
 
-        System.out.println("===Token 출력===");
-        log.info("accessToken: {}", accessToken);
-        log.info("refreshToken: {}", refreshToken);
-
-        UserLoginResponseDto responseDto = new UserLoginResponseDto(accessToken, refreshToken);
-        return ResponseEntity.ok(responseDto);
+        return new UserLoginResponseDto(accessToken, refreshToken);
     }
+
     public User getUserByEmail(String email){
         return userRepository.findByEmail(email).orElseThrow(() -> new UsernameNotFoundException("일치하는 사용자 이메일이 없습니다."));
     }

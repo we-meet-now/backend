@@ -44,7 +44,7 @@ public class EmailServiceImpl implements EmailService {
     }
 
     // 추후 인증번호 검증 로직 구현 시 참고할 수 있는 메서드 예시
-    public boolean verifyCode(String email, String userInputCode) {
+    public boolean verifyEmail(String email, String userInputCode) {
         EmailVerification verification = verificationStorage.get(email);
 
         if (verification == null) return false;       // 보낸 적 없음

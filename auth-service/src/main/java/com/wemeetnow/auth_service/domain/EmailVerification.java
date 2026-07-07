@@ -17,6 +17,6 @@ public class EmailVerification {
 
     // 5분이 지났는지 확인하는 메서드 (기획에 따라 minutes(5) 등으로 변경 가능)
     public boolean isExpired() {
-        return this.createdAt.plusHours(4).isBefore(LocalDateTime.now());
+        return this.createdAt.plusMinutes(5).isBefore(LocalDateTime.now());
     }
 }

@@ -1,6 +1,5 @@
 package com.wemeetnow.auth_service.config.common;
 
-
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.wemeetnow.auth_service.dto.CommonApiResponse;
 import com.wemeetnow.auth_service.dto.StoreRecommendRequestDto;
@@ -13,38 +12,39 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.lang.reflect.Field;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
 
+    /**
+     * [수정] JSON 파싱 에러 응답 규격을 CommonApiResponse로 통일
+     */
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<Map<String, Object>> handleJsonParsingException(HttpMessageNotReadableException ex) {
+    public ResponseEntity<CommonApiResponse<Void>> handleJsonParsingException(HttpMessageNotReadableException ex) {
         log.error("JSON Parsing Error: {}", ex.getMessage());
 
         String fieldName = "알 수 없는 필드";
         String expectedType = "올바른 데이터 형식을 사용하세요.";
 
-        // 예외의 원인이 JsonMappingException인지 확인
         if (ex.getCause() instanceof JsonMappingException) {
             JsonMappingException jsonEx = (JsonMappingException) ex.getCause();
             if (!jsonEx.getPath().isEmpty()) {
-                fieldName = jsonEx.getPath().get(0).getFieldName(); // 예외가 발생한 필드명 가져오기
-
-                // 필드의 기대 데이터 타입을 Reflection으로 가져오기
+                fieldName = jsonEx.getPath().get(0).getFieldName();
                 expectedType = getExpectedType(StoreRecommendRequestDto.class, fieldName);
             }
         }
 
-        Map<String, Object> errorResponse = new HashMap<>();
-        errorResponse.put("status", HttpStatus.BAD_REQUEST.value());
-        errorResponse.put("error", "Invalid JSON Format");
-        errorResponse.put("message", String.format("%s 필드의 데이터 타입이 올바르지 않습니다. 기대되는 타입: %s", fieldName, expectedType));
+        String errorMessage = String.format("%s 필드의 데이터 타입이 올바르지 않습니다. 기대되는 타입: %s", fieldName, expectedType);
 
-        return ResponseEntity.badRequest().body(errorResponse);
+        return ResponseEntity.badRequest().body(
+                CommonApiResponse.<Void>builder()
+                        .statusCode("4000") // JSON 포맷 에러 공통 코드
+                        .data(null)
+                        .message(errorMessage)
+                        .build()
+        );
     }
 
     /**
@@ -68,6 +68,10 @@ public class GlobalExceptionHandler {
             return "알 수 없는 필드";
         }
     }
+
+    /**
+     * 비밀번호 불일치 예외 처리
+     */
     @ExceptionHandler(InvalidPasswordException.class)
     public ResponseEntity<CommonApiResponse<Void>> handleInvalidPassword(InvalidPasswordException ex) {
         log.error("InvalidPasswordException: {}", ex.getMessage());
@@ -80,6 +84,24 @@ public class GlobalExceptionHandler {
         );
     }
 
+    /**
+     * [추가] 비즈니스 로직 예외 처리 (예: 중복 이메일, 존재하지 않는 계정 등)
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<CommonApiResponse<Void>> handleIllegalArgumentException(IllegalArgumentException ex) {
+        log.warn("IllegalArgumentException: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                CommonApiResponse.<Void>builder()
+                        .statusCode("4002") // 비즈니스 요구사항 위반 코드
+                        .data(null)
+                        .message(ex.getMessage())
+                        .build()
+        );
+    }
+
+    /**
+     * 예상치 못한 최상위 시스템 예외 처리
+     */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<CommonApiResponse<Void>> handleException(Exception ex) {
         log.error("Unhandled exception: ", ex);

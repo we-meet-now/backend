@@ -38,3 +38,34 @@ dependencyManagement {
 tasks.named('test') {
 	useJUnitPlatform()
 }
+
+tasks {
+	processResources {
+		duplicatesStrategy = org.gradle.api.file.DuplicatesStrategy.INCLUDE
+	}
+}
+
+// -Pprofile=dev 로 전달된 값을 읽고, 없으면 기본값 "local" 사용
+def profile = project.hasProperty('profile') ? project.property('profile') : 'local'
+
+sourceSets {
+	main {
+		resources {
+			// 기존 기본 resources 폴더도 포함하면서, 프로필별 폴더를 추가 리소스 디렉토리로 선언합니다.
+			srcDirs = ["src/main/resources", "src/main/resources-env/${profile}"]
+		}
+	}
+}
+
+// 리소스 복사 시 파일명 중복 충돌 방지 전략을 EXCLUDE로 통일합니다.
+tasks.named('processResources') {
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+bootJar {
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+springBoot {
+	mainClass = 'com.wemeetnow.apigateway_service.ApigatewayServiceApplication'
+}

@@ -6,34 +6,52 @@ plugins {
 
 group = 'com.wemeetnow'
 version = '0.0.1-SNAPSHOT'
+description = 'service-discovery for wemeetnow project'
 
 java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(17)
-	}
+	toolchain { languageVersion = JavaLanguageVersion.of(17) }
 }
 
-repositories {
-	mavenCentral()
-}
+repositories { mavenCentral() }
 
-ext {
-	set('springCloudVersion', "2023.0.3")
-}
+ext { set('springCloudVersion', "2023.0.3") }
 
 dependencies {
 	implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-server'
-	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.2.0'
+	// 서버 상태 체크 및 모니터링을 위해 추가합니다.
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 dependencyManagement {
-	imports {
-		mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
-	}
+	imports { mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}" }
 }
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+// -Pprofile=dev 로 전달된 값을 읽고, 없으면 기본값 "local" 사용
+def profile = project.hasProperty('profile') ? project.property('profile') : 'local'
+
+sourceSets {
+	main {
+		resources {
+			// 💡 기본 src/main/resources 도 누락되지 않게 안전하게 배열로 지정합니다.
+			srcDirs = ["src/main/resources", "src/main/resources-env/${profile}"]
+		}
+	}
+}
+
+// 💡 리소스 중복 처리 전략을 EXCLUDE나 깨끗하게 관리하도록 일치시켜 줍니다.
+tasks.named('processResources') {
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+bootJar {
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+springBoot {
+	mainClass = 'com.wemeetnow.service_discovery.ServiceDiscoveryApplication'
 }

@@ -142,3 +142,44 @@ spring.datasource.password=${DB_PASSWORD:Qwe123!!}
 
 # JWT 설정 변수화
 jwt.secret=${JWT_SECRET:default_local_secret_key_at_least_32_bytes_long!!}
+```
+
+
+## 4. 인프라 서비스 추가 (Service Discovery & API Gateway - Render 배포 버전)
+
+마이크로서비스 간의 유연한 라우팅과 서비스 주소록 관리를 위해 인프라 레이어(`service-discovery`, `apigateway-service`)를 추가하고, 기존 독립 서비스들과 마찬가지로 **Render(render.com)** 플랫폼을 통해 클라우드 배포를 진행합니다.
+
+### ① CI/CD 구조 및 환경 정의
+- `dev` 브랜치에 push 시 GitHub Actions 또는 Render의 Webhook을 통해 해당 인프라 서비스 폴더의 변경 사항을 감지하여 자동 빌드 및 배포가 진행됩니다.
+- **Render 환경 특성:**
+  - Render는 내부적으로 포트를 동적 매핑하거나 기본적으로 `10000`번 포트 등을 사용하므로, 고정 포트 기반 제어보다는 Render 대시보드의 Web Service 설정을 따릅니다.
+  - 외부로 노출되는 진입점은 Render에서 발급하는 공인 도메인(`*.onrender.com`)을 활용합니다.
+
+### ② 워크플로우 및 빌드 커맨드 (Render 웹 서비스 설정)
+- **Build Command:** `./gradlew clean bootJar -Pprofile=dev`
+- **Start Command:** `java -Xms256m -Xmx512m -jar build/libs/*-SNAPSHOT.jar`
+
+---
+
+## 5. 인프라 구축 트러블슈팅 및 Render 환경 분리 가이드
+
+### ① Render 내부의 유동 IP 및 유레카 서버 호스트네임 문제
+- **문제 상황:** 유레카 서버와 게이트웨이를 `dev` 프로필로 Render에 배포했을 때, 다른 서비스들이 유레카 서버를 찾지 못하거나 웹 대시보드 접근이 불가능함.
+- **원인 분석:** Render는 고정 IP(예: `43.203.242.84`)를 제공하지 않고 인스턴스가 재부팅될 때마다 내부 IP가 변경되는 유동 IP 환경입니다. 따라서 `eureka.instance.hostname`에 특정 IP나 `localhost`를 하드코딩하면 매핑이 깨지게 됩니다.
+- **조치 사항:** `dev` 프로필의 유레카 서버 호스트네임에 Render가 제공하는 **실제 생성된 웹 서비스 도메인 주소**를 기입하여 모든 마이크로서비스가 고정된 도메인으로 유레카에 접속할 수 있도록 수정했습니다.
+
+```properties
+# [수정본] service-discovery 레포지토리의 resources-env/dev/application.properties
+spring.application.name=service-discovery
+# Render가 부여한 웹 서비스의 포트 (기본 설정을 따르거나 PORT 환경 변수 바인딩)
+server.port=8761
+
+# 💡 Render에서 발급받은 실제 유레카 서버 도메인 주소로 설정 (https:// 제외)
+eureka.instance.hostname=backend-service-discovery.onrender.com
+eureka.client.register-with-eureka=false
+eureka.client.fetch-registry=false
+
+# 클라이언트들이 이 도메인 경로를 통해 주소록을 등록/조회하도록 설정
+eureka.client.service-url.defaultZone=https://${eureka.instance.hostname}/eureka/
+eureka.instance.prefer-ip-address=false
+```

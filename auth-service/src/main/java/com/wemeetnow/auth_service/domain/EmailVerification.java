@@ -1,11 +1,9 @@
 package com.wemeetnow.auth_service.domain;
 
-import jakarta.persistence.Entity;
 import lombok.Getter;
 import java.time.LocalDateTime;
 
 @Getter
-@Entity
 public class EmailVerification {
     private final String email;
     private final String verificationCode;

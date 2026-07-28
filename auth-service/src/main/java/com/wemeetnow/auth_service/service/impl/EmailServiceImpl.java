@@ -3,6 +3,7 @@ package com.wemeetnow.auth_service.service.impl;
 import com.wemeetnow.auth_service.domain.EmailVerification;
 import com.wemeetnow.auth_service.service.EmailService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
@@ -12,6 +13,7 @@ import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class EmailServiceImpl implements EmailService {
 
@@ -24,7 +26,7 @@ public class EmailServiceImpl implements EmailService {
     public void sendVerificationEmail(String toEmail) {
         // 1. 6자리 랜덤 인증번호 생성
         String verificationCode = generateRandomCode();
-
+        log.info("Generated verification code {} for email {}", verificationCode, toEmail);
         // 2. 메모리(Map)에 저장 (이미 존재하면 덮어쓰기 되며 시간도 새로 갱신됨)
         EmailVerification verification = new EmailVerification(toEmail, verificationCode);
         verificationStorage.put(toEmail, verification);
@@ -40,7 +42,9 @@ public class EmailServiceImpl implements EmailService {
                 "본 인증 번호는 5분 후에 만료되므로, 시간 내에 인증번호 입력을 부탁드립니다.\n" +
                 "감사합니다.\n위밋톡 드림"
         );
+        log.info("Sending verification email to {} with code {}", toEmail, verificationCode);
         mailSender.send(message);
+        log.info("Successfully sent verification email to {}", toEmail);
     }
 
     // 추후 인증번호 검증 로직 구현 시 참고할 수 있는 메서드 예시

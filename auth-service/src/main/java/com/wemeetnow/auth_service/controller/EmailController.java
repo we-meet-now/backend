@@ -37,8 +37,9 @@ public class EmailController {
     })
     @PostMapping("/send")
     public ResponseEntity<CommonApiResponse<Void>> sendEmail(@RequestBody VerifyEmailRequestDto requestDto) {
+        log.info("Sending verification email to {}", requestDto.getEmail());
         emailService.sendVerificationEmail(requestDto.getEmail());
-
+        log.info("Verification email sent to {}", requestDto.getEmail());
         return ResponseEntity.ok(CommonApiResponse.<Void>builder()
                 .statusCode("2000")
                 .data(null)

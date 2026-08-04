@@ -1,0 +1,35 @@
+package com.wemeetnow.chat_service.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.SecurityFilterChain;
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+                .csrf().disable()
+                .httpBasic().disable()
+                .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                .and()
+                .authorizeHttpRequests()
+                // Swagger UI 경로 허용
+                .requestMatchers(
+                        "/api/chat/v1/swagger-ui/**",
+                        "/api/chat/v1/api-docs/**",
+                        "/api/chat/v1/api-docs.yaml"
+                ).permitAll()
+                // WebSocket 경로 허용
+                .requestMatchers("/ws/**").permitAll()
+                // 그 외 모든 요청은 인증 필요
+                .anyRequest().authenticated();
+
+        return http.build();
+    }
+}

@@ -21,7 +21,8 @@ public class BaseTime {
             name = "inp_date",
             updatable = false,
             nullable = false,
-            columnDefinition = "DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6)")
+            columnDefinition = "TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP"
+    )
     private LocalDateTime inpDate;
     @LastModifiedDate
     @Column(name = "mdfy_date")

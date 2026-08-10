@@ -53,11 +53,9 @@ dependencies {
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 	annotationProcessor 'org.projectlombok:lombok'
 
-	// 이메일 발송 라이브러리 추가
+	// 이메일 발송 라이브러리 추가(javaMailSender 지원)
 	implementation 'org.springframework.boot:spring-boot-starter-mail'
-	
-	// SendGrid 라이브러리 (HTTP API로 이메일 발송, SMTP 포트 차단 문제 해결)
-	implementation 'com.sendgrid:sendgrid-java:4.10.2'
+
 
 	// Redis를 Spring Data로 제어하기 위한 스타터 추가
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'

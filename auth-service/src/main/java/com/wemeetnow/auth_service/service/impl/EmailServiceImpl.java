@@ -1,12 +1,9 @@
 package com.wemeetnow.auth_service.service.impl;
 
-import com.sendgrid.Method;
-import com.sendgrid.Request;
-import com.sendgrid.Response;
-import com.sendgrid.SendGrid;
-import com.sendgrid.helpers.mail.Mail;
-import com.sendgrid.helpers.mail.objects.Content;
-import com.sendgrid.helpers.mail.objects.Email;
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import com.wemeetnow.auth_service.domain.EmailVerification;
 import com.wemeetnow.auth_service.service.EmailService;
 import lombok.RequiredArgsConstructor;
@@ -24,19 +21,18 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class EmailServiceImpl implements EmailService {
 
-    private final SendGrid sendGrid;
+    // private final SendGrid sendGrid;
+    private final JavaMailSender mailSender;
 
-    @Value("${sendgrid.from-email}")
+    @Value("${spring.mail.username}")
     private String fromEmail;
-
-    @Value("${sendgrid.from-name}")
-    private String fromName;
 
     // Redis 대신 메모리에 인증 정보를 저장할 상자 (스레드 안전)
     private final Map<String, EmailVerification> verificationStorage = new ConcurrentHashMap<>();
 
     @Override
     public void sendVerificationEmail(String toEmail) {
+        MimeMessage message = mailSender.createMimeMessage();
         // 1. 6자리 랜덤 인증번호 생성
         String verificationCode = generateRandomCode();
         log.info("Generated verification code {} for email {}", verificationCode, toEmail);
@@ -45,40 +41,89 @@ public class EmailServiceImpl implements EmailService {
         EmailVerification verification = new EmailVerification(toEmail, verificationCode);
         verificationStorage.put(toEmail, verification);
 
-        // 3. SendGrid로 이메일 발송 (HTTP API 사용, SMTP 포트 차단 문제 없음)
         try {
-            Email from = new Email(fromEmail, fromName);
-            Email to = new Email(toEmail);
             String subject = "[위밋톡] 이메일 인증번호 안내";
-            
-            String emailBody = "안녕하세요. 위밋톡(WeMeetTalk)입니다.\n\n" +
-                    "이메일 인증 번호 6자리는 다음과 같습니다:\n" +
-                    "아래 번호를 입력하여 회원가입 절차를 완료해주세요.\n" +
-                    "[" + verificationCode + "]\n\n" +
-                    "본 인증 번호는 5분 후에 만료되므로, 시간 내에 인증번호 입력을 부탁드립니다.\n" +
-                    "감사합니다.\n위밋톡 드림";
-            
-            Content content = new Content("text/plain", emailBody);
-            Mail mail = new Mail(from, subject, to, content);
 
-            Request request = new Request();
-            request.setMethod(Method.POST);
-            request.setEndpoint("mail/send");
-            request.setBody(mail.build());
+            // 모던 HTML 메일 템플릿
+            String emailBody = """
+            <!DOCTYPE html>
+            <html lang="ko">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f4f6f8; font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;">
+                <table border="0" cellpadding="0" cellspacing="0" width="100%%" style="background-color: #f4f6f8; padding: 40px 10px;">
+                    <tr>
+                        <td align="center">
+                            <!-- 메인 카드 컨테이너 -->
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%%" style="max-width: 500px; background-color: #ffffff; border-radius: 12px; border: 1px solid #e5e7eb; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+                                <!-- 상단 헤더 / 브랜드 로고 -->
+                                <tr>
+                                    <td style="padding: 32px 32px 20px 32px;">
+                                        <span style="font-size: 22px; font-weight: 800; color: #2563eb; letter-spacing: -0.5px;">WeMeetTalk</span>
+                                    </td>
+                                </tr>
+                                
+                                <!-- 본문 콘텐츠 -->
+                                <tr>
+                                    <td style="padding: 0 32px 32px 32px;">
+                                        <h1 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 700; color: #111827; line-height: 1.4;">이메일 인증번호 안내</h1>
+                                        <p style="margin: 0 0 24px 0; font-size: 15px; color: #4b5563; line-height: 1.6;">
+                                            안녕하세요. <strong>위밋톡(WeMeetTalk)</strong>입니다.<br>
+                                            회원가입 절차를 완료하기 위해 아래의 인증번호를 입력해 주세요.
+                                        </p>
+                                        
+                                        <!-- 인증번호 강조 박스 -->
+                                        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 24px; text-align: center; margin-bottom: 24px;">
+                                            <span style="font-size: 32px; font-weight: 800; color: #1e293b; letter-spacing: 8px; font-family: 'Courier New', monospace;">%s</span>
+                                        </div>
+                                        
+                                        <!-- 만료 시간 안내 -->
+                                        <p style="margin: 0; font-size: 13px; color: #dc2626; line-height: 1.5; font-weight: 500;">
+                                            ⏰ 본 인증번호는 <strong>5분 후</strong>에 만료됩니다.
+                                        </p>
+                                    </td>
+                                </tr>
+                                
+                                <!-- 구분선 -->
+                                <tr>
+                                    <td style="padding: 0 32px;">
+                                        <div style="border-top: 1px solid #f1f5f9;"></div>
+                                    </td>
+                                </tr>
+                                
+                                <!-- 푸터 -->
+                                <tr>
+                                    <td style="padding: 24px 32px; background-color: #fafafa; text-align: center;">
+                                        <p style="margin: 0 0 6px 0; font-size: 12px; color: #9ca3af;">
+                                            본 메일은 발신 전용 메일입니다. 문의사항은 고객센터를 이용해 주세요.
+                                        </p>
+                                        <p style="margin: 0; font-size: 12px; color: #9ca3af; font-weight: 600;">
+                                            © WeMeetTalk. All rights reserved.
+                                        </p>
+                                    </td>
+                                </tr>
+                                
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </body>
+            </html>
+            """.formatted(verificationCode);
 
-            log.info("Sending verification email to {} with code {} via SendGrid", toEmail, verificationCode);
-            Response response = sendGrid.api(request);
-            
-            if (response.getStatusCode() >= 200 && response.getStatusCode() < 300) {
-                log.info("Successfully sent verification email to {} (Status: {})", toEmail, response.getStatusCode());
-            } else {
-                log.error("Failed to send email. Status: {}, Body: {}", response.getStatusCode(), response.getBody());
-                throw new RuntimeException("Failed to send email via SendGrid");
-            }
-            
-        } catch (IOException e) {
-            log.error("Error sending email via SendGrid to {}", toEmail, e);
-            throw new RuntimeException("Failed to send verification email", e);
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+
+            helper.setFrom(fromEmail);
+            helper.setTo(toEmail);
+            helper.setSubject(subject);
+            helper.setText(emailBody, true); // false = 일반 텍스트
+
+            mailSender.send(message);
+            log.info("Email has been sent successfully to {}", toEmail);
+        } catch (Exception e) {
+            throw new RuntimeException("이메일 발송 중 오류 발생: " + e.getMessage(), e);
         }
     }
 

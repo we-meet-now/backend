@@ -1,48 +1,61 @@
 package com.wemeetnow.auth_service.service.impl;
 
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import com.wemeetnow.auth_service.domain.EmailVerification;
+import com.wemeetnow.auth_service.dto.ResendRequest;
+import com.wemeetnow.auth_service.dto.ResendResponse;
 import com.wemeetnow.auth_service.service.EmailService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
 
-import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @Slf4j
-@RequiredArgsConstructor
 public class EmailServiceImpl implements EmailService {
 
-    // private final SendGrid sendGrid;
-    private final JavaMailSender mailSender;
-
-    @Value("${spring.mail.username}")
-    private String fromEmail;
+    private final RestClient restClient;
+    private final String senderEmail;
+    private final String senderName;
 
     // Redis 대신 메모리에 인증 정보를 저장할 상자 (스레드 안전)
     private final Map<String, EmailVerification> verificationStorage = new ConcurrentHashMap<>();
 
+    public EmailServiceImpl(
+            @Value("${resend.api.key}") String apiKey,
+            @Value("${resend.api.url}") String apiUrl,
+            @Value("${resend.sender.email}") String senderEmail,
+            @Value("${resend.sender.name}") String senderName) {
+
+        this.senderEmail = senderEmail;
+        this.senderName = senderName;
+
+        // Resend API 통신용 RestClient 빌드
+        this.restClient = RestClient.builder()
+                .baseUrl(apiUrl)
+                .defaultHeader("Authorization", "Bearer " + apiKey)
+                .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                .build();
+    }
+
     @Override
     public void sendVerificationEmail(String toEmail) {
-        MimeMessage message = mailSender.createMimeMessage();
         // 1. 6자리 랜덤 인증번호 생성
         String verificationCode = generateRandomCode();
         log.info("Generated verification code {} for email {}", verificationCode, toEmail);
-        
+
         // 2. 메모리(Map)에 저장 (이미 존재하면 덮어쓰기 되며 시간도 새로 갱신됨)
         EmailVerification verification = new EmailVerification(toEmail, verificationCode);
         verificationStorage.put(toEmail, verification);
 
         try {
             String subject = "[위밋톡] 이메일 인증번호 안내";
+            String fromHeader = String.format("%s <%s>", senderName, senderEmail);
 
             // 모던 HTML 메일 템플릿
             String emailBody = """
@@ -113,21 +126,29 @@ public class EmailServiceImpl implements EmailService {
             </html>
             """.formatted(verificationCode);
 
-            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+            // Resend API 요청 객체 생성
+            ResendRequest request = new ResendRequest(
+                    fromHeader,
+                    List.of(toEmail),
+                    subject,
+                    emailBody
+            );
 
-            helper.setFrom(fromEmail);
-            helper.setTo(toEmail);
-            helper.setSubject(subject);
-            helper.setText(emailBody, true); // false = 일반 텍스트
+            // Resend API 호출
+            ResendResponse response = restClient.post()
+                    .body(request)
+                    .retrieve()
+                    .body(ResendResponse.class);
 
-            mailSender.send(message);
-            log.info("Email has been sent successfully to {}", toEmail);
+            log.info("Email has been sent successfully to {}. Resend Message ID: {}", toEmail, response != null ? response.id() : "N/A");
+
         } catch (Exception e) {
+            log.error("Failed to send email to {}", toEmail, e);
             throw new RuntimeException("이메일 발송 중 오류 발생: " + e.getMessage(), e);
         }
     }
 
-    // 추후 인증번호 검증 로직 구현 시 참고할 수 있는 메서드 예시
+    @Override
     public boolean verifyEmail(String email, String userInputCode) {
         EmailVerification verification = verificationStorage.get(email);
 

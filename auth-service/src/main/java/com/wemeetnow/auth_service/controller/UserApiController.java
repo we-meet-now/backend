@@ -6,6 +6,7 @@ import com.wemeetnow.auth_service.dto.*;
 import com.wemeetnow.auth_service.service.UserService;
 import io.jsonwebtoken.Claims;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -34,8 +35,7 @@ public class UserApiController {
             description = "이메일, 비밀번호, 닉네임, 이름, 역할(role)을 입력하여 회원가입합니다."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "회원가입 성공",
-                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "201", description = "회원가입 성공", useReturnTypeSchema = true),
             @ApiResponse(responseCode = "500", description = "서버 오류 (이메일 중복, 비밀번호 불일치 등)",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
@@ -59,8 +59,7 @@ public class UserApiController {
             description = "이메일과 비밀번호로 로그인하여 AccessToken과 RefreshToken을 발급받습니다."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "202", description = "로그인 성공 (AccessToken, RefreshToken 반환)",
-                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "202", description = "로그인 성공 (AccessToken, RefreshToken 반환)", useReturnTypeSchema = true),
             @ApiResponse(responseCode = "500", description = "서버 오류 (이메일 미존재, 비밀번호 불일치 등)",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
@@ -83,8 +82,7 @@ public class UserApiController {
             description = "Authorization 헤더의 JWT 토큰 유효성을 검증하고 토큰에 담긴 사용자 정보(userId, email, role, 만료시간)를 반환합니다."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "유효한 토큰 (사용자 정보 반환)",
-                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "200", description = "유효한 토큰 (사용자 정보 반환)", useReturnTypeSchema = true),
             @ApiResponse(responseCode = "401", description = "토큰 만료 또는 유효하지 않은 토큰",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
@@ -123,8 +121,7 @@ public class UserApiController {
             description = "등록된 모든 사용자 목록을 반환합니다. (관리자용)"
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "사용자 목록 조회 성공",
-                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "200", description = "사용자 목록 조회 성공", useReturnTypeSchema = true),
             @ApiResponse(responseCode = "500", description = "서버 오류",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
@@ -144,8 +141,7 @@ public class UserApiController {
             description = "Authorization 헤더의 JWT AccessToken을 파싱하여 사용자 ID(userId)를 반환합니다. MSA 서비스 간 내부 호출에 사용됩니다."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "userId 조회 성공",
-                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "200", description = "userId 조회 성공", useReturnTypeSchema = true),
             @ApiResponse(responseCode = "401", description = "토큰 만료 또는 유효하지 않은 토큰",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
@@ -181,19 +177,33 @@ public class UserApiController {
 
     @Operation(
             summary = "AccessToken으로 사용자 상세 정보 조회",
-            description = "Authorization 헤더의 JWT AccessToken으로 로그인한 사용자의 상세 정보(이름, 이메일, 닉네임, 프로필 이미지 등)를 반환합니다."
+            description = "Authorization 헤더에 JWT AccessToken을 'Bearer {token}' 형식으로 포함하여 로그인한 사용자의 상세 정보(userId, 이름, 이메일, 닉네임, 프로필 이미지 등)를 반환합니다.\n\n" +
+                    "**사용 방법:**\n" +
+                    "1. 로그인 API(/api/auth/v1/users/login)에서 accessToken을 받습니다.\n" +
+                    "2. Swagger UI 우측 상단 'Authorize' 버튼 또는 아래 Authorization 헤더에 'Bearer {accessToken}' 형식으로 입력합니다.\n" +
+                    "3. 예시: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "사용자 정보 조회 성공",
-                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "200", description = "사용자 정보 조회 성공", useReturnTypeSchema = true),
             @ApiResponse(responseCode = "401", description = "토큰 만료 또는 유효하지 않은 토큰",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
             @ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
     @GetMapping("/get-user-info")
-    public ResponseEntity<CommonApiResponse<ChatParticipantUserDto>> getUserInfoFromAccessToken(HttpServletRequest request) {
-        String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+    public ResponseEntity<CommonApiResponse<ChatParticipantUserDto>> getUserInfoFromAccessToken(
+            @Parameter(
+                    name = "Authorization",
+                    description = "JWT AccessToken (형식: 'Bearer {token}')\n\n" +
+                            "예시: Bearer eyJhbGc...Qssw5c\n\n" +
+                            "주의사항:\n" +
+                            "1. 로그인 API에서 받은 AccessToken을 복사합니다.\n" +
+                            "2. 'Bearer ' 다음에 공백을 포함하여 입력합니다.\n" +
+                            "3. 토큰이 만료되었으면 로그인하여 새 토큰을 받아야 합니다.",
+                    required = true,
+                    example = "Bearer eyJhbGc...Qssw5c"
+            )
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorizationHeader) {
         String token = authorizationHeader.replace("Bearer ", "");
 
         if (JwtUtil.isExpired(token)) {
@@ -241,8 +251,7 @@ public class UserApiController {
             description = "userId(PK)로 특정 사용자의 상세 정보를 조회합니다. MSA 서비스 간 내부 호출에 사용됩니다."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "사용자 정보 조회 성공",
-                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "200", description = "사용자 정보 조회 성공", useReturnTypeSchema = true),
             @ApiResponse(responseCode = "404", description = "해당 userId의 사용자를 찾을 수 없음",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
@@ -279,8 +288,7 @@ public class UserApiController {
             description = "무작위 닉네임을 생성하여 반환합니다. 회원가입 시 닉네임 추천에 사용됩니다."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "랜덤 닉네임 생성 성공",
-                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "200", description = "랜덤 닉네임 생성 성공", useReturnTypeSchema = true),
             @ApiResponse(responseCode = "500", description = "서버 오류",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })

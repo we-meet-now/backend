@@ -79,7 +79,11 @@ public class SecurityConfig {
     @Bean
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
-        config.addAllowedOrigin(frontUrl);       // application.properties의 front.url (환경별 관리)
+        // application.properties의 front.url (환경별 관리, 쉼표로 복수 Origin 등록 가능)
+        // 예: front.url=https://front-azure-iota.vercel.app,http://localhost:5173
+        for (String origin : frontUrl.split(",")) {
+            config.addAllowedOrigin(origin.trim());
+        }
         config.addAllowedOrigin("http://localhost:5173"); // 로컬 개발 환경에서의 CORS 허용
         config.addAllowedHeader("*");
         config.addAllowedMethod("*");

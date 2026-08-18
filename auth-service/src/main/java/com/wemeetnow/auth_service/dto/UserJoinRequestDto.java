@@ -16,6 +16,7 @@ public class UserJoinRequestDto {
     private String passwordCorrect;
     private String nickname;
     private String username;
+    private String phoneNumber;
     private Role role;
 
     public User toEntity(String enCodedPassword, String provider) {
@@ -24,6 +25,7 @@ public class UserJoinRequestDto {
                 .password(enCodedPassword)
                 .username(this.username)
                 .nickname(this.nickname)
+                .phoneNumber(this.phoneNumber)
                 .role(Role.ROLE_USER)
                 .provider(provider)
                 .build();

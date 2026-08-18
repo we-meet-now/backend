@@ -122,4 +122,8 @@ public class UserService{
         int number = 100 + random.nextInt(900);
         return adjective + noun + number;
     }
+
+    public boolean checkEmailDuplicate(String email) {
+        return userRepository.findByEmail(email).isPresent();
+    }
 }

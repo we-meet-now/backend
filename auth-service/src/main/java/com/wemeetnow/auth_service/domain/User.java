@@ -48,13 +48,14 @@ public class User extends BaseTime {
     private String phoneNumber;
 
     @Builder
-    public User(String username, String email, String password, String nickname, String provider, Boolean emailAuth, Role role) {
+    public User(String username, String email, String password, String nickname, String provider, Boolean emailAuth, String phoneNumber, Role role) {
         this.username = username;
         this.email = email;
         this.password = password;
         this.nickname = nickname;
         this.provider = provider;
         this.emailAuth = emailAuth;
+        this.phoneNumber = phoneNumber;
         this.role = role;
     }
 

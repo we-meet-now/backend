@@ -302,4 +302,33 @@ public class UserApiController {
                 .message("랜덤 닉네임 생성 성공")
                 .build());
     }
+
+    @Operation(
+            summary = "이메일 중복 여부 확인",
+            description = "입력한 이메일이 이미 등록되어 있는지 확인합니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "이메일 중복 확인 성공", useReturnTypeSchema = true),
+            @ApiResponse(responseCode = "400", description = "잘못된 요청 (이메일 미입력 등)",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "500", description = "서버 오류",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
+    @PostMapping("/check-email-duplicate")
+    public ResponseEntity<CommonApiResponse<CheckEmailDuplicateResponseDto>> checkEmailDuplicate(
+            @RequestBody CheckEmailDuplicateRequestDto requestDto) {
+        boolean isDuplicate = userService.checkEmailDuplicate(requestDto.getEmail());
+
+        CheckEmailDuplicateResponseDto responseDto = CheckEmailDuplicateResponseDto.builder()
+                .email(requestDto.getEmail())
+                .isDuplicate(isDuplicate)
+                .build();
+
+        String message = isDuplicate ? "이미 등록된 이메일입니다." : "사용 가능한 이메일입니다.";
+        return ResponseEntity.ok(CommonApiResponse.<CheckEmailDuplicateResponseDto>builder()
+                .statusCode("2000")
+                .data(responseDto)
+                .message(message)
+                .build());
+    }
 }

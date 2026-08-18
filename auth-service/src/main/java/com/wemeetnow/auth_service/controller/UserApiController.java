@@ -41,6 +41,63 @@ public class UserApiController {
     })
     @PostMapping("/join")
     public ResponseEntity<CommonApiResponse<UserJoinResponseDto>> join(@RequestBody UserJoinRequestDto requestDto) {
+        
+        // 필수 필드 null 체크
+        if (requestDto == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonApiResponse.<UserJoinResponseDto>builder()
+                            .statusCode("4000")
+                            .data(null)
+                            .message("요청 데이터가 비어있습니다.")
+                            .build()
+            );
+        }
+        if (requestDto.getEmail() == null || requestDto.getEmail().trim().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonApiResponse.<UserJoinResponseDto>builder()
+                            .statusCode("4000")
+                            .data(null)
+                            .message("이메일을 입력해주세요.")
+                            .build()
+            );
+        }
+        if (requestDto.getPassword() == null || requestDto.getPassword().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonApiResponse.<UserJoinResponseDto>builder()
+                            .statusCode("4000")
+                            .data(null)
+                            .message("비밀번호를 입력해주세요.")
+                            .build()
+            );
+        }
+        if (requestDto.getPasswordCorrect() == null || requestDto.getPasswordCorrect().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonApiResponse.<UserJoinResponseDto>builder()
+                            .statusCode("4000")
+                            .data(null)
+                            .message("비밀번호 확인을 입력해주세요.")
+                            .build()
+            );
+        }
+        if (requestDto.getUsername() == null || requestDto.getUsername().trim().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonApiResponse.<UserJoinResponseDto>builder()
+                            .statusCode("4000")
+                            .data(null)
+                            .message("사용자명을 입력해주세요.")
+                            .build()
+            );
+        }
+        if (requestDto.getNickname() == null || requestDto.getNickname().trim().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonApiResponse.<UserJoinResponseDto>builder()
+                            .statusCode("4000")
+                            .data(null)
+                            .message("닉네임을 입력해주세요.")
+                            .build()
+            );
+        }
+
         UserJoinResponseDto resDto = userService.join(requestDto);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(
@@ -66,6 +123,36 @@ public class UserApiController {
     @PostMapping("/login")
     public ResponseEntity<CommonApiResponse<UserLoginResponseDto>> login(@RequestBody UserLoginRequestDto requestDto) {
         log.info("UserLoginRequestDto = [{}]", requestDto);
+        
+        // 필수 필드 null 체크
+        if (requestDto == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonApiResponse.<UserLoginResponseDto>builder()
+                            .statusCode("4000")
+                            .data(null)
+                            .message("요청 데이터가 비어있습니다.")
+                            .build()
+            );
+        }
+        if (requestDto.getEmail() == null || requestDto.getEmail().trim().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonApiResponse.<UserLoginResponseDto>builder()
+                            .statusCode("4000")
+                            .data(null)
+                            .message("이메일을 입력해주세요.")
+                            .build()
+            );
+        }
+        if (requestDto.getPassword() == null || requestDto.getPassword().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonApiResponse.<UserLoginResponseDto>builder()
+                            .statusCode("4000")
+                            .data(null)
+                            .message("비밀번호를 입력해주세요.")
+                            .build()
+            );
+        }
+
         UserLoginResponseDto responseDto = userService.login(requestDto);
 
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(
@@ -317,6 +404,17 @@ public class UserApiController {
     @PostMapping("/check-email-duplicate")
     public ResponseEntity<CommonApiResponse<CheckEmailDuplicateResponseDto>> checkEmailDuplicate(
             @RequestBody CheckEmailDuplicateRequestDto requestDto) {
+        
+        if (requestDto.getEmail() == null || requestDto.getEmail().trim().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonApiResponse.<CheckEmailDuplicateResponseDto>builder()
+                            .statusCode("4000")
+                            .data(null)
+                            .message("이메일을 입력해주세요.")
+                            .build()
+            );
+        }
+
         boolean isDuplicate = userService.checkEmailDuplicate(requestDto.getEmail());
 
         CheckEmailDuplicateResponseDto responseDto = CheckEmailDuplicateResponseDto.builder()
@@ -329,6 +427,149 @@ public class UserApiController {
                 .statusCode("2000")
                 .data(responseDto)
                 .message(message)
+                .build());
+    }
+
+    @Operation(
+            summary = "비밀번호 검증",
+            description = "Authorization 헤더의 JWT AccessToken을 파싱하여 사용자 정보를 추출하고, 입력한 비밀번호와 DB의 비밀번호를 비교합니다. 사용자 정보 수정 전 본인 확인에 사용됩니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "비밀번호 검증 완료", useReturnTypeSchema = true),
+            @ApiResponse(responseCode = "401", description = "토큰 만료 또는 유효하지 않은 토큰",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
+    @PostMapping("/verify-password")
+    public ResponseEntity<CommonApiResponse<VerifyPasswordResponseDto>> verifyPassword(
+            @Parameter(
+                    name = "Authorization",
+                    description = "JWT AccessToken (형식: 'Bearer {token}')",
+                    required = true,
+                    example = "Bearer eyJhbGc...Qssw5c"
+            )
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorizationHeader,
+            @RequestBody VerifyPasswordRequestDto requestDto) {
+        
+        if (requestDto.getPassword() == null || requestDto.getPassword().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonApiResponse.<VerifyPasswordResponseDto>builder()
+                            .statusCode("4000")
+                            .data(null)
+                            .message("비밀번호를 입력해주세요.")
+                            .build()
+            );
+        }
+
+        String token = authorizationHeader.replace("Bearer ", "");
+
+        if (JwtUtil.isExpired(token)) {
+            log.info("토큰이 유효하지 않습니다.");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    CommonApiResponse.<VerifyPasswordResponseDto>builder()
+                            .statusCode("4010")
+                            .data(null)
+                            .message("토큰이 유효하지 않거나 만료되었습니다.")
+                            .build()
+            );
+        }
+
+        Long userId = JwtUtil.getId(token);
+        User findUser = userService.getUserById(userId).orElse(null);
+        if (findUser == null) {
+            log.info("사용자가 존재하지 않습니다. userId: {}", userId);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    CommonApiResponse.<VerifyPasswordResponseDto>builder()
+                            .statusCode("4040")
+                            .data(null)
+                            .message("사용자가 존재하지 않습니다.")
+                            .build()
+            );
+        }
+
+        boolean isPasswordMatch = userService.verifyPassword(userId, requestDto.getPassword());
+        VerifyPasswordResponseDto responseDto = VerifyPasswordResponseDto.builder()
+                .userId(findUser.getId())
+                .email(findUser.getEmail())
+                .isPasswordMatch(isPasswordMatch)
+                .build();
+
+        String message = isPasswordMatch ? "비밀번호가 일치합니다." : "비밀번호가 일치하지 않습니다.";
+        return ResponseEntity.ok(CommonApiResponse.<VerifyPasswordResponseDto>builder()
+                .statusCode("2000")
+                .data(responseDto)
+                .message(message)
+                .build());
+    }
+
+    @Operation(
+            summary = "사용자 정보 수정",
+            description = "Authorization 헤더의 JWT AccessToken을 파싱하여 사용자를 찾은 후, 닉네임, 전화번호, 비밀번호, 이미지 URL을 수정합니다. 수정 시 mdfyDate가 자동으로 업데이트됩니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "사용자 정보 수정 성공", useReturnTypeSchema = true),
+            @ApiResponse(responseCode = "401", description = "토큰 만료 또는 유효하지 않은 토큰",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "500", description = "서버 오류",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
+    @PutMapping("/update-user-info")
+    public ResponseEntity<CommonApiResponse<UpdateUserInfoResponseDto>> updateUserInfo(
+            @Parameter(
+                    name = "Authorization",
+                    description = "JWT AccessToken (형식: 'Bearer {token}')",
+                    required = true,
+                    example = "Bearer eyJhbGc...Qssw5c"
+            )
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorizationHeader,
+            @RequestBody UpdateUserInfoRequestDto requestDto) {
+        
+        // requestDto 전체 null 체크
+        if (requestDto == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonApiResponse.<UpdateUserInfoResponseDto>builder()
+                            .statusCode("4000")
+                            .data(null)
+                            .message("요청 데이터가 비어있습니다.")
+                            .build()
+            );
+        }
+
+        String token = authorizationHeader.replace("Bearer ", "");
+
+        if (JwtUtil.isExpired(token)) {
+            log.info("토큰이 유효하지 않습니다.");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    CommonApiResponse.<UpdateUserInfoResponseDto>builder()
+                            .statusCode("4010")
+                            .data(null)
+                            .message("토큰이 유효하지 않거나 만료되었습니다.")
+                            .build()
+            );
+        }
+
+        Long userId = JwtUtil.getId(token);
+        User findUser = userService.getUserById(userId).orElse(null);
+        if (findUser == null) {
+            log.info("사용자가 존재하지 않습니다. userId: {}", userId);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    CommonApiResponse.<UpdateUserInfoResponseDto>builder()
+                            .statusCode("4040")
+                            .data(null)
+                            .message("사용자가 존재하지 않습니다.")
+                            .build()
+            );
+        }
+
+        UpdateUserInfoResponseDto responseDto = userService.updateUserInfo(userId, requestDto);
+
+        return ResponseEntity.ok(CommonApiResponse.<UpdateUserInfoResponseDto>builder()
+                .statusCode("2000")
+                .data(responseDto)
+                .message("사용자 정보 수정 성공")
                 .build());
     }
 }

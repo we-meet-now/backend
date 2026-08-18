@@ -2,10 +2,7 @@ package com.wemeetnow.auth_service.service;
 
 import com.wemeetnow.auth_service.config.jwt.JwtUtil;
 import com.wemeetnow.auth_service.domain.User;
-import com.wemeetnow.auth_service.dto.UserJoinRequestDto;
-import com.wemeetnow.auth_service.dto.UserJoinResponseDto;
-import com.wemeetnow.auth_service.dto.UserLoginRequestDto;
-import com.wemeetnow.auth_service.dto.UserLoginResponseDto;
+import com.wemeetnow.auth_service.dto.*;
 import org.springframework.http.ResponseEntity;
 import com.wemeetnow.auth_service.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -45,7 +42,7 @@ public class UserService{
         if(!password.equals(passwordCorrect)){
             throw new com.wemeetnow.auth_service.exception.InvalidPasswordException("비밀번호가 일치하지 않습니다.");
         }
-        User user = joinRequestDto.toEntity(passwordEncoder.encode(password), "KAKAO");
+        User user = joinRequestDto.toEntity(passwordEncoder.encode(password), "LOCAL");
         User savedUser = userRepository.save(user);
         UserJoinResponseDto responseDto = UserJoinResponseDto.fromEntity(savedUser);
         return responseDto;
@@ -123,7 +120,38 @@ public class UserService{
         return adjective + noun + number;
     }
 
+    public boolean verifyPassword(Long userId, String inputPassword) {
+        Optional<User> userOptional = userRepository.findById(userId);
+        if (userOptional.isEmpty()) {
+            return false;
+        }
+        User user = userOptional.get();
+        return passwordEncoder.matches(inputPassword, user.getPassword());
+    }
+
     public boolean checkEmailDuplicate(String email) {
         return userRepository.findByEmail(email).isPresent();
+    }
+
+    @Transactional
+    public UpdateUserInfoResponseDto updateUserInfo(Long userId, UpdateUserInfoRequestDto updateDto) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다."));
+
+        if (updateDto.getNickname() != null && !updateDto.getNickname().isEmpty()) {
+            user.setNickname(updateDto.getNickname());
+        }
+        if (updateDto.getPhoneNumber() != null && !updateDto.getPhoneNumber().isEmpty()) {
+            user.setPhoneNumber(updateDto.getPhoneNumber());
+        }
+        if (updateDto.getPassword() != null && !updateDto.getPassword().isEmpty()) {
+            user.setPassword(passwordEncoder.encode(updateDto.getPassword()));
+        }
+        if (updateDto.getImgUrl() != null && !updateDto.getImgUrl().isEmpty()) {
+            user.setImgUrl(updateDto.getImgUrl());
+        }
+
+        User updatedUser = userRepository.save(user);
+        return UpdateUserInfoResponseDto.fromEntity(updatedUser);
     }
 }

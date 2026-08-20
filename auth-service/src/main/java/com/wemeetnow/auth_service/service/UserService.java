@@ -154,4 +154,26 @@ public class UserService{
         User updatedUser = userRepository.save(user);
         return UpdateUserInfoResponseDto.fromEntity(updatedUser);
     }
+
+    @Transactional
+    public UpdateUserAddressResponseDto updateUserAddress(Long userId, UpdateUserAddressRequestDto addressDto) {
+        log.info("주소 정보 업데이트 시작: userId={}", userId);
+        
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다."));
+        
+        if (addressDto.getPostCd1() != null && !addressDto.getPostCd1().isEmpty()) {
+            user.setPostCd1(addressDto.getPostCd1());
+        }
+        if (addressDto.getAddr1() != null && !addressDto.getAddr1().isEmpty()) {
+            user.setAddr1(addressDto.getAddr1());
+        }
+        if (addressDto.getDetailAddr1() != null && !addressDto.getDetailAddr1().isEmpty()) {
+            user.setDetailAddr1(addressDto.getDetailAddr1());
+        }
+
+        User updatedUser = userRepository.save(user);
+        log.info("주소 정보 업데이트 완료: userId={}", userId);
+        return UpdateUserAddressResponseDto.fromEntity(updatedUser, "주소 정보 업데이트 성공");
+    }
 }

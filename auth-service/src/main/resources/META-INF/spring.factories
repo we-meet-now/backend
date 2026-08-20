@@ -1,0 +1,1 @@
+org.springframework.boot.env.EnvironmentPostProcessor=com.wemeetnow.auth_service.config.DotEnvConfig

@@ -572,4 +572,55 @@ public class UserApiController {
                 .message("사용자 정보 수정 성공")
                 .build());
     }
+
+    @Operation(
+            summary = "사용자 주소 정보 업데이트",
+            description = "Authorization 헤더의 JWT AccessToken을 사용하여 사용자의 주소 정보(우편번호, 기본 주소, 상세 주소)를 업데이트합니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "주소 정보 업데이트 성공", useReturnTypeSchema = true),
+            @ApiResponse(responseCode = "401", description = "토큰 만료 또는 유효하지 않은 토큰",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
+    @PutMapping("/update-address")
+    public ResponseEntity<CommonApiResponse<UpdateUserAddressResponseDto>> updateUserAddress(
+            HttpServletRequest request,
+            @RequestBody UpdateUserAddressRequestDto requestDto) {
+        
+        String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        String token = authorizationHeader.replace("Bearer ", "");
+
+        if (JwtUtil.isExpired(token)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    CommonApiResponse.<UpdateUserAddressResponseDto>builder()
+                            .statusCode("4010")
+                            .data(null)
+                            .message("토큰이 만료되었습니다.")
+                            .build()
+            );
+        }
+
+        Long userId = JwtUtil.getId(token);
+        User findUser = userService.getUserById(userId).orElse(null);
+        if (findUser == null) {
+            log.info("사용자가 존재하지 않습니다. userId: {}", userId);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    CommonApiResponse.<UpdateUserAddressResponseDto>builder()
+                            .statusCode("4040")
+                            .data(null)
+                            .message("사용자가 존재하지 않습니다.")
+                            .build()
+            );
+        }
+
+        UpdateUserAddressResponseDto responseDto = userService.updateUserAddress(userId, requestDto);
+
+        return ResponseEntity.ok(CommonApiResponse.<UpdateUserAddressResponseDto>builder()
+                .statusCode("2000")
+                .data(responseDto)
+                .message("주소 정보 업데이트 성공")
+                .build());
+    }
 }

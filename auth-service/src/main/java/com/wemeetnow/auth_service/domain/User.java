@@ -47,6 +47,15 @@ public class User extends BaseTime {
     @Column(name = "phone_number")
     private String phoneNumber;
 
+    @Column(name = "post_cd1", length = 5)
+    private String postCd1;
+
+    @Column(name = "addr1", length = 255)
+    private String addr1;
+
+    @Column(name = "detail_addr1", length = 255)
+    private String detailAddr1;
+
     @Builder
     public User(String username, String email, String password, String nickname, String provider, Boolean emailAuth, String phoneNumber, Role role) {
         this.username = username;

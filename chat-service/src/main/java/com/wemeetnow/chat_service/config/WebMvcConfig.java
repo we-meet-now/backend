@@ -20,9 +20,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         // 쉼표 구분으로 복수 Origin 허용 (e.g. "https://app.vercel.app,http://localhost:5173")
-        String[] allowedOrigins = frontUrl.split(",");
         registry.addMapping("/api/**")          // REST API 전체 경로
-                .allowedOrigins(allowedOrigins)  // front.url 프로퍼티 값 (환경별로 변경)
+                .allowedOriginPatterns(frontUrl)
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true)

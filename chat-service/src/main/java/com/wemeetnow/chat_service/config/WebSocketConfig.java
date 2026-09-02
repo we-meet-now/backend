@@ -1,4 +1,5 @@
 package com.wemeetnow.chat_service.config;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
@@ -8,6 +9,9 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @Configuration
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+    @Value("${frontend.url}")
+    private String frontendUrl;
+
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
         // Simple broker를 활성화하고 "/topic" prefix를 사용
@@ -23,11 +27,12 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
         // SockJS를 사용하는 엔드포인트 등록
         registry.addEndpoint("/api/chat/v1/message/ws-chat")
-                .setAllowedOriginPatterns("*")
+                .setAllowedOriginPatterns(frontendUrl)
                 .withSockJS();
 
         // SockJS 없는 순수 WebSocket도 추가
         registry.addEndpoint("/api/chat/v1/message/ws-chat")
-                .setAllowedOriginPatterns("*");
+                .setAllowedOriginPatterns(frontendUrl)
+        ;
     }
 }

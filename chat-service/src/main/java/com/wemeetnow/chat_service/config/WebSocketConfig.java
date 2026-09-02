@@ -9,8 +9,9 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @Configuration
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
-    @Value("${frontend.url}")
-    private String frontendUrl;
+
+    @Value("${front.url}")
+    private String frontUrl;
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
@@ -27,12 +28,12 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
         // SockJS를 사용하는 엔드포인트 등록
         registry.addEndpoint("/api/chat/v1/message/ws-chat")
-                .setAllowedOriginPatterns(frontendUrl)
+                .setAllowedOriginPatterns(frontUrl)
                 .withSockJS();
 
         // SockJS 없는 순수 WebSocket도 추가
         registry.addEndpoint("/api/chat/v1/message/ws-chat")
-                .setAllowedOriginPatterns(frontendUrl)
+                .setAllowedOriginPatterns(frontUrl)
         ;
     }
 }

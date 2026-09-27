@@ -124,20 +124,61 @@ public class ChatRoomController {
             @ApiResponse(responseCode = "500", description = "서버 오류 (토큰 인증 실패, DB 저장 실패 등)",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
-    @PostMapping("/create-one")
-    public ResponseEntity<CommonApiResponse<CreateOneChatRoomResponseDto>> createOnChatRoom(
+    @PostMapping("/create-w-participants")
+    public ResponseEntity<CommonApiResponse<CreateOneChatRoomResponseDto>> createChatRoomWithParticipants(
             @RequestBody CreateChatRoomRequestDto createChatRoomRequestDto,
             HttpServletRequest request) {
         String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
         String accessToken = authorizationHeader.replace("Bearer ", "");
         AuthUserDto authUserDto = chatRoomService.fetchUserFromAuthService(accessToken);
         String inpUserId = String.valueOf(authUserDto.getUserId());
-        Long chatRoomId = chatRoomService.createOnChatRoom(
+        ChatRoom chatRoom = chatRoomService.createChatRoomWithParticipants(
                 inpUserId,
                 createChatRoomRequestDto.getChatRoomNm(),
                 createChatRoomRequestDto.getParticipantIds()
         );
-        CreateOneChatRoomResponseDto responseDto = new CreateOneChatRoomResponseDto(chatRoomId);
+        CreateOneChatRoomResponseDto responseDto = CreateOneChatRoomResponseDto.builder()
+                .chatRoomId(chatRoom.getChatRoomId())
+                .enterCode(chatRoom.getEnterCode())
+                .build();
+        CommonApiResponse<CreateOneChatRoomResponseDto> response = CommonApiResponse.<CreateOneChatRoomResponseDto>builder()
+                .statusCode("2001")
+                .data(responseDto)
+                .message("채팅방 생성 성공")
+                .build();
+        return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
+
+    /**
+     * 사용자 초대 없이 생성하는 채팅방
+     */
+    @Operation(
+            summary = "채팅방 생성 (참여자 정보 없이 생성)",
+            description = "채팅방 이름을 받아 채팅방을 생성하고, " +
+                    "Authorization 헤더의 JWT 토큰으로 요청자를 식별합니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "채팅방 생성 성공",
+                    content = @Content(schema = @Schema(implementation = CreateOneChatRoomResponseDto.class))),
+            @ApiResponse(responseCode = "500", description = "서버 오류 (토큰 인증 실패, DB 저장 실패 등)",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
+    @PostMapping("/create")
+    public ResponseEntity<CommonApiResponse<CreateOneChatRoomResponseDto>> createChatRoom(
+            @RequestBody CreateChatRoomRequestDto createChatRoomRequestDto,
+            HttpServletRequest request) {
+        String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        String accessToken = authorizationHeader.replace("Bearer ", "");
+        AuthUserDto authUserDto = chatRoomService.fetchUserFromAuthService(accessToken);
+        String inpUserId = String.valueOf(authUserDto.getUserId());
+        ChatRoom chatRoom = chatRoomService.createChatRoom(
+                inpUserId,
+                createChatRoomRequestDto.getChatRoomNm()
+        );
+        CreateOneChatRoomResponseDto responseDto = CreateOneChatRoomResponseDto.builder()
+                .chatRoomId(chatRoom.getChatRoomId())
+                .enterCode(chatRoom.getEnterCode())
+                .build();
         CommonApiResponse<CreateOneChatRoomResponseDto> response = CommonApiResponse.<CreateOneChatRoomResponseDto>builder()
                 .statusCode("2001")
                 .data(responseDto)
@@ -233,11 +274,11 @@ public class ChatRoomController {
                 ? loginedUserInfo.getUsername() + "의 아무거나 다 좋은 모임"
                 : loginedUserInfo.getUsername() + "의 " + requestDto.getMeetType();
 
-        Long chatRoomId = chatRoomService.createAnonymousChatRoom(loginedUserId, chatRoomNm, requestDto);
-        String inviteUrl = chatServiceUrl + "/chat-participants/anonymous-chat-roomId=" + chatRoomId;
+        ChatRoom chatRoom = chatRoomService.createAnonymousChatRoom(loginedUserId, chatRoomNm, requestDto);
+        String inviteUrl = chatServiceUrl + "/chat-participants/anonymous-chat-roomId=" + chatRoom.getChatRoomId();
 
         InviteAnonymousResponseDto responseDto = InviteAnonymousResponseDto.builder()
-                .chatRoomId(chatRoomId)
+                .chatRoomId(chatRoom.getChatRoomId())
                 .inviteAnonymousUrl(inviteUrl)
                 .build();
 

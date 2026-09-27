@@ -5,6 +5,7 @@ import com.wemeetnow.chat_service.domain.ChatParticipant;
 import com.wemeetnow.chat_service.domain.ChatRead;
 import com.wemeetnow.chat_service.domain.ChatRoom;
 import com.wemeetnow.chat_service.dto.AuthUserDto;
+import com.wemeetnow.chat_service.dto.CommonApiResponse;
 import com.wemeetnow.chat_service.dto.CreateAnonymousChatRoomRequestDto;
 import com.wemeetnow.chat_service.dto.EnterRoomResponseDto;
 import com.wemeetnow.chat_service.repository.ChatParticipantRepository;
@@ -32,12 +33,13 @@ public class ChatRoomService {
     private final ChatReadRepository chatReadRepository;
     private final RestClient.Builder restClientBuilder;
     private final ChatParticipantRepository chatParticipantsRepository;
+    private final EnterCodeGenerator enterCodeGenerator;
 
     /**
-     * 채팅방 생성 및 참여자 정보 저장
+     * 채팅방 생성 및 참여코드 생성(참여자 정보 없음)
      */
     @Transactional
-    public Long createOnChatRoom(String inpUserId, String chatRoomNm, List<Long> participantIds) {
+    public ChatRoom createChatRoom(String inpUserId, String chatRoomNm) {
         ChatRoom chatRoom = ChatRoom.builder()
                 .chatRoomNm(chatRoomNm)
                 .placeId(null)
@@ -45,6 +47,39 @@ public class ChatRoomService {
                 .meetType(null)
                 .inpUserId(inpUserId)
                 .build();
+        chatRoomRepository.save(chatRoom);
+        
+        String enterCode = enterCodeGenerator.generateEnterCode(chatRoom.getChatRoomId());
+        chatRoom.setEnterCode(enterCode);
+        chatRoomRepository.save(chatRoom);
+
+        // 자기 자신만 참여자로 저장
+        ChatParticipant chatParticipant = ChatParticipant.builder()
+                .chatRoomId(chatRoom.getChatRoomId())
+                .userId(Long.parseLong(inpUserId))
+                .useYn('Y')
+                .build();
+        chatParticipantsRepository.save(chatParticipant);
+
+        return chatRoom;
+    }
+
+    /**
+     * 채팅방 생성 및 참여코드 생성(참여자 정보 저장)
+     */
+    @Transactional
+    public ChatRoom createChatRoomWithParticipants(String inpUserId, String chatRoomNm, List<Long> participantIds) {
+        ChatRoom chatRoom = ChatRoom.builder()
+                .chatRoomNm(chatRoomNm)
+                .placeId(null)
+                .meetTime(null)
+                .meetType(null)
+                .inpUserId(inpUserId)
+                .build();
+        chatRoomRepository.save(chatRoom);
+
+        String enterCode = enterCodeGenerator.generateEnterCode(chatRoom.getChatRoomId());
+        chatRoom.setEnterCode(enterCode);
         chatRoomRepository.save(chatRoom);
 
         for (Long userId : participantIds) {
@@ -55,8 +90,9 @@ public class ChatRoomService {
                     .build();
             chatParticipantsRepository.save(chatParticipant);
         }
-        return chatRoom.getChatRoomId();
+        return chatRoom;
     }
+
     @Value("${external.auth-service.url}")
     private String AUTH_SERVICE_URL;
 
@@ -73,13 +109,19 @@ public class ChatRoomService {
                     .baseUrl(AUTH_SERVICE_URL)
                     .build();
 
-            // Auth Service 호출: 6112 포트로 요청
-            return restClient.get()
+            // Auth Service 호출: CommonApiResponse 형태로 응답받음
+            CommonApiResponse<AuthUserDto> response = restClient.get()
                     .uri("/api/auth/v1/users/get-id")
                     .header("Authorization", jwtHeader)
                     .accept(MediaType.APPLICATION_JSON)
                     .retrieve()
-                    .body(AuthUserDto.class);
+                    .body(new org.springframework.core.ParameterizedTypeReference<CommonApiResponse<AuthUserDto>>() {});
+            
+            if (response != null) {
+                log.info("Successfully fetched user from auth-service: userId={}", response.getData().getUserId());
+                return response.getData();
+            }
+            return null;
         } catch (Exception e) {
             log.error("raised error: {}", e.getMessage());
             return null;
@@ -95,13 +137,19 @@ public class ChatRoomService {
                     .baseUrl(AUTH_SERVICE_URL)
                     .build();
 
-            // Auth Service 호출: 6112 포트로 요청
-            return restClient.get()
+            // Auth Service 호출: CommonApiResponse 형태로 응답받음
+            CommonApiResponse<ChatUserInfo> response = restClient.get()
                     .uri("/api/auth/v1/users/get-user-info")
                     .header("Authorization", jwtHeader)
                     .accept(MediaType.APPLICATION_JSON)
                     .retrieve()
-                    .body(ChatUserInfo.class);
+                    .body(new org.springframework.core.ParameterizedTypeReference<CommonApiResponse<ChatUserInfo>>() {});
+            
+            if (response != null) {
+                log.info("Successfully fetched user info from auth-service");
+                return response.getData();
+            }
+            return null;
         } catch (Exception e) {
             log.error("raised error: {}", e.getMessage());
             return null;
@@ -137,7 +185,7 @@ public class ChatRoomService {
     }
 
     @Transactional
-    public Long createAnonymousChatRoom(Long userId, String chatRoomNm, CreateAnonymousChatRoomRequestDto requestDto) {
+    public ChatRoom createAnonymousChatRoom(Long userId, String chatRoomNm, CreateAnonymousChatRoomRequestDto requestDto) {
         ChatRoom chatRoom = ChatRoom.builder()
                 .chatRoomNm(chatRoomNm)
                 .placeId((long) requestDto.getPlaceId())
@@ -145,6 +193,10 @@ public class ChatRoomService {
                 .meetType(requestDto.getMeetType())
                 .inpUserId(String.valueOf(userId))
                 .build();
+        chatRoomRepository.save(chatRoom);
+        
+        String enterCode = enterCodeGenerator.generateEnterCode(chatRoom.getChatRoomId());
+        chatRoom.setEnterCode(enterCode);
         chatRoomRepository.save(chatRoom);
 
         ChatParticipant chatParticipant = ChatParticipant.builder()
@@ -154,6 +206,6 @@ public class ChatRoomService {
                 .build();
         chatParticipantsRepository.save(chatParticipant);
 
-        return chatRoom.getChatRoomId();
+        return chatRoom;
     }
 }

@@ -7,13 +7,11 @@ import lombok.*;
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
 @ToString
 @Table(name = "enter_code_mgmt")
 public class EnterCodeMgmt extends BaseTime {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "chat_room_id")
     private Long chatRoomId;
 
@@ -21,7 +19,8 @@ public class EnterCodeMgmt extends BaseTime {
     private String enterCode;
 
     @Builder
-    public EnterCodeMgmt(String enterCode) {
+    public EnterCodeMgmt(Long chatRoomId, String enterCode) {
+        this.chatRoomId = chatRoomId;
         this.enterCode = enterCode;
     }
 }

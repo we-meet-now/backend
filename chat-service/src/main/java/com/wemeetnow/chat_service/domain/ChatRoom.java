@@ -28,12 +28,16 @@ public class ChatRoom extends BaseTime{
     @Column(name = "meet_time")
     private String meetTime;
 
+    @Column(name = "enter_code", length = 10, nullable = true)
+    private String enterCode;
+
     @Builder
-    public ChatRoom(String chatRoomNm, Long placeId, String meetType, String meetTime, String inpUserId) {
+    public ChatRoom(String chatRoomNm, Long placeId, String meetType, String meetTime, String enterCode, String inpUserId) {
         this.chatRoomNm = chatRoomNm;
         this.placeId = placeId;
         this.meetType = meetType;
         this.meetTime = meetTime;
+        this.enterCode = enterCode;
         super.setInpUserId(inpUserId);
     }
 

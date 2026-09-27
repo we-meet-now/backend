@@ -14,18 +14,24 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
 
-    @Value("${front.url}")
+    @Value("${front.url:*}")
     private String frontUrl;
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        // 쉼표 구분으로 복수 Origin 허용 (e.g. "https://app.vercel.app,http://localhost:5173")
-        registry.addMapping("/api/**")          // REST API 전체 경로
-                .allowedOriginPatterns(frontUrl)
+        String[] origins = frontUrl.split(",");
+        String[] patterns = new String[origins.length];
+        
+        for (int i = 0; i < origins.length; i++) {
+            patterns[i] = origins[i].trim();
+        }
+        
+        registry.addMapping("/api/**")
+                .allowedOriginPatterns(patterns)
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true)
-                .maxAge(3600);                   // preflight 캐시 1시간
+                .maxAge(3600);
     }
 }
 

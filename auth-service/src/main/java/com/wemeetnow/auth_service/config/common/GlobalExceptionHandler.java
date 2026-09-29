@@ -1,8 +1,10 @@
 package com.wemeetnow.auth_service.config.common;
 
 import com.fasterxml.jackson.databind.JsonMappingException;
+import com.wemeetnow.auth_service.domain.enums.ErrorCode;
 import com.wemeetnow.auth_service.dto.CommonApiResponse;
 import com.wemeetnow.auth_service.dto.StoreRecommendRequestDto;
+import com.wemeetnow.auth_service.exception.CustomException;
 import com.wemeetnow.auth_service.exception.InvalidPasswordException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -75,9 +77,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InvalidPasswordException.class)
     public ResponseEntity<CommonApiResponse<Void>> handleInvalidPassword(InvalidPasswordException ex) {
         log.error("InvalidPasswordException: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+        ErrorCode errorCode = ErrorCode.BAD_REQUEST;
+
+        return ResponseEntity.status(errorCode.getHttpStatus()).body(
                 CommonApiResponse.<Void>builder()
-                        .statusCode("4001")
+                        .statusCode(errorCode.getCode())
                         .data(null)
                         .message(ex.getMessage())
                         .build()
@@ -90,9 +94,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<CommonApiResponse<Void>> handleIllegalArgumentException(IllegalArgumentException ex) {
         log.warn("IllegalArgumentException: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+        ErrorCode errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
+
+        return ResponseEntity.status(errorCode.getHttpStatus()).body(
                 CommonApiResponse.<Void>builder()
-                        .statusCode("4002") // 비즈니스 요구사항 위반 코드
+                        .statusCode(errorCode.getCode()) // 비즈니스 요구사항 위반 코드
                         .data(null)
                         .message(ex.getMessage())
                         .build()
@@ -105,12 +111,28 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<CommonApiResponse<Void>> handleException(Exception ex) {
         log.error("Unhandled exception: ", ex);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+        ErrorCode errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
+
+        return ResponseEntity.status(errorCode.getHttpStatus()).body(
                 CommonApiResponse.<Void>builder()
-                        .statusCode("5005")
+                        .statusCode(errorCode.getCode())
                         .data(null)
                         .message(ex.getMessage() != null ? ex.getMessage() : "서버 오류가 발생했습니다.")
                         .build()
         );
+    }
+
+    @ExceptionHandler(CustomException.class)
+    public ResponseEntity<CommonApiResponse<Void>> handleCustomException(CustomException e) {
+        ErrorCode errorCode = e.getErrorCode();
+        log.error("CustomException 발생: [{}] {}", errorCode.getCode(), errorCode.getMessage());
+
+        return ResponseEntity
+                .status(errorCode.getHttpStatus())
+                .body(CommonApiResponse.<Void>builder()
+                        .statusCode(errorCode.getCode())
+                        .data(null)
+                        .message(errorCode.getMessage())
+                        .build());
     }
 }

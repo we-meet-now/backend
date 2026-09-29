@@ -3,6 +3,7 @@ package com.wemeetnow.chat_service.controller;
 import com.wemeetnow.chat_service.domain.Chat;
 import com.wemeetnow.chat_service.domain.ChatRoom;
 import com.wemeetnow.chat_service.dto.*;
+import com.wemeetnow.chat_service.service.ChatGuestTokenInfo;
 import com.wemeetnow.chat_service.service.ChatRoomService;
 import com.wemeetnow.chat_service.service.ChatService;
 import com.wemeetnow.chat_service.service.ChatUserInfo;
@@ -188,9 +189,45 @@ public class ChatRoomController {
     }
 
     @Operation(
-            summary = "채팅방 입장 처리 및 읽음 처리",
+            summary = "채팅방 입장 처리 및 읽음 처리(인증O)",
             description = "채팅방에 입장할 때 읽지 않은 메시지를 읽음 처리합니다. " +
                           "읽음 처리된 메시지 수를 반환합니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "읽음 처리 성공",
+                    content = @Content(schema = @Schema(implementation = EnterRoomResponseDto.class))),
+            @ApiResponse(responseCode = "500", description = "서버 오류",
+                    content = @Content(schema = @Schema(implementation = EnterRoomResponseDto.class)))
+    })
+    @GetMapping("/enter-room-w-login/roomId={roomId}")
+    public ResponseEntity<EnterRoomResponseDto> enterRoomAndMarkReadWithLogin(
+            @PathVariable("roomId") Long roomId,
+            HttpServletRequest request) {
+        String statusCode = "5000";
+        HttpStatus httpStatus = HttpStatus.OK;
+        EnterRoomResponseDto responseDto = null;
+        try {
+            String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+            String token = authorizationHeader.replace("Bearer ", "");
+            AuthUserResponse authUserResponse = chatService.isValidAccessToken(token);
+            Long loginedUserId = authUserResponse.getUserId();
+            responseDto = chatRoomService.enterRoomAndMarkRead(roomId, loginedUserId);
+        } catch (Exception e) {
+            log.error("raised error: {}", e.getMessage());
+            statusCode = "5005";
+            responseDto = EnterRoomResponseDto.builder()
+                    .statusCode(statusCode)
+                    .statusMsg("fail")
+                    .markedReadCount(0)
+                    .build();
+        }
+        return ResponseEntity.status(httpStatus).body(responseDto);
+    }
+
+    @Operation(
+            summary = "채팅방 입장 처리 및 읽음 처리",
+            description = "채팅방에 입장할 때 읽지 않은 메시지를 읽음 처리합니다. " +
+                    "읽음 처리된 메시지 수를 반환합니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "읽음 처리 성공",
@@ -207,10 +244,28 @@ public class ChatRoomController {
         EnterRoomResponseDto responseDto = null;
         try {
             String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-            String token = authorizationHeader.replace("Bearer ", "");
-            AuthUserResponse authUserResponse = chatService.isValidAccessToken(token);
-            Long loginedUserId = authUserResponse.getUserId();
-            responseDto = chatRoomService.enterRoomAndMarkRead(roomId, loginedUserId);
+            if (authorizationHeader.startsWith("Bearer ")) {
+                // 채팅방 생성자 or 이미 접근 가능한 사람인지(guestToken 포함) 체크
+                String token = authorizationHeader.replace("Bearer ", "");
+                AuthUserResponse authUserResponse = chatService.isValidAccessToken(token);
+                Long loginedUserId = authUserResponse.getUserId();
+                responseDto = chatRoomService.enterRoomAndMarkRead(roomId, loginedUserId);
+            } else {
+                // 비로그인인 경우 입장코드를 가지고 입장가능 체크
+                // guestToken 발급 후 브라우저에 저장하여 해당 토큰 사용함
+                // TODO guestToken 발급 로직 개발
+                ChatGuestTokenInfo guestTokenInfo = chatRoomService.generateGuestToken();
+                if (guestTokenInfo != null) {
+                    responseDto = EnterRoomResponseDto.builder()
+                            .statusCode(statusCode)
+                            .statusMsg("success")
+                            .markedReadCount(0)
+                            .guestToken(guestTokenInfo.getGuestToken())
+                            .build();
+                }
+
+            }
+
         } catch (Exception e) {
             log.error("raised error: {}", e.getMessage());
             statusCode = "5005";

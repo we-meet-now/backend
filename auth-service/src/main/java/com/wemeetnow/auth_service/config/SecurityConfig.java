@@ -54,6 +54,7 @@ public class SecurityConfig {
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/friends/**")).permitAll()
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/create-random-nickname")).permitAll()
                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/email/**")).permitAll()
+                                .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/no-login/**")).permitAll()
                                 .anyRequest().authenticated()
                         )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

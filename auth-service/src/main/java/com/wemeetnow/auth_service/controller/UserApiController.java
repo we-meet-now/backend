@@ -29,6 +29,7 @@ import java.util.List;
 @RequestMapping("/api/auth/v1/users")
 public class UserApiController {
     private final UserService userService;
+    private final JwtUtil jwtUtil;
 
     @Operation(
             summary = "회원가입",
@@ -623,4 +624,17 @@ public class UserApiController {
                 .message("주소 정보 업데이트 성공")
                 .build());
     }
+
+
+    @GetMapping("/no-login/get-guest-token")
+    public ResponseEntity<CommonApiResponse<ChatGuestTokenInfoDto>> getGuestTokenWithNoLogin() {
+        ChatGuestTokenInfoDto responseDto = userService.issueGuestToken();
+
+        return ResponseEntity.ok(CommonApiResponse.<ChatGuestTokenInfoDto>builder()
+                .statusCode("2000")
+                .data(responseDto)
+                .message("게스트 토큰 생성 성공 성공")
+                .build());
+    }
+
 }

@@ -208,4 +208,30 @@ public class ChatRoomService {
 
         return chatRoom;
     }
+
+    @Transactional
+    public ChatGuestTokenInfo generateGuestToken() {
+        try {
+            RestClient restClient = restClientBuilder
+                    .baseUrl(AUTH_SERVICE_URL)
+                    .build();
+
+            // Auth Service 호출: CommonApiResponse 형태로 응답받음
+            CommonApiResponse<ChatGuestTokenInfo> response = restClient.get()
+                    .uri("/api/auth/v1/users/no-login/get-guest-token")
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .body(new org.springframework.core.ParameterizedTypeReference<CommonApiResponse<ChatGuestTokenInfo>>() {});
+
+
+            if (response != null) {
+                log.info("Successfully fetched guest Token info from auth-service");
+                return response.getData();
+            }
+            return null;
+        } catch (Exception e) {
+            log.error("raised error: {}", e.getMessage());
+            return null;
+        }
+    }
 }

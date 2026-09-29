@@ -1,8 +1,11 @@
 package com.wemeetnow.auth_service.service;
 
+import com.wemeetnow.auth_service.config.common.GlobalExceptionHandler;
 import com.wemeetnow.auth_service.config.jwt.JwtUtil;
 import com.wemeetnow.auth_service.domain.User;
+import com.wemeetnow.auth_service.domain.enums.ErrorCode;
 import com.wemeetnow.auth_service.dto.*;
+import com.wemeetnow.auth_service.exception.CustomException;
 import org.springframework.http.ResponseEntity;
 import com.wemeetnow.auth_service.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -175,5 +179,36 @@ public class UserService{
         User updatedUser = userRepository.save(user);
         log.info("주소 정보 업데이트 완료: userId={}", userId);
         return UpdateUserAddressResponseDto.fromEntity(updatedUser, "주소 정보 업데이트 성공");
+    }
+
+    @Transactional
+    public Long saveGuestUser(String uuid) {
+        log.info("게스트 토큰 생성 로직 진행");
+
+        User guestUser = new User(uuid);
+        User savedUser = userRepository.save(guestUser);
+        return savedUser.getId();
+    }
+
+    @Transactional
+    public ChatGuestTokenInfoDto issueGuestToken() {
+        String uuid = UUID.randomUUID().toString();
+
+        Long guestUserId = saveGuestUser(uuid);
+        if (guestUserId == null) {
+            log.error("게스트 토큰 생성 중 사용자 저장 실패: uuid={}", uuid);
+            throw new CustomException(ErrorCode.GUEST_USER_CREATE_FAILED); // 5051 에러 대응
+        }
+
+        String guestToken = jwtUtil.generateGuestToken(uuid);
+        if (guestToken == null) {
+            log.error("게스트 토큰 생성 실패: uuid={}", uuid);
+            throw new CustomException(ErrorCode.GUEST_TOKEN_CREATE_FAILED); // 5050 에러 대응
+        }
+
+        return ChatGuestTokenInfoDto.builder()
+                .uuId(uuid)
+                .guestToken(guestToken)
+                .build();
     }
 }

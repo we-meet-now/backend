@@ -116,8 +116,29 @@ public class JwtUtil {
             log.error("raised error: {}",e.getMessage());
             return "emptyString";
         }
+    }
+
+    private String doGenerateGuestToken(String uuId, long expireTime) {
+        try {
+            Claims claims = Jwts.claims();
+            claims.put("uuId", uuId);
+            claims.put("userId", null);
+            claims.put("email", null);
+            claims.put("role", Role.ROLE_USER);
+            log.info("22enter doGenerateToken()" + SECRET_KEY);
+            return Jwts.builder()
+                    .setClaims(claims)
+                    .setIssuedAt(new Date(System.currentTimeMillis()))
+                    .setExpiration(new Date(System.currentTimeMillis() + expireTime))
+                    .signWith(getSigningKey(SECRET_KEY), SignatureAlgorithm.HS256)
+                    .compact();
+        } catch (Exception e) {
+            log.error("raised error: {}",e.getMessage());
+            return "emptyString";
+        }
 
     }
+
 
     public static Boolean validateToken(String token) {
         try {
@@ -139,5 +160,15 @@ public class JwtUtil {
         Date expiration = extractAllClaims(token).getExpiration();
         Date now = new Date();
         return expiration.getTime() - now.getTime();
+    }
+
+    public String generateGuestToken(String uuid) {
+        try {
+            return doGenerateGuestToken(uuid, REFRESH_TOKEN_EXPIRATION_TIME.getValue());
+        }
+        catch (Exception e) {
+            log.error("raised error: {}",e.getMessage());
+            return null;
+        }
     }
 }

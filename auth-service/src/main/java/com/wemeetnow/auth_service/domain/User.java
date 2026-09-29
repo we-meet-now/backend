@@ -42,8 +42,6 @@ public class User extends BaseTime {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true) // 양방향 매핑하기 위함
     private List<Friend> friends = new ArrayList<>();
 
-    // TODO 채팅 필드 필요
-
     @Column(name = "phone_number")
     private String phoneNumber;
 
@@ -56,6 +54,9 @@ public class User extends BaseTime {
     @Column(name = "detail_addr1", length = 255)
     private String detailAddr1;
 
+    @Column(name = "uuid", length = 40)
+    private String uuid;
+
     @Builder
     public User(String username, String email, String password, String nickname, String provider, Boolean emailAuth, String phoneNumber, Role role) {
         this.username = username;
@@ -66,6 +67,11 @@ public class User extends BaseTime {
         this.emailAuth = emailAuth;
         this.phoneNumber = phoneNumber;
         this.role = role;
+    }
+
+    @Builder
+    public User(String uuid) {
+        this.uuid = uuid;
     }
 
     public void emailVerifiedSuccess(){

@@ -264,6 +264,58 @@ public class UserApiController {
     }
 
     @Operation(
+            summary = "GuestToken으로 userId 조회",
+            description = "Authorization 헤더의 JWT GuestToken을 파싱하여 사용자 ID(userId)를 반환합니다. MSA 서비스 간 내부 호출에 사용됩니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "userId 조회 성공", useReturnTypeSchema = true),
+            @ApiResponse(responseCode = "401", description = "토큰 만료 또는 유효하지 않은 토큰",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
+    @PostMapping("/get-guest-id")
+    public ResponseEntity<CommonApiResponse<GuestUserDto>> getUserIdFromGuestToken(
+            @RequestBody GuestIdRequestDto requestDto
+            ,HttpServletRequest request) {
+        String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        String token = authorizationHeader.replace("Bearer ", "");
+        String refreshToken = "";
+        if (JwtUtil.isExpired(token)) {
+            if (requestDto != null && userService.validUUID(requestDto.getUuid())){ // UUID가 유효한 경우에만 새로운 GuestToken 생성
+                JwtUtil guestJwtUtil = new JwtUtil();
+                refreshToken = guestJwtUtil.generateGuestToken(requestDto.getUuid()); // 토큰이 만료되었을 때 새로운 GuestToken 생성
+            }
+        }
+
+        String uuid = JwtUtil.getUUID(token); // 토큰 유효성 검증 (만료 여부 포함)
+        User findUser = userService.getUserByUUID(uuid).orElse(null);
+        if (findUser == null) {
+            GuestUserDto errorDto = GuestUserDto.builder().userId(0L).statusCd("4040").statusMsg("사용자가 존재하지 않습니다.").isGuestYn("N").build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    CommonApiResponse.<GuestUserDto>builder()
+                            .statusCode("4040")
+                            .data(errorDto)
+                            .message("사용자가 존재하지 않습니다.")
+                            .build()
+            );
+        }
+
+        Long userId = findUser.getId();
+        GuestUserDto responseDto = GuestUserDto.builder()
+                .userId(userId)
+                .statusCd("2000")
+                .statusMsg("success")
+                .isGuestYn("Y")
+                .guestToken(refreshToken)
+                .build();
+
+        return ResponseEntity.ok(CommonApiResponse.<GuestUserDto>builder()
+                .statusCode("2000")
+                .data(responseDto)
+                .message("userId 조회 성공")
+                .build());
+    }
+
+    @Operation(
             summary = "AccessToken으로 사용자 상세 정보 조회",
             description = "Authorization 헤더에 JWT AccessToken을 'Bearer {token}' 형식으로 포함하여 로그인한 사용자의 상세 정보(userId, 이름, 이메일, 닉네임, 프로필 이미지 등)를 반환합니다.\n\n" +
                     "**사용 방법:**\n" +
@@ -634,6 +686,47 @@ public class UserApiController {
                 .statusCode("2000")
                 .data(responseDto)
                 .message("게스트 토큰 생성 성공 성공")
+                .build());
+    }
+
+    @ApiResponses()
+    @PostMapping("/no-login/is-guest-token")
+    public ResponseEntity<CommonApiResponse<GuestYnDto>> getIsGuestTokenYn(
+            @RequestBody GuestCheckRequestDto requestDto){
+        log.info("getIsGuestToken/Authorization Header: {}", requestDto.getGuestToken());
+        String token = requestDto.getGuestToken();
+        boolean hasUUID = JwtUtil.hasUUID(token);
+        if (!hasUUID && JwtUtil.isExpired(token)) { // Guest Token도 아니면서 만료된 토큰인 경우
+            log.info("토큰이 유효하지 않습니다.");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    CommonApiResponse.<GuestYnDto>builder()
+                            .statusCode("4010")
+                            .data(null)
+                            .message("토큰이 유효하지 않거나 만료되었습니다.")
+                            .build()
+            );
+        }
+        // Guest Token 이거나 만료되지 않은 토큰인 경우
+        String uuid = JwtUtil.getUUID(token);
+        User findUser = userService.getUserByUUID(uuid).orElse(null);
+        if (findUser == null) {
+            log.info("사용자가 존재하지 않습니다. uuid: {}", uuid);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    CommonApiResponse.<GuestYnDto>builder()
+                            .statusCode("4040")
+                            .data(null)
+                            .message("사용자가 존재하지 않습니다.")
+                            .build()
+            );
+        }
+        GuestYnDto responseDto = GuestYnDto.builder()
+                .isGuest("Y")
+                .build();
+
+        return ResponseEntity.ok(CommonApiResponse.<GuestYnDto>builder()
+                .statusCode("2000")
+                .data(responseDto)
+                .message("게스트 여부 조회 성공")
                 .build());
     }
 

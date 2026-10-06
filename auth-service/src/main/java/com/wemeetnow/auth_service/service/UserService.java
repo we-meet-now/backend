@@ -211,4 +211,12 @@ public class UserService{
                 .guestToken(guestToken)
                 .build();
     }
+
+    public Optional<User> getUserByUUID(String uuid) {
+        return userRepository.findByUuid(uuid);
+    }
+
+    public boolean validUUID(String uuid) {
+        return userRepository.existsByUuid(uuid);
+    }
 }

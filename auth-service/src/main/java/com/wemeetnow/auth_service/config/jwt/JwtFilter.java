@@ -12,6 +12,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -23,6 +25,18 @@ import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 @Slf4j
 public class JwtFilter extends OncePerRequestFilter {
     private final UserService userService;
+
+    // SecurityConfig의 permitAll 경로 중, 게스트(비로그인) 토큰으로 호출되는 엔드포인트는
+    // JwtFilter에서 사용자 조회(getUserByEmail)를 시도하지 않도록 필터 자체를 건너뛴다.
+    private static final List<RequestMatcher> NO_LOGIN_MATCHERS = List.of(
+            new AntPathRequestMatcher("/api/auth/v1/users/no-login/**"),
+            new AntPathRequestMatcher("/api/auth/v1/users/is-guest-token")
+    );
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return NO_LOGIN_MATCHERS.stream().anyMatch(matcher -> matcher.matches(request));
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
@@ -52,7 +66,22 @@ public class JwtFilter extends OncePerRequestFilter {
         }
         String email = JwtUtil.getEmail(token);
         log.info("try access user's email = " + email);
-        User findUser = userService.getUserByEmail(email);
+        // 게스트(비로그인) 토큰은 email claim이 없으므로 사용자 조회를 시도하지 않고 그대로 통과시킨다.
+        // (그대로 조회하면 UsernameNotFoundException -> 403으로 이어짐)
+        if (email == null || email.isBlank() || "emptyString".equals(email)) {
+            log.info("게스트 토큰으로 판단되어 인증 없이 통과시킵니다.");
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        User findUser;
+        try {
+            findUser = userService.getUserByEmail(email);
+        } catch (Exception e) {
+            log.error("사용자 조회 실패로 인증 없이 통과시킵니다: {}", e.getMessage());
+            filterChain.doFilter(request, response);
+            return;
+        }
         log.info("findUser's role = " + findUser.getRole());
 
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken("", null, List.of(new SimpleGrantedAuthority("ROLE_USER"))); // 문열어주기

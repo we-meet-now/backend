@@ -15,4 +15,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("select u from User u where u.id in :userIdList")
     List<User> findAllInUserIdList(@Param("userIdList") List<Long> userIdList);
     Optional<User> findById(Long id);
+
+    @Query("select u from User u where u.uuid = :uuid")
+    Optional<User> findByUuid(@Param("uuid") String uuid);
+
+    @Query("select case when count(u) > 0 then true else false end from User u where u.uuid = :uuid")
+    boolean existsByUuid(@Param("uuid") String uuid);
 }

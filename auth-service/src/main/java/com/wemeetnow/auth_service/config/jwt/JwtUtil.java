@@ -171,4 +171,22 @@ public class JwtUtil {
             return null;
         }
     }
+
+    public static boolean hasUUID(String token) {
+        Claims claims = extractAllClaims(token);
+        if (claims != null) {
+            return claims.get("uuId") != null;
+        }
+        return false;
+    }
+    public static String getUUID(String token) {
+        Claims claims = extractAllClaims(token);
+        if (claims != null) {
+            Object uuIdObj = claims.get("uuId");
+            if (uuIdObj instanceof String) {
+                return (String) uuIdObj;
+            }
+        }
+        return null;
+    }
 }

@@ -3,8 +3,10 @@ package com.wemeetnow.chat_service.service;
 import com.wemeetnow.chat_service.domain.Chat;
 import com.wemeetnow.chat_service.domain.ChatRoom;
 import com.wemeetnow.chat_service.domain.enums.ChatType;
+import com.wemeetnow.chat_service.dto.AuthGuestResponse;
 import com.wemeetnow.chat_service.dto.AuthUserResponse;
 import com.wemeetnow.chat_service.dto.ChatResponseDto;
+import com.wemeetnow.chat_service.dto.GuestIdRequestDto;
 import com.wemeetnow.chat_service.repository.ChatRepository;
 import com.wemeetnow.chat_service.repository.ChatRoomRepository;
 import lombok.RequiredArgsConstructor;
@@ -12,12 +14,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 @Slf4j
@@ -79,12 +83,33 @@ public class ChatService {
                 .header(HttpHeaders.AUTHORIZATION, authorizationHeader) // Bearer 토큰 전달
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
-                .onStatus(status -> status.is4xxClientError(), (req, res) -> {
+                .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
                     // 401 Unauthorized 등 처리
                     throw new IllegalArgumentException("유효하지 않은 토큰입니다.");
                 })
                 .body(AuthUserResponse.class);
     }
+
+    public AuthGuestResponse isValidGuestToken(String token, String uuId) {
+        String authorizationHeader = token.startsWith("Bearer ") ? token : "Bearer " + token;
+        log.info("auth-service.url: {}", authServiceUrl);
+        log.info("authorizationHeader: {}", authorizationHeader);
+        RestClient restClient = restClientBuilder.baseUrl(authServiceUrl).build();
+
+        return restClient.post()
+                .uri("/api/auth/v1/users/get-guest-id")
+                .header(HttpHeaders.AUTHORIZATION, authorizationHeader) // Bearer 토큰 전달
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new GuestIdRequestDto(uuId))
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
+                    // 401 Unauthorized 등 처리
+                    throw new IllegalArgumentException("유효하지 않은 토큰입니다.");
+                })
+                .body(AuthGuestResponse.class);
+    }
+
     public int getNotReadCountByRoomIdAndUserId(Long roomId, Long userId) {
         return chatRepository.countNotReadByRoomIdAndUserId(roomId, userId);
     }

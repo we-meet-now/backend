@@ -4,10 +4,7 @@ import com.wemeetnow.chat_service.domain.Chat;
 import com.wemeetnow.chat_service.domain.ChatParticipant;
 import com.wemeetnow.chat_service.domain.ChatRead;
 import com.wemeetnow.chat_service.domain.ChatRoom;
-import com.wemeetnow.chat_service.dto.AuthUserDto;
-import com.wemeetnow.chat_service.dto.CommonApiResponse;
-import com.wemeetnow.chat_service.dto.CreateAnonymousChatRoomRequestDto;
-import com.wemeetnow.chat_service.dto.EnterRoomResponseDto;
+import com.wemeetnow.chat_service.dto.*;
 import com.wemeetnow.chat_service.repository.ChatParticipantRepository;
 import com.wemeetnow.chat_service.repository.ChatReadRepository;
 import com.wemeetnow.chat_service.repository.ChatRepository;
@@ -15,6 +12,8 @@ import com.wemeetnow.chat_service.repository.ChatRoomRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -144,7 +143,7 @@ public class ChatRoomService {
                     .accept(MediaType.APPLICATION_JSON)
                     .retrieve()
                     .body(new org.springframework.core.ParameterizedTypeReference<CommonApiResponse<ChatUserInfo>>() {});
-            
+
             if (response != null) {
                 log.info("Successfully fetched user info from auth-service");
                 return response.getData();
@@ -232,6 +231,55 @@ public class ChatRoomService {
         } catch (Exception e) {
             log.error("raised error: {}", e.getMessage());
             return null;
+        }
+    }
+
+    public GuestYnDto isGuestToken(String token) {
+        try {
+            String jwtHeader = token.startsWith("Bearer ") ? token : "Bearer " + token;
+
+            RestClient restClient = restClientBuilder
+                    .baseUrl(AUTH_SERVICE_URL)
+                    .build();
+
+            // Auth Service 호출: CommonApiResponse 형태로 응답받음
+            CommonApiResponse<GuestYnDto> response = restClient.post()
+                    .uri("/api/auth/v1/users/no-login/is-guest-token")
+                    .header(HttpHeaders.AUTHORIZATION, jwtHeader) // Bearer 토큰 전달
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(new GuestCheckRequestDto(token))
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
+                        // 401 Unauthorized 등 처리
+                        throw new IllegalArgumentException("유효하지 않은 토큰입니다.");
+                    })
+                    .body(new org.springframework.core.ParameterizedTypeReference<CommonApiResponse<GuestYnDto>>() {});
+
+            if (response != null) {
+                log.info("Successfully fetched guest Y/N from auth-service");
+                return response.getData();
+            }
+            return null;
+        } catch (Exception e) {
+            log.error("raised error: {}", e.getMessage());
+            return null;
+        }
+
+    }
+
+    public boolean isMember(Long roomId, Long userId) {
+        return chatParticipantsRepository.existsByChatRoomIdAndUserId(roomId, userId);
+    }
+
+    public void addParticipant(Long roomId, Long userId) {
+        if (!isMember(roomId, userId)) {
+            ChatParticipant chatParticipant = ChatParticipant.builder()
+                    .chatRoomId(roomId)
+                    .userId(userId)
+                    .useYn('Y')
+                    .build();
+            chatParticipantsRepository.save(chatParticipant);
         }
     }
 }

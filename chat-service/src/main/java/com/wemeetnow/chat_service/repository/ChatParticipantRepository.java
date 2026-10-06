@@ -28,4 +28,7 @@ public interface ChatParticipantRepository extends JpaRepository<ChatParticipant
     void deleteByChatRoomIdAndUserId(@Param("roomId") Long roomId, @Param("userId") Long userId);
     @Query("SELECT cp FROM ChatParticipant cp WHERE cp.chatRoomId = :roomId AND cp.useYn = 'Y'")
     List<ChatParticipant> findByAnonymousChatRoomId(Long roomId);
+
+    @Query("SELECT CASE WHEN COUNT(cp) > 0 THEN true ELSE false END FROM ChatParticipant cp WHERE cp.chatRoomId = :roomId AND cp.userId = :userId AND cp.useYn = 'Y'")
+    boolean existsByChatRoomIdAndUserId(Long roomId, Long userId);
 }

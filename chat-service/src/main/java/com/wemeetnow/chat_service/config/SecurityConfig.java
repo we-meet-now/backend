@@ -34,7 +34,8 @@ public class SecurityConfig {
                                 "/api/chat/v1/api-docs/**",
                                 "/api/chat/v1/api-docs.yaml",
                                 "/api/chat/v1/message/ws-chat/**",
-                                "/api/chat/v1/message/**"
+                                "/api/chat/v1/message/**",
+                                "/api/chat/v1/chat-rooms/enter-room/**"
                         ).permitAll()
                         // 그 외 모든 요청은 인증 필요
                         .anyRequest().authenticated()

@@ -1,10 +1,17 @@
 package com.wemeetnow.auth_service.config.jwt;
 
+import com.wemeetnow.auth_service.domain.User;
+import com.wemeetnow.auth_service.domain.enums.ErrorCode;
 import com.wemeetnow.auth_service.domain.enums.Role;
+import com.wemeetnow.auth_service.exception.CustomException;
+import com.wemeetnow.auth_service.repository.UserRepository;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
@@ -16,7 +23,9 @@ import static com.wemeetnow.auth_service.config.jwt.JwtExpirationEnums.REFRESH_T
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class JwtUtil {
+    private final UserRepository userRepository;
     private static String SECRET_KEY;
 
     @Value("${jwt.secret}")
@@ -65,6 +74,39 @@ public class JwtUtil {
         return 0L;
     }
 
+    /**
+     * Authorization 헤더의 Bearer JWT를 검증하고, 토큰의 사용자 ID에 해당하는 DB 사용자를 반환합니다.
+     * 토큰이 없거나 유효하지 않거나 사용자 레코드가 없으면 UNAUTHORIZED 예외를 발생시킵니다.
+     */
+    public User getAuthenticatedUser(HttpServletRequest request) {
+        if (request == null) {
+            throw new CustomException(ErrorCode.UNAUTHORIZED);
+        }
+
+        String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            throw new CustomException(ErrorCode.UNAUTHORIZED);
+        }
+
+        String token = authorizationHeader.substring("Bearer ".length()).trim();
+        if (token.isEmpty() || isExpired(token)) {
+            throw new CustomException(ErrorCode.UNAUTHORIZED);
+        }
+
+        Long userId;
+        try {
+            userId = getId(token);
+        } catch (NumberFormatException e) {
+            throw new CustomException(ErrorCode.UNAUTHORIZED);
+        }
+        if (userId == null || userId <= 0) {
+            throw new CustomException(ErrorCode.UNAUTHORIZED);
+        }
+
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.UNAUTHORIZED));
+    }
+
     private static Key getSigningKey(String secretKey) {
         byte[] keyBytes = secretKey.getBytes(StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(keyBytes);
@@ -79,7 +121,7 @@ public class JwtUtil {
                 return true;
             }
             Date expiration = claims.getExpiration();
-            return expiration.before(new Date());
+            return expiration == null || expiration.before(new Date());
         } catch (MalformedJwtException malError) {
             log.error("Invalid JWT token(MalformedJwtException): {}", malError.getMessage());
             return true;

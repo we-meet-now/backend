@@ -2,13 +2,27 @@ package com.wemeetnow.auth_service.controller.friend;
 
 import com.wemeetnow.auth_service.config.jwt.JwtUtil;
 import com.wemeetnow.auth_service.domain.User;
+import com.wemeetnow.auth_service.domain.enums.ErrorCode;
 import com.wemeetnow.auth_service.domain.enums.FriendStatus;
+import com.wemeetnow.auth_service.dto.CommonApiResponse;
+import com.wemeetnow.auth_service.dto.FriendDeleteRequestDto;
 import com.wemeetnow.auth_service.dto.FriendInfoDto;
+import com.wemeetnow.auth_service.dto.FriendInvitationAcceptRequestDto;
+import com.wemeetnow.auth_service.dto.FriendInvitationRequestDto;
+import com.wemeetnow.auth_service.dto.FriendInvitationResponseDto;
+import com.wemeetnow.auth_service.dto.FriendStatusUpdateRequestDto;
+import com.wemeetnow.auth_service.exception.CustomException;
 import com.wemeetnow.auth_service.service.FriendService;
 import com.wemeetnow.auth_service.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,7 +30,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @Slf4j
 @RestController
@@ -24,188 +37,210 @@ import java.util.Optional;
 @RequestMapping("/api/auth/v1/friends")
 public class FriendController {
 
-//    @Value("${front.url}")
-//    private final String frontUrl;
     private final UserService userService;
     private final FriendService friendService;
+    private final JwtUtil jwtUtil;
 
-    // 친구목록 조회 API
+    @Operation(
+            summary = "친구 목록 조회",
+            description = "Authorization 헤더의 JWT로 로그인 사용자를 확인하고, 해당 사용자의 친구 관계 목록을 조회합니다. " +
+                    "삭제된 친구 관계는 결과에서 제외됩니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "친구 목록 조회 성공",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "401", description = "인증 토큰이 유효하지 않거나 로그인 사용자가 존재하지 않음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "500", description = "서버 오류",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
     @CrossOrigin(origins = "https://localhost:3000")
     @GetMapping("/list")
-    public ResponseEntity getFriendList() {
-        HttpStatus status = HttpStatus.OK;
-        Map<String, Object> body  = new HashMap<>();
-        String code = "";
-        String message = "";
-        try {
-//            String accessToken = (String) reqMap.get("accessToken");
-//            String refreshToken = (String) reqMap.get("refreshToken");
-//            Long loginUserId = JwtUtil.getId(accessToken);
-            Long loginUserId = 1L;
-
-            List<FriendInfoDto> friendInfoDtos = friendService.getFriendList(loginUserId);
-            code = "2001";
-            body.put("code", code);
-            body.put("data", friendInfoDtos);
-            body.put("result", "success");
-        } catch (Exception e) {
-            status = HttpStatus.BAD_REQUEST;
-            log.error("raised error: {}", e.getMessage());
-            code = "5100";
-            body.put("code", code);
-            body.put("data", null);
-            body.put("result", "fail");
-        }
-        return ResponseEntity.status(status).body(body);
+    public ResponseEntity<CommonApiResponse<List<FriendInfoDto>>> getFriendList(HttpServletRequest httpRequest) {
+        User loginUser = jwtUtil.getAuthenticatedUser(httpRequest);
+        List<FriendInfoDto> friendInfoDtos = friendService.getFriendList(loginUser.getId());
+        return ResponseEntity.ok(CommonApiResponse.<List<FriendInfoDto>>builder()
+                .statusCode("2000")
+                .data(friendInfoDtos)
+                .message("친구 목록을 조회했습니다.")
+                .build());
     }
 
+    @Operation(
+            summary = "친구 초대 수락",
+            description = "Authorization 헤더의 JWT로 초대받은 사용자를 확인한 뒤, 지정한 사용자가 보낸 대기 중(WAIT)인 친구 초대를 수락합니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "202", description = "친구 초대 수락 성공",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "400", description = "요청 본문이 비어 있거나 사용자 ID가 올바르지 않음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "401", description = "인증 토큰이 유효하지 않거나 로그인 사용자가 존재하지 않음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "404", description = "초대 발신자 또는 수락할 친구 초대가 존재하지 않음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "500", description = "서버 오류",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
     @CrossOrigin(origins = "https://localhost:3000")
     @PostMapping("/accept-new-friend")
-    public ResponseEntity acceptNewFriend(@RequestBody Map<String, Object> reqMap) {
-        HttpStatus status = HttpStatus.OK;
-        Map<String, Object> body  = new HashMap<>();
-        try {
-            // TODO 내정보는 토큰에 있음 즉, 받는 사람 id(receiveUserId)는 토큰 있음(FE와 어떻게 주고받을지 상의 필요)
-//            String accessToken = (String) reqMap.get("accessToken");
-//            String refreshToken = (String) reqMap.get("refreshToken");
-//            Long receiveUserId = JwtUtil.getId(accessToken);
-            Long receiveUserId = 1L;
-
-            Long sendUserId = Long.valueOf((String) reqMap.get("sendUserId")); // 친구추가 보낸 사용자 id
-            Optional<User> sendUserOpt = userService.getUserById(sendUserId);// 친구추가 보낸 사용자 정보
-
-            int resultCnt = 0;
-            FriendStatus friendStatus = FriendStatus.NEW;
-            if (sendUserOpt != null && sendUserOpt.isPresent()) {
-                // TODO senderId가 존재하는 사용자 인가? 신고당한 사람은 아닌가? 검증하는 로직 필요
-                // 친구 생성 로직
-                log.info("sendUserOpt.get().getId(): [{}]", sendUserOpt.get().getId());// 2
-                log.info("friendStatus.getStatus(): [{}]", friendStatus.getStatus());
-                resultCnt = friendService.acceptNewFriend(receiveUserId, sendUserOpt.get().getId(), friendStatus);
-
-                log.info("resultCnt: ", resultCnt);
-            } else {
-                log.info("해당 요청을 보낸사람은 존재하지 않습니다.");
-            }
-
-            body.put("data", resultCnt);
-            body.put("result", "success");
-        } catch (Exception e) {
-            status = HttpStatus.BAD_REQUEST;
-            log.error("raised error: {}", e.getMessage());
-            body.put("data", null);
-            body.put("result", "fail");
+    public ResponseEntity<CommonApiResponse<Void>> acceptNewFriend(
+            @RequestBody(required = false) FriendInvitationAcceptRequestDto request,
+            HttpServletRequest httpRequest) {
+        User receiver = jwtUtil.getAuthenticatedUser(httpRequest);
+        if (request == null || request.getSendUserId() == null || request.getSendUserId() <= 0
+                || request.getSendUserId().equals(receiver.getId())) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        return ResponseEntity.status(status).body(body);
+
+        User sender = userService.getUserById(request.getSendUserId())
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        int updatedCount = friendService.acceptNewFriend(receiver.getId(), sender.getId());
+        if (updatedCount == 0) {
+            throw new CustomException(ErrorCode.FRIEND_INVITATION_NOT_FOUND);
+        }
+
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(CommonApiResponse.<Void>builder()
+                        .statusCode("2002")
+                        .data(null)
+                        .message("친구 초대를 수락했습니다.")
+                        .build());
     }
 
 
+    @Operation(
+            summary = "친구 초대 보내기",
+            description = "Authorization 헤더의 JWT로 로그인 사용자를 확인한 뒤, 요청에 포함된 사용자들에게 친구 초대를 보냅니다. " +
+                    "모든 대상 사용자가 존재하고 이미 친구이거나 초대 대기 중인 관계가 없어야 합니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "친구 초대 성공",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "400", description = "요청 본문이 비어 있거나 사용자 ID 목록이 유효하지 않음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "401", description = "인증 토큰이 유효하지 않거나 로그인 사용자가 존재하지 않음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "404", description = "초대 대상 사용자가 존재하지 않음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "409", description = "초대 대상 중 이미 친구이거나 초대 대기 중인 사용자가 있음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "500", description = "서버 오류",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
     @CrossOrigin(origins = "https://localhost:3000")
-    @PostMapping("/send-new-friend")
-    public ResponseEntity sendNewFriend(@RequestBody Map<String, Object> reqMap) {
-        HttpStatus status = HttpStatus.OK;
-        Map<String, Object> body  = new HashMap<>();
-        try {
-            Long sendUserId = 2L;
-
-            Long receiveUserId = Long.valueOf((String) reqMap.get("receiveUserId")); // 친구초대 받을 사용자 id
-            Optional<User> receiveUserOpt = userService.getUserById(receiveUserId);// 친구추가 보낸 사용자 정보
-
-            int resultCnt = 0;
-            FriendStatus friendStatus = FriendStatus.WAIT;
-            if (receiveUserOpt != null && receiveUserOpt.isPresent()) {
-                // TODO receiveUserId 가 존재하는 사용자 인가? 신고당한 사람은 아닌가? 검증하는 로직 필요
-                // 친구 생성 로직
-                resultCnt = friendService.sendNewFriend(sendUserId, receiveUserOpt.get().getId(), friendStatus); // CHECK 왜 REPORTED 값이 들어갈까??
-                System.out.println("friendStatus = " + friendStatus);
-                body.put("message", "success");
-
-                log.info("resultCnt: {}", resultCnt);
-            } else {
-                log.info("친구 초대 받을 사용자가 존재하지 않습니다.");
-                body.put("message", "친구 초대 받을 사용자가 존재하지 않습니다.");
-            }
-
-            body.put("data", "1");
-            body.put("result", "success");
-        } catch (Exception e) {
-            status = HttpStatus.BAD_REQUEST;
-            log.error("raised error: {}", e.getMessage());
-            body.put("data", null);
-            body.put("result", "fail");
+    @PostMapping("/invitations")
+    public ResponseEntity<CommonApiResponse<FriendInvitationResponseDto>> sendFriendInvitations(
+            @RequestBody(required = false) FriendInvitationRequestDto request,
+            HttpServletRequest httpRequest) {
+        User sender = jwtUtil.getAuthenticatedUser(httpRequest);
+        if (request == null) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        return ResponseEntity.status(status).body(body);
+
+        List<Long> invitedUserIds = friendService.sendFriendInvitations(
+                sender.getId(), request.getReqeustFreiendUserIdList());
+        FriendInvitationResponseDto data = new FriendInvitationResponseDto(invitedUserIds.size(), invitedUserIds);
+        return ResponseEntity.ok(CommonApiResponse.<FriendInvitationResponseDto>builder()
+                .statusCode("2000")
+                .data(data)
+                .message("친구 초대를 보냈습니다.")
+                .build());
     }
 
-    // TODO 친구상태 변경 API
+    @Operation(
+            summary = "친구 상태 변경",
+            description = "JWT로 로그인 사용자를 확인한 뒤, 해당 사용자와 대상 사용자 사이의 친구 관계 상태를 변경합니다. " +
+                    "상태값은 BLOCK, HIDE, FAVORITE, NEW, REPORTED 중 하나여야 합니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "202", description = "친구 상태 변경 성공",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "400", description = "요청 데이터 또는 친구 상태값이 유효하지 않음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "401", description = "인증 토큰이 유효하지 않거나 로그인 사용자가 존재하지 않음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "404", description = "대상 사용자 또는 친구 관계를 찾을 수 없음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "500", description = "서버 오류",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
     @CrossOrigin(origins = "https://localhost:3000")
     @PostMapping("/update-friend-status")
-    public ResponseEntity updateFriendStatus(@RequestBody Map<String, Object> reqMap) {
-        HttpStatus status = HttpStatus.OK;
-        Map<String, Object> body  = new HashMap<>();
-        int resultCnt = 0;
-        FriendStatus newFriendStatus = FriendStatus.getFriendStatusFromStr((String) reqMap.get("friendStatus"));
-        try {
-            Long loginUserId = 2L; // TODO token에서 로그인한 사용자id 추출해야됨
-
-            Long targetUserId = Long.valueOf((String) reqMap.get("targetUserId")); // 대상이 되는 사용자 id
-            // 다음 상태값을 기준으로 reqMap의 type값에 따라 친구상태 값 변경하기 (BLOCK", "차단"), HIDE("HIDE", "숨김"), FAVORITE("FAVORITE", "즐겨찾기"), NEW("NEW", "신규"), REPORTED("REPORTED", "신고")
-            // 나중에 NEW 친구의 상태값을 노말 상태로 바꿀 수 있음
-            if (reqMap.get("friendStatus") == null || reqMap.get("friendStatus").equals("")) {
-                body.put("message", "변경할 상태값을 선택해주세요.");
-                status = HttpStatus.NOT_ACCEPTABLE;
-            } else {
-                resultCnt = friendService.updateFriendStatus(newFriendStatus, loginUserId, targetUserId);
-                body.put("message", "success");
-                status = HttpStatus.ACCEPTED;
-            }
-            log.info("resultCnt: {}", resultCnt);
-
-        } catch (Exception e) {
-            log.error("raised error: {}", e.getMessage());
+    public ResponseEntity<CommonApiResponse<Void>> updateFriendStatus(
+            @RequestBody(required = false) FriendStatusUpdateRequestDto request,
+            HttpServletRequest httpRequest) {
+        User loginUser = jwtUtil.getAuthenticatedUser(httpRequest);
+        if (request == null || request.getTargetUserId() == null || request.getTargetUserId() <= 0
+                || request.getFriendStatus() == null || request.getFriendStatus().isBlank()
+                || request.getTargetUserId().equals(loginUser.getId())) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        return ResponseEntity.status(status).body(body);
+
+        FriendStatus newFriendStatus = FriendStatus.getFriendStatusFromStr(request.getFriendStatus());
+        if (newFriendStatus == null || newFriendStatus == FriendStatus.WAIT || newFriendStatus == FriendStatus.DEL) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        if (userService.getUserById(request.getTargetUserId()).isEmpty()) {
+            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        }
+
+        int updatedCount = friendService.updateFriendStatus(
+                newFriendStatus, loginUser.getId(), request.getTargetUserId());
+        if (updatedCount == 0) {
+            throw new CustomException(ErrorCode.FRIEND_RELATIONSHIP_NOT_FOUND);
+        }
+
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(CommonApiResponse.<Void>builder()
+                        .statusCode("2002")
+                        .data(null)
+                        .message("친구 상태를 변경했습니다.")
+                        .build());
     }
 
+    @Operation(
+            summary = "친구 삭제",
+            description = "Authorization 헤더의 JWT로 로그인 사용자를 확인한 뒤, 해당 사용자와 대상 사용자 사이의 친구 관계를 삭제 상태로 변경합니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "친구 삭제 성공",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "400", description = "요청 본문 또는 대상 사용자 ID가 유효하지 않음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "401", description = "인증 토큰이 유효하지 않거나 로그인 사용자가 존재하지 않음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "404", description = "대상 사용자 또는 친구 관계를 찾을 수 없음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "500", description = "서버 오류",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
     @CrossOrigin(origins = "https://localhost:3000")
     @PostMapping("/delete")
-    public ResponseEntity deleteFriendOne(@RequestBody Map<String, Object> reqMap) {
-        HttpStatus status = HttpStatus.OK;
-        Map<String, Object> body = new HashMap<>();
-        Long loginUserId = 1L; // TODO 토큰에서 로그인한 사용자 정보 추출
-        Long targetUserId = null;
-        FriendStatus friendStatus = FriendStatus.DEL;
-        String statusMsg = "";
-        String code = "";
-        String message = "";
-
-        try {
-            targetUserId = Long.valueOf((String) reqMap.get("targetUserId"));
-            int retVal = friendService.updateFriendStatus(friendStatus, loginUserId, targetUserId);
-            log.info("retVal: {}", retVal);
-
-            if (retVal == 1) {
-                code = "2004"; // 삭제성공
-                statusMsg = "success";
-                message = "success to delete friend with id = " + targetUserId;
-            } else if (retVal == 0) {
-                code = "40004";
-                statusMsg = "no data";
-                message = "삭제할 행을 찾지 못했습니다. 로그인한사용자 id(" + loginUserId + ")와 targetId(" + targetUserId + ")" + "값을 확인해주세요.";
-            } else {
-                code = "50001";
-                statusMsg = "server error";
-                message = "알수없는 시스템 오류가 발생했습니다. retVal:  " + retVal + ", 로그인한사용자 id(" + loginUserId + ")와 targetId(" + targetUserId + ")" + "값을 확인해주세요.";
-            }
-            body.put("code", code);
-            body.put("status", statusMsg);
-            body.put("message", message);
-        } catch (Exception e) {
-            log.error("raised error: {}", e.getMessage());
-            body.put("code", "51000");
-            body.put("status", "fail");
-            body.put("message", "fail to delete friend with id = " + targetUserId);
+    public ResponseEntity<CommonApiResponse<Void>> deleteFriendOne(
+            @RequestBody(required = false) FriendDeleteRequestDto request,
+            HttpServletRequest httpRequest) {
+        User loginUser = jwtUtil.getAuthenticatedUser(httpRequest);
+        if (request == null || request.getTargetUserId() == null || request.getTargetUserId() <= 0
+                || request.getTargetUserId().equals(loginUser.getId())) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        return ResponseEntity.status(status).body(body);
+
+        if (userService.getUserById(request.getTargetUserId()).isEmpty()) {
+            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        }
+
+        int updatedCount = friendService.updateFriendStatus(
+                FriendStatus.DEL, loginUser.getId(), request.getTargetUserId());
+        if (updatedCount == 0) {
+            throw new CustomException(ErrorCode.FRIEND_RELATIONSHIP_NOT_FOUND);
+        }
+
+        return ResponseEntity.ok(CommonApiResponse.<Void>builder()
+                .statusCode("2003")
+                .data(null)
+                .message("친구를 삭제했습니다.")
+                .build());
     }
+
 }

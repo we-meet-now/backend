@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.security.servlet.PathRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
@@ -51,6 +52,11 @@ public class SecurityConfig {
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/h2-console/**")).permitAll()
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/favicon.ico")).permitAll()
                                  .requestMatchers(AntPathRequestMatcher.antMatcher( "/api/auth/v1/error")).permitAll()
+                                 .requestMatchers(AntPathRequestMatcher.antMatcher(HttpMethod.GET, "/api/auth/v1/friends/list")).authenticated()
+                                 .requestMatchers(AntPathRequestMatcher.antMatcher(HttpMethod.POST, "/api/auth/v1/friends/delete")).authenticated()
+                                 .requestMatchers(AntPathRequestMatcher.antMatcher(HttpMethod.POST, "/api/auth/v1/friends/invitations")).authenticated()
+                                 .requestMatchers(AntPathRequestMatcher.antMatcher(HttpMethod.POST, "/api/auth/v1/friends/accept-new-friend")).authenticated()
+                                 .requestMatchers(AntPathRequestMatcher.antMatcher(HttpMethod.POST, "/api/auth/v1/friends/update-friend-status")).authenticated()
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/friends/**")).permitAll()
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/create-random-nickname")).permitAll()
                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/email/**")).permitAll()

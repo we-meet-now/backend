@@ -1,10 +1,12 @@
 package com.wemeetnow.chat_service.exception;
 
+import com.wemeetnow.chat_service.constant.ApiStatusCode;
 import com.wemeetnow.chat_service.dto.CommonApiResponse;
 import jakarta.servlet.ServletException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -18,12 +20,22 @@ public class GlobalExceptionHandler {
         throw ex;
     }
 
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<CommonApiResponse<Void>> handleInvalidRequestBody(HttpMessageNotReadableException ex) {
+        CommonApiResponse<Void> response = CommonApiResponse.<Void>builder()
+                .statusCode(ApiStatusCode.BAD_REQUEST.getCode())
+                .data(null)
+                .message("요청 본문 형식이 올바르지 않습니다.")
+                .build();
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
     /** 400 - 일정 시간 역전 등 잘못된 요청 */
     @ExceptionHandler(InvalidScheduleTimeException.class)
     public ResponseEntity<CommonApiResponse<Void>> handleInvalidScheduleTime(InvalidScheduleTimeException ex) {
         log.warn("InvalidScheduleTimeException: {}", ex.getMessage());
         CommonApiResponse<Void> response = CommonApiResponse.<Void>builder()
-                .statusCode("4000")
+                .statusCode(ApiStatusCode.BAD_REQUEST.getCode())
                 .data(null)
                 .message(ex.getMessage())
                 .build();
@@ -35,7 +47,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<CommonApiResponse<Void>> handleScheduleAccessDenied(ScheduleAccessDeniedException ex) {
         log.warn("ScheduleAccessDeniedException: {}", ex.getMessage());
         CommonApiResponse<Void> response = CommonApiResponse.<Void>builder()
-                .statusCode("4003")
+                .statusCode(ApiStatusCode.SCHEDULE_ACCESS_DENIED.getCode())
                 .data(null)
                 .message(ex.getMessage())
                 .build();
@@ -47,18 +59,29 @@ public class GlobalExceptionHandler {
     public ResponseEntity<CommonApiResponse<Void>> handleScheduleNotFound(ScheduleNotFoundException ex) {
         log.warn("ScheduleNotFoundException: {}", ex.getMessage());
         CommonApiResponse<Void> response = CommonApiResponse.<Void>builder()
-                .statusCode("4004")
+                .statusCode(ApiStatusCode.SCHEDULE_NOT_FOUND.getCode())
                 .data(null)
                 .message(ex.getMessage())
                 .build();
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
+    @ExceptionHandler(ChatRoomInviteException.class)
+    public ResponseEntity<CommonApiResponse<Object>> handleChatRoomInviteException(ChatRoomInviteException ex) {
+        log.warn("Chat room invite rejected: {}", ex.getMessage());
+        CommonApiResponse<Object> response = CommonApiResponse.builder()
+                .statusCode(ex.getApiStatusCode().getCode())
+                .data(ex.getData())
+                .message(ex.getMessage())
+                .build();
+        return ResponseEntity.status(ex.getHttpStatus()).body(response);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<CommonApiResponse<Void>> handleException(Exception ex) {
         log.error("Unhandled exception: ", ex);
         CommonApiResponse<Void> response = CommonApiResponse.<Void>builder()
-                .statusCode("5005")
+                .statusCode(ApiStatusCode.INTERNAL_SERVER_ERROR.getCode())
                 .data(null)
                 .message(ex.getMessage() != null ? ex.getMessage() : "서버 오류가 발생했습니다.")
                 .build();

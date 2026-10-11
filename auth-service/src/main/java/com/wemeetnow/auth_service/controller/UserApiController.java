@@ -410,11 +410,12 @@ public class UserApiController {
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
     @GetMapping("/userId={userId}")
-    public ResponseEntity<CommonApiResponse<ChatParticipantUserDto>> getUserById(@PathVariable("userId") Long userId) {
+    public ResponseEntity<CommonApiResponse<ChatParticipantPublicProfileDto>> getUserById(
+            @PathVariable("userId") Long userId) {
         User findUser = userService.getUserById(userId).orElse(null);
         if (findUser == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
-                    CommonApiResponse.<ChatParticipantUserDto>builder()
+                    CommonApiResponse.<ChatParticipantPublicProfileDto>builder()
                             .statusCode("4040")
                             .data(null)
                             .message("해당 사용자를 찾을 수 없습니다.")
@@ -422,18 +423,15 @@ public class UserApiController {
             );
         }
 
-        ChatParticipantUserDto responseDto = ChatParticipantUserDto.builder()
+        ChatParticipantPublicProfileDto responseDto = ChatParticipantPublicProfileDto.builder()
                 .userId(findUser.getId())
-                .email(findUser.getEmail())
-                .nickname(findUser.getNickname())
-                .imgUrl(findUser.getImgUrl())
-                .phoneNumber(findUser.getPhoneNumber())
+                .username(findUser.getUsername())
                 .build();
 
-        return ResponseEntity.ok(CommonApiResponse.<ChatParticipantUserDto>builder()
+        return ResponseEntity.ok(CommonApiResponse.<ChatParticipantPublicProfileDto>builder()
                 .statusCode("2000")
                 .data(responseDto)
-                .message("사용자 정보 조회 성공")
+                .message("채팅 참여자 공개 정보 조회 성공")
                 .build());
     }
 

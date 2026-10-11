@@ -1,6 +1,7 @@
 package com.wemeetnow.chat_service.controller;
 
 import com.wemeetnow.chat_service.client.AuthServiceClient;
+import com.wemeetnow.chat_service.constant.ApiStatusCode;
 import com.wemeetnow.chat_service.dto.*;
 import com.wemeetnow.chat_service.service.ChatParticipantService;
 import com.wemeetnow.chat_service.service.ChatRoomService;
@@ -60,8 +61,8 @@ public class ChatParticipantController {
 
         List<Long> userIdList = chatParticipantService.findByChatRoomId(roomId, loginedUserId);
 
-        List<ChatParticipantUserDto> userInfoList = userIdList.stream()
-                .map(authServiceClient::getUserById)
+        List<ChatParticipantPublicProfileDto> userInfoList = userIdList.stream()
+                .map(userId -> authServiceClient.getUserById(authorizationHeader, userId).getData())
                 .toList();
 
         ChatParticipantsResponseDto responseDto = ChatParticipantsResponseDto.builder()
@@ -71,7 +72,7 @@ public class ChatParticipantController {
                 .build();
 
         return ResponseEntity.ok(CommonApiResponse.<ChatParticipantsResponseDto>builder()
-                .statusCode("2000")
+                .statusCode(ApiStatusCode.SUCCESS.getCode())
                 .data(responseDto)
                 .message("채팅방 참여자 목록 조회 성공")
                 .build());
@@ -83,8 +84,7 @@ public class ChatParticipantController {
     @Operation(
             summary = "익명 채팅방 참여자 목록 조회",
             description = "익명(비회원) 채팅방 ID로 해당 채팅방의 참여자 정보와 " +
-                          "각 참여자의 사용자 상세 정보를 반환합니다. " +
-                          "토큰 인증 없이 접근 가능합니다."
+                          "각 참여자의 사용자 상세 정보를 반환합니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "익명 채팅방 참여자 목록 조회 성공",
@@ -94,13 +94,16 @@ public class ChatParticipantController {
     })
     @GetMapping("/anonymous-chat-roomId={roomId}")
     public ResponseEntity<CommonApiResponse<AnonymousChatParticipantsResponseDto>> getAnonymousChatParticipants(
-            @PathVariable("roomId") Long roomId) {
+            @PathVariable("roomId") Long roomId,
+            HttpServletRequest request) {
         log.info("getAnonymousChatParticipants roomId: {}", roomId);
 
         var chatParticipantList = chatParticipantService.findByAnonymousChatRoomId(roomId);
+        String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
 
-        List<ChatParticipantUserDto> userInfoList = chatParticipantList.stream()
-                .map(participant -> authServiceClient.getUserById(participant.getUserId()))
+        List<ChatParticipantPublicProfileDto> userInfoList = chatParticipantList.stream()
+                .map(participant -> authServiceClient.getUserById(
+                        authorizationHeader, participant.getUserId()).getData())
                 .toList();
 
         AnonymousChatParticipantsResponseDto responseDto = AnonymousChatParticipantsResponseDto.builder()
@@ -109,7 +112,7 @@ public class ChatParticipantController {
                 .build();
 
         return ResponseEntity.ok(CommonApiResponse.<AnonymousChatParticipantsResponseDto>builder()
-                .statusCode("2000")
+                .statusCode(ApiStatusCode.SUCCESS.getCode())
                 .data(responseDto)
                 .message("익명 채팅방 참여자 목록 조회 성공")
                 .build());

@@ -1,5 +1,6 @@
 package com.wemeetnow.chat_service.controller;
 
+import com.wemeetnow.chat_service.constant.ApiStatusCode;
 import com.wemeetnow.chat_service.dto.*;
 import com.wemeetnow.chat_service.service.ScheduleService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -59,7 +60,7 @@ public class ScheduleController {
         CreateScheduleResponseDto responseDto = new CreateScheduleResponseDto(userScheduleId);
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 CommonApiResponse.<CreateScheduleResponseDto>builder()
-                        .statusCode("2001")
+                        .statusCode(ApiStatusCode.CREATED.getCode())
                         .data(responseDto)
                         .message("일정 생성 성공")
                         .build()
@@ -98,7 +99,7 @@ public class ScheduleController {
 
         return ResponseEntity.ok(
                 CommonApiResponse.<ScheduleDetailResponseDto>builder()
-                        .statusCode("2000")
+                        .statusCode(ApiStatusCode.SUCCESS.getCode())
                         .data(responseDto)
                         .message("일정 상세 조회 성공")
                         .build()
@@ -137,7 +138,7 @@ public class ScheduleController {
 
         return ResponseEntity.ok(
                 CommonApiResponse.<UpdateScheduleResponseDto>builder()
-                        .statusCode("2002")
+                        .statusCode(ApiStatusCode.UPDATED.getCode())
                         .data(responseDto)
                         .message("일정 수정 성공")
                         .build()
@@ -175,7 +176,7 @@ public class ScheduleController {
 
         return ResponseEntity.ok(
                 CommonApiResponse.<UpdateScheduleStatusResponseDto>builder()
-                        .statusCode("2002")
+                        .statusCode(ApiStatusCode.UPDATED.getCode())
                         .data(responseDto)
                         .message("일정 상태 변경 성공")
                         .build()
@@ -210,11 +211,10 @@ public class ScheduleController {
 
         return ResponseEntity.ok(
                 CommonApiResponse.<Void>builder()
-                        .statusCode("2003")
+                        .statusCode(ApiStatusCode.DELETED.getCode())
                         .message("일정 삭제 성공")
                         .build()
         );
     }
 }
-
 

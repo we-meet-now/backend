@@ -4,7 +4,10 @@ import com.wemeetnow.chat_service.domain.Chat;
 import com.wemeetnow.chat_service.domain.ChatParticipant;
 import com.wemeetnow.chat_service.domain.ChatRead;
 import com.wemeetnow.chat_service.domain.ChatRoom;
+import com.wemeetnow.chat_service.constant.ApiStatusCode;
+import com.wemeetnow.chat_service.client.AuthServiceClient;
 import com.wemeetnow.chat_service.dto.*;
+import com.wemeetnow.chat_service.exception.ChatRoomInviteException;
 import com.wemeetnow.chat_service.repository.ChatParticipantRepository;
 import com.wemeetnow.chat_service.repository.ChatReadRepository;
 import com.wemeetnow.chat_service.repository.ChatRepository;
@@ -15,11 +18,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
+import feign.FeignException;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
 
 @Service
@@ -33,6 +39,7 @@ public class ChatRoomService {
     private final RestClient.Builder restClientBuilder;
     private final ChatParticipantRepository chatParticipantsRepository;
     private final EnterCodeGenerator enterCodeGenerator;
+    private final AuthServiceClient authServiceClient;
 
     /**
      * 채팅방 생성 및 참여코드 생성(참여자 정보 없음)
@@ -157,7 +164,7 @@ public class ChatRoomService {
 
 
     public EnterRoomResponseDto enterRoomAndMarkRead(Long roomId, Long userId) {
-        String statusCode = "2000";
+        String statusCode = ApiStatusCode.SUCCESS.getCode();
         String statusMsg = "success";
         int markedCount = 0;
         try {
@@ -171,7 +178,7 @@ public class ChatRoomService {
             }
         } catch (Exception e) {
             log.error("Error in enterRoomAndMarkRead: {}", e.getMessage());
-            statusCode = "5005";
+            statusCode = ApiStatusCode.INTERNAL_SERVER_ERROR.getCode();
             statusMsg = "fail";
             markedCount = 0;
         }
@@ -270,6 +277,78 @@ public class ChatRoomService {
 
     public boolean isMember(Long roomId, Long userId) {
         return chatParticipantsRepository.existsByChatRoomIdAndUserId(roomId, userId);
+    }
+
+    @Transactional
+    public List<Long> inviteParticipants(
+            Long roomId, Long inviterUserId, List<Long> invitedUserIdList, String authorizationHeader) {
+        if (roomId == null || roomId <= 0 || invitedUserIdList == null || invitedUserIdList.isEmpty()
+                || invitedUserIdList.stream().anyMatch(userId -> userId == null || userId <= 0)
+                || new HashSet<>(invitedUserIdList).size() != invitedUserIdList.size()) {
+            throw inviteException(ApiStatusCode.BAD_REQUEST, HttpStatus.BAD_REQUEST,
+                    "요청 본문의 roomId 또는 invitedUserIdList가 유효하지 않습니다.");
+        }
+
+        if (!chatRoomRepository.existsById(roomId)) {
+            throw inviteException(ApiStatusCode.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND,
+                    "채팅방을 찾을 수 없습니다. roomId=" + roomId);
+        }
+
+        if (!isMember(roomId, inviterUserId)) {
+            throw inviteException(ApiStatusCode.CHAT_ROOM_ACCESS_DENIED, HttpStatus.FORBIDDEN,
+                    "채팅방 참여자만 새 사용자를 초대할 수 있습니다.");
+        }
+
+        List<Long> alreadyInvitedUserIds = invitedUserIdList.stream()
+                .filter(invitedUserId -> isMember(roomId, invitedUserId))
+                .toList();
+        if (!alreadyInvitedUserIds.isEmpty()) {
+            throw inviteException(
+                    ApiStatusCode.CONFLICT,
+                    HttpStatus.CONFLICT,
+                    "초대 목록에 이미 채팅방에 참여 중인 사용자가 포함되어 있습니다.",
+                    AlreadyInvitedUsersResponseDto.builder()
+                            .alreadyInvitedUserIdList(alreadyInvitedUserIds)
+                            .build()
+            );
+        }
+
+        for (Long invitedUserId : invitedUserIdList) {
+            try {
+                CommonApiResponse<ChatParticipantPublicProfileDto> userResponse =
+                        authServiceClient.getUserById(authorizationHeader, invitedUserId);
+                ChatParticipantPublicProfileDto user = userResponse != null ? userResponse.getData() : null;
+                if (user == null || !invitedUserId.equals(user.getUserId())) {
+                    throw userNotFound(invitedUserId);
+                }
+            } catch (FeignException.NotFound e) {
+                throw userNotFound(invitedUserId);
+            }
+        }
+
+        List<ChatParticipant> participants = invitedUserIdList.stream()
+                .map(userId -> ChatParticipant.builder()
+                        .chatRoomId(roomId)
+                        .userId(userId)
+                        .useYn('Y')
+                        .build())
+                .toList();
+        chatParticipantsRepository.saveAll(participants);
+        return List.copyOf(invitedUserIdList);
+    }
+
+    private ChatRoomInviteException userNotFound(Long userId) {
+        return inviteException(ApiStatusCode.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND,
+                "초대할 사용자를 찾을 수 없습니다.");
+    }
+
+    private ChatRoomInviteException inviteException(ApiStatusCode code, HttpStatus status, String message) {
+        return new ChatRoomInviteException(code, status, message);
+    }
+
+    private ChatRoomInviteException inviteException(
+            ApiStatusCode code, HttpStatus status, String message, Object data) {
+        return new ChatRoomInviteException(code, status, message, data);
     }
 
     @Transactional

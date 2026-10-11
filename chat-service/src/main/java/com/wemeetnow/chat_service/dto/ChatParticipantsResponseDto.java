@@ -14,6 +14,5 @@ import java.util.List;
 public class ChatParticipantsResponseDto {
     private Long loginedUserId;
     private List<Long> userIdList;
-    private List<ChatParticipantUserDto> userInfoList;
+    private List<ChatParticipantPublicProfileDto> userInfoList;
 }
-

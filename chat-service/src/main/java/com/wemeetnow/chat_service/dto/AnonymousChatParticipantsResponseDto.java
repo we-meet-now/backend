@@ -14,6 +14,5 @@ import java.util.List;
 @AllArgsConstructor
 public class AnonymousChatParticipantsResponseDto {
     private List<ChatParticipant> chatParticipantList;
-    private List<ChatParticipantUserDto> userInfoList;
+    private List<ChatParticipantPublicProfileDto> userInfoList;
 }
-

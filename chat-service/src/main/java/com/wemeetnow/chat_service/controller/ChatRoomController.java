@@ -2,7 +2,9 @@ package com.wemeetnow.chat_service.controller;
 
 import com.wemeetnow.chat_service.domain.Chat;
 import com.wemeetnow.chat_service.domain.ChatRoom;
+import com.wemeetnow.chat_service.constant.ApiStatusCode;
 import com.wemeetnow.chat_service.dto.*;
+import com.wemeetnow.chat_service.exception.ChatRoomInviteException;
 import com.wemeetnow.chat_service.service.ChatGuestTokenInfo;
 import com.wemeetnow.chat_service.service.ChatRoomService;
 import com.wemeetnow.chat_service.service.ChatService;
@@ -70,7 +72,7 @@ public class ChatRoomController {
                 .build();
 
         return ResponseEntity.ok(CommonApiResponse.<ChatRoomListResponseDto>builder()
-                .statusCode("2000")
+                .statusCode(ApiStatusCode.SUCCESS.getCode())
                 .data(responseDto)
                 .message("채팅방 목록 조회 성공")
                 .build());
@@ -103,7 +105,7 @@ public class ChatRoomController {
                 .build();
 
         return ResponseEntity.ok(CommonApiResponse.<EnterChatRoomResponseDto>builder()
-                .statusCode("2000")
+                .statusCode(ApiStatusCode.SUCCESS.getCode())
                 .data(responseDto)
                 .message("채팅방 입장 성공")
                 .build());
@@ -143,7 +145,7 @@ public class ChatRoomController {
                 .enterCode(chatRoom.getEnterCode())
                 .build();
         CommonApiResponse<CreateOneChatRoomResponseDto> response = CommonApiResponse.<CreateOneChatRoomResponseDto>builder()
-                .statusCode("2001")
+                .statusCode(ApiStatusCode.CREATED.getCode())
                 .data(responseDto)
                 .message("채팅방 생성 성공")
                 .build();
@@ -181,7 +183,7 @@ public class ChatRoomController {
                 .enterCode(chatRoom.getEnterCode())
                 .build();
         CommonApiResponse<CreateOneChatRoomResponseDto> response = CommonApiResponse.<CreateOneChatRoomResponseDto>builder()
-                .statusCode("2001")
+                .statusCode(ApiStatusCode.CREATED.getCode())
                 .data(responseDto)
                 .message("채팅방 생성 성공")
                 .build();
@@ -189,12 +191,67 @@ public class ChatRoomController {
     }
 
     @Operation(
-            summary = "채팅방 입장 처리 및 읽음 처리",
-            description = "채팅방에 입장할 때 읽지 않은 메시지를 읽음 처리합니다. " +
-                    "읽음 처리된 메시지 수를 반환합니다."
+            summary = "채팅방 사용자 초대",
+            description = "요청한 사용자가 채팅방 참여자인지 확인하고, 유효한 신규 사용자들을 원자적으로 초대합니다."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "읽음 처리 성공",
+            @ApiResponse(responseCode = "200", description = "사용자 초대 성공",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "400", description = "유효하지 않은 요청 본문",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Authorization 토큰이 유효하지 않음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "403", description = "요청자가 채팅방 참여자가 아님",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "404", description = "채팅방 또는 초대 대상 사용자를 찾을 수 없음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "409", description = "초대 대상 중 이미 채팅방 참여자가 있음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
+    @PostMapping("/invite")
+    public ResponseEntity<CommonApiResponse<InviteChatParticipantsResponseDto>> inviteChatParticipants(
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String token,
+            @RequestBody InviteChatParticipantsRequestDto requestDto) {
+        AuthUserResponse authUserResponse;
+        try {
+            authUserResponse = chatService.isValidAccessToken(token);
+        } catch (IllegalArgumentException e) {
+            throw new ChatRoomInviteException(ApiStatusCode.UNAUTHORIZED, HttpStatus.UNAUTHORIZED,
+                    "유효하지 않은 Access Token입니다.");
+        }
+
+        if (authUserResponse == null || authUserResponse.getUserId() == null) {
+            throw new ChatRoomInviteException(ApiStatusCode.UNAUTHORIZED, HttpStatus.UNAUTHORIZED,
+                    "Access Token에서 사용자 정보를 확인할 수 없습니다.");
+        }
+
+        List<Long> invitedUserIds = chatRoomService.inviteParticipants(
+                requestDto != null ? requestDto.getRoomId() : null,
+                authUserResponse.getUserId(),
+                requestDto != null ? requestDto.getInvitedUserIdList() : null,
+                token
+        );
+        InviteChatParticipantsResponseDto responseDto = InviteChatParticipantsResponseDto.builder()
+                .roomId(requestDto.getRoomId())
+                .invitedUserIdList(invitedUserIds)
+                .invitedCount(invitedUserIds.size())
+                .build();
+
+        return ResponseEntity.ok(CommonApiResponse.<InviteChatParticipantsResponseDto>builder()
+                .statusCode(ApiStatusCode.SUCCESS.getCode())
+                .data(responseDto)
+                .message("채팅방 사용자 초대 성공")
+                .build());
+    }
+
+    @Operation(
+            summary = "채팅방 입장 및 채팅 내역 조회",
+            description = "참여자 여부를 확인한 뒤 채팅 내역을 반환하고 읽지 않은 메시지를 읽음 처리합니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "채팅방 입장 및 채팅 내역 조회 성공",
+                    content = @Content(schema = @Schema(implementation = EnterRoomResponseDto.class))),
+            @ApiResponse(responseCode = "403", description = "채팅방 참여자가 아님",
                     content = @Content(schema = @Schema(implementation = EnterRoomResponseDto.class))),
             @ApiResponse(responseCode = "500", description = "서버 오류",
                     content = @Content(schema = @Schema(implementation = EnterRoomResponseDto.class)))
@@ -203,60 +260,68 @@ public class ChatRoomController {
     public ResponseEntity<EnterRoomResponseDto> enterRoomAndMarkRead(
             @RequestBody EnterRoomRequestDto requestDto,
             HttpServletRequest request) {
-        String statusCode = "5000";
-        HttpStatus httpStatus = HttpStatus.OK;
-        EnterRoomResponseDto responseDto = null;
         try {
             String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-            if (authorizationHeader.startsWith("Bearer ")) {
-                // 채팅방 생성자 or 이미 접근 가능한 사람인지(guestToken 포함) 체크
-                String token = authorizationHeader.replace("Bearer ", "");
+            if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+                String token = authorizationHeader.substring("Bearer ".length());
+                Long userId;
+                AuthGuestResponse guestAuthResponse = null;
                 GuestYnDto guestYnDto = chatRoomService.isGuestToken(token);
-                if (guestYnDto != null && "Y".equals(guestYnDto.getIsGuestYn())) { // guestToken일 경우(비로그인 사용자)
-                    AuthGuestResponse authGuestResponse = chatService.isValidGuestToken(token, requestDto.getUuId());
-                    if(!chatRoomService.isMember(requestDto.getRoomId(), authGuestResponse.getUserId())) {
-                        // 채팅방 인원수 ++. 채팅방 자동초대
-                        chatRoomService.addParticipant(requestDto.getRoomId(), authGuestResponse.getUserId());
-                    }
-                    responseDto = chatRoomService.enterRoomAndMarkRead(requestDto.getRoomId(), authGuestResponse.getUserId()); // guestToken으로 사용자 정보추출 후 채팅방 내 읽음처리
-                    // DB에서 검증된 uuId와, 만료된 경우 갱신된 guestToken(아니면 기존 토큰)을 응답에 포함
-                    responseDto.setUuId(authGuestResponse.getUuId());
-                    responseDto.setGuestToken(authGuestResponse.getGuestToken());
-                    responseDto.setIsRefreshed(authGuestResponse.getIsRefreshed());
-                } else { // 로그인한 사용자일 경우
+                if (guestYnDto != null && "Y".equals(guestYnDto.getIsGuestYn())) {
+                    guestAuthResponse = chatService.isValidGuestToken(token, requestDto.getUuId());
+                    userId = guestAuthResponse.getUserId();
+                } else {
                     AuthUserResponse authUserResponse = chatService.isValidAccessToken(token);
-                    Long loginedUserId = authUserResponse.getUserId();
-                    responseDto = chatRoomService.enterRoomAndMarkRead(requestDto.getRoomId(), loginedUserId);
+                    userId = authUserResponse.getUserId();
                 }
 
+                if (!chatRoomService.isMember(requestDto.getRoomId(), userId)) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(EnterRoomResponseDto.builder()
+                            .statusCode(ApiStatusCode.CHAT_ROOM_ACCESS_DENIED.getCode())
+                            .statusMsg("채팅방 접근 권한이 없습니다.")
+                            .markedReadCount(0)
+                            .loginedUserId(userId)
+                            .build());
+                }
+
+                EnterRoomResponseDto responseDto =
+                        chatRoomService.enterRoomAndMarkRead(requestDto.getRoomId(), userId);
+                responseDto.setLoginedUserId(userId);
+                if (ApiStatusCode.SUCCESS.getCode().equals(responseDto.getStatusCode())) {
+                    responseDto.setChatList(chatService.getChatList(requestDto.getRoomId(), userId).stream()
+                            .map(ChatResponseDto::fromEntity)
+                            .toList());
+                }
+                if (guestAuthResponse != null) {
+                    responseDto.setUuId(guestAuthResponse.getUuId());
+                    responseDto.setGuestToken(guestAuthResponse.getGuestToken());
+                    responseDto.setIsRefreshed(guestAuthResponse.getIsRefreshed());
+                }
+                return ResponseEntity.status(ApiStatusCode.SUCCESS.getCode().equals(responseDto.getStatusCode())
+                                ? HttpStatus.OK : HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(responseDto);
             } else {
-                // 비로그인인 경우 입장코드를 가지고 입장가능 체크
-                // guestToken 발급 후 브라우저에 저장하여 해당 토큰 사용함
                 ChatGuestTokenInfo guestTokenInfo = chatRoomService.generateGuestToken();
-                statusCode = "2030";
                 if (guestTokenInfo != null) {
-                    responseDto = EnterRoomResponseDto.builder()
-                            .statusCode(statusCode)
+                    return ResponseEntity.ok(EnterRoomResponseDto.builder()
+                            .statusCode(ApiStatusCode.GUEST_TOKEN_ISSUED.getCode())
                             .statusMsg("success")
                             .markedReadCount(0)
                             .guestToken(guestTokenInfo.getGuestToken())
                             .uuId(guestTokenInfo.getUuId())
-                            .isRefreshed("N") // 신규 발급이므로 갱신이 아님
-                            .build();
+                            .isRefreshed("N")
+                            .build());
                 }
-
+                throw new IllegalStateException("게스트 토큰을 발급하지 못했습니다.");
             }
-
         } catch (Exception e) {
-            log.error("raised error: {}", e.getMessage());
-            statusCode = "5005";
-            responseDto = EnterRoomResponseDto.builder()
-                    .statusCode(statusCode)
+            log.error("채팅방 입장 처리 실패: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(EnterRoomResponseDto.builder()
+                    .statusCode(ApiStatusCode.INTERNAL_SERVER_ERROR.getCode())
                     .statusMsg("fail")
                     .markedReadCount(0)
-                    .build();
+                    .build());
         }
-        return ResponseEntity.status(httpStatus).body(responseDto);
     }
 
     @Operation(
@@ -277,7 +342,7 @@ public class ChatRoomController {
         chatRoomService.leaveRoom(roomId, userId);
 
         return ResponseEntity.ok(CommonApiResponse.<Void>builder()
-                .statusCode("2000")
+                .statusCode(ApiStatusCode.SUCCESS.getCode())
                 .data(null)
                 .message("채팅방 퇴장 성공")
                 .build());
@@ -319,7 +384,7 @@ public class ChatRoomController {
                 .build();
 
         return ResponseEntity.ok(CommonApiResponse.<InviteAnonymousResponseDto>builder()
-                .statusCode("2000")
+                .statusCode(ApiStatusCode.SUCCESS.getCode())
                 .data(responseDto)
                 .message("익명 채팅방 생성 성공")
                 .build());

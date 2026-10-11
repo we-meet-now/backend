@@ -3,6 +3,7 @@ package com.wemeetnow.chat_service.service;
 import com.wemeetnow.chat_service.domain.Chat;
 import com.wemeetnow.chat_service.domain.ChatRoom;
 import com.wemeetnow.chat_service.domain.enums.ChatType;
+import com.wemeetnow.chat_service.constant.ApiStatusCode;
 import com.wemeetnow.chat_service.dto.AuthGuestResponse;
 import com.wemeetnow.chat_service.dto.AuthUserResponse;
 import com.wemeetnow.chat_service.dto.ChatResponseDto;
@@ -14,6 +15,7 @@ import com.wemeetnow.chat_service.repository.ChatRoomRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
@@ -77,10 +79,9 @@ public class ChatService {
     public AuthUserResponse isValidAccessToken(String token) {
         String authorizationHeader = token.startsWith("Bearer ") ? token : "Bearer " + token;
         log.info("auth-service.url: {}", authServiceUrl);
-        log.info("authorizationHeader: {}", authorizationHeader);
         RestClient restClient = restClientBuilder.baseUrl(authServiceUrl).build();
 
-        return restClient.get()
+        CommonApiResponse<AuthUserResponse> response = restClient.get()
                 .uri("/api/auth/v1/users/get-id")
                 .header(HttpHeaders.AUTHORIZATION, authorizationHeader) // Bearer 토큰 전달
                 .accept(MediaType.APPLICATION_JSON)
@@ -89,7 +90,12 @@ public class ChatService {
                     // 401 Unauthorized 등 처리
                     throw new IllegalArgumentException("유효하지 않은 토큰입니다.");
                 })
-                .body(AuthUserResponse.class);
+                .body(new ParameterizedTypeReference<>() {});
+        AuthUserResponse authUserResponse = response != null ? response.getData() : null;
+        if (authUserResponse == null || authUserResponse.getUserId() == null) {
+            throw new IllegalStateException("Auth service did not return a user ID.");
+        }
+        return authUserResponse;
     }
 
     public AuthGuestResponse isValidGuestToken(String token, String uuId) {
@@ -108,7 +114,7 @@ public class ChatService {
                 .exchange((req, res) -> res.bodyTo(new org.springframework.core.ParameterizedTypeReference<CommonApiResponse<GuestUserDto>>() {}));
 
         GuestUserDto data = response != null ? response.getData() : null;
-        if (data == null || !"2000".equals(data.getStatusCd())) {
+        if (data == null || !ApiStatusCode.SUCCESS.getCode().equals(data.getStatusCd())) {
             String reason = data != null ? data.getStatusMsg() : (response != null ? response.getMessage() : "auth-service 응답이 비어있습니다.");
             log.warn("게스트 토큰 검증 실패: reason={}", reason);
             throw new IllegalArgumentException(reason != null ? reason : "유효하지 않은 토큰이거나 존재하지 않는 UUID입니다.");

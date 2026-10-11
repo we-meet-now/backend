@@ -71,7 +71,7 @@ public class UserService{
         return userRepository.findByEmail(email).orElseThrow(() -> new UsernameNotFoundException("일치하는 사용자 이메일이 없습니다."));
     }
     public Optional<User> getUserById(Long id) {
-        return Optional.ofNullable(userRepository.findById(id).orElseThrow(() -> new UsernameNotFoundException("일치하는 사용자 id가 없습니다.")));
+        return userRepository.findById(id);
     }
     public List<User> getAllUsers() {
         return userRepository.findAll();

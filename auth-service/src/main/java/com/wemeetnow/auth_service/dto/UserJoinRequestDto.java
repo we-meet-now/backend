@@ -22,6 +22,7 @@ public class UserJoinRequestDto {
     public User toEntity(String enCodedPassword, String provider) {
         return User.builder()
                 .email(this.email)
+                .username(this.username)
                 .password(enCodedPassword)
                 .nickname(this.nickname)
                 .phoneNumber(this.phoneNumber)

@@ -6,7 +6,9 @@ import com.wemeetnow.chat_service.domain.enums.ChatType;
 import com.wemeetnow.chat_service.dto.AuthGuestResponse;
 import com.wemeetnow.chat_service.dto.AuthUserResponse;
 import com.wemeetnow.chat_service.dto.ChatResponseDto;
+import com.wemeetnow.chat_service.dto.CommonApiResponse;
 import com.wemeetnow.chat_service.dto.GuestIdRequestDto;
+import com.wemeetnow.chat_service.dto.GuestUserDto;
 import com.wemeetnow.chat_service.repository.ChatRepository;
 import com.wemeetnow.chat_service.repository.ChatRoomRepository;
 import lombok.RequiredArgsConstructor;
@@ -94,20 +96,30 @@ public class ChatService {
         String authorizationHeader = token.startsWith("Bearer ") ? token : "Bearer " + token;
         log.info("auth-service.url: {}", authServiceUrl);
         log.info("authorizationHeader: {}", authorizationHeader);
+        log.info("requestDto.uuId: {}", uuId);
         RestClient restClient = restClientBuilder.baseUrl(authServiceUrl).build();
-
-        return restClient.post()
+        // 4xx/5xx 여부와 관계없이 본문을 그대로 읽어서 실패 사유를 정확히 로그로 남긴다.
+        CommonApiResponse<GuestUserDto> response = restClient.post()
                 .uri("/api/auth/v1/users/get-guest-id")
-                .header(HttpHeaders.AUTHORIZATION, authorizationHeader) // Bearer 토큰 전달
+                .header(HttpHeaders.AUTHORIZATION, authorizationHeader)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(new GuestIdRequestDto(uuId))
                 .accept(MediaType.APPLICATION_JSON)
-                .retrieve()
-                .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
-                    // 401 Unauthorized 등 처리
-                    throw new IllegalArgumentException("유효하지 않은 토큰입니다.");
-                })
-                .body(AuthGuestResponse.class);
+                .exchange((req, res) -> res.bodyTo(new org.springframework.core.ParameterizedTypeReference<CommonApiResponse<GuestUserDto>>() {}));
+
+        GuestUserDto data = response != null ? response.getData() : null;
+        if (data == null || !"2000".equals(data.getStatusCd())) {
+            String reason = data != null ? data.getStatusMsg() : (response != null ? response.getMessage() : "auth-service 응답이 비어있습니다.");
+            log.warn("게스트 토큰 검증 실패: reason={}", reason);
+            throw new IllegalArgumentException(reason != null ? reason : "유효하지 않은 토큰이거나 존재하지 않는 UUID입니다.");
+        }
+
+        return AuthGuestResponse.builder()
+                .userId(data.getUserId())
+                .uuId(data.getUuId())
+                .guestToken(data.getGuestToken())
+                .isRefreshed(data.getIsRefreshed())
+                .build();
     }
 
     public int getNotReadCountByRoomIdAndUserId(Long roomId, Long userId) {

@@ -278,18 +278,30 @@ public class UserApiController {
             ,HttpServletRequest request) {
         String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
         String token = authorizationHeader.replace("Bearer ", "");
-        String refreshToken = "";
-        if (JwtUtil.isExpired(token)) {
-            if (requestDto != null && userService.validUUID(requestDto.getUuid())){ // UUID가 유효한 경우에만 새로운 GuestToken 생성
-                JwtUtil guestJwtUtil = new JwtUtil();
-                refreshToken = guestJwtUtil.generateGuestToken(requestDto.getUuid()); // 토큰이 만료되었을 때 새로운 GuestToken 생성
-            }
+
+        String uuid = requestDto != null ? requestDto.getUuid() : null;
+        if (uuid == null || !userService.validUUID(uuid)) { // 요청받은 uuid가 DB에 존재하는지 검증
+            GuestUserDto errorDto = GuestUserDto.builder().userId(0L).statusCd("4040").statusMsg("유효하지 않은 UUID입니다.").isGuestYn("N").isRefreshed("N").build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    CommonApiResponse.<GuestUserDto>builder()
+                            .statusCode("4040")
+                            .data(errorDto)
+                            .message("유효하지 않은 UUID입니다.")
+                            .build()
+            );
         }
 
-        String uuid = JwtUtil.getUUID(token); // 토큰 유효성 검증 (만료 여부 포함)
+        String guestToken = token;
+        String isRefreshed = "N";
+        if (JwtUtil.isExpired(token)) {
+            // 만료된 토큰일 경우에만 새로운 GuestToken을 발급하고, 만료되지 않았다면 기존 토큰을 그대로 반환
+            guestToken = jwtUtil.generateGuestToken(uuid);
+            isRefreshed = "Y";
+        }
+
         User findUser = userService.getUserByUUID(uuid).orElse(null);
         if (findUser == null) {
-            GuestUserDto errorDto = GuestUserDto.builder().userId(0L).statusCd("4040").statusMsg("사용자가 존재하지 않습니다.").isGuestYn("N").build();
+            GuestUserDto errorDto = GuestUserDto.builder().userId(0L).statusCd("4040").statusMsg("사용자가 존재하지 않습니다.").isGuestYn("N").isRefreshed("N").build();
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
                     CommonApiResponse.<GuestUserDto>builder()
                             .statusCode("4040")
@@ -302,10 +314,12 @@ public class UserApiController {
         Long userId = findUser.getId();
         GuestUserDto responseDto = GuestUserDto.builder()
                 .userId(userId)
+                .uuId(uuid)
                 .statusCd("2000")
                 .statusMsg("success")
                 .isGuestYn("Y")
-                .guestToken(refreshToken)
+                .guestToken(guestToken)
+                .isRefreshed(isRefreshed)
                 .build();
 
         return ResponseEntity.ok(CommonApiResponse.<GuestUserDto>builder()
@@ -720,7 +734,7 @@ public class UserApiController {
             );
         }
         GuestYnDto responseDto = GuestYnDto.builder()
-                .isGuest("Y")
+                .isGuestYn("Y")
                 .build();
 
         return ResponseEntity.ok(CommonApiResponse.<GuestYnDto>builder()

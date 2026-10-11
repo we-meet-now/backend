@@ -56,6 +56,7 @@ public class SecurityConfig {
                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/email/**")).permitAll()
                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/no-login/**")).permitAll()
                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/is-guest-token")).permitAll()
+                                .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/get-guest-id")).permitAll() // 만료된 게스트 토큰도 갱신을 위해 호출 가능해야 함
                                 .anyRequest().authenticated()
                         )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

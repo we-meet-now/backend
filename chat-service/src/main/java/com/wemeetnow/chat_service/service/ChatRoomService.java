@@ -272,6 +272,7 @@ public class ChatRoomService {
         return chatParticipantsRepository.existsByChatRoomIdAndUserId(roomId, userId);
     }
 
+    @Transactional
     public void addParticipant(Long roomId, Long userId) {
         if (!isMember(roomId, userId)) {
             ChatParticipant chatParticipant = ChatParticipant.builder()

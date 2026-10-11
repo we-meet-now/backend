@@ -219,6 +219,10 @@ public class ChatRoomController {
                         chatRoomService.addParticipant(requestDto.getRoomId(), authGuestResponse.getUserId());
                     }
                     responseDto = chatRoomService.enterRoomAndMarkRead(requestDto.getRoomId(), authGuestResponse.getUserId()); // guestToken으로 사용자 정보추출 후 채팅방 내 읽음처리
+                    // DB에서 검증된 uuId와, 만료된 경우 갱신된 guestToken(아니면 기존 토큰)을 응답에 포함
+                    responseDto.setUuId(authGuestResponse.getUuId());
+                    responseDto.setGuestToken(authGuestResponse.getGuestToken());
+                    responseDto.setIsRefreshed(authGuestResponse.getIsRefreshed());
                 } else { // 로그인한 사용자일 경우
                     AuthUserResponse authUserResponse = chatService.isValidAccessToken(token);
                     Long loginedUserId = authUserResponse.getUserId();
@@ -237,6 +241,7 @@ public class ChatRoomController {
                             .markedReadCount(0)
                             .guestToken(guestTokenInfo.getGuestToken())
                             .uuId(guestTokenInfo.getUuId())
+                            .isRefreshed("N") // 신규 발급이므로 갱신이 아님
                             .build();
                 }
 

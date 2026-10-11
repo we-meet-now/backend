@@ -15,6 +15,7 @@ public class EnterRoomResponseDto {
     private String statusMsg;
     private int markedReadCount;
     private String guestToken;
+    private String isRefreshed; // 토큰 갱신 여부 (Y/N)
 
 
     public EnterRoomResponseDto(String statusCode, String statusMsg, int markedCount) {

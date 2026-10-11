@@ -31,6 +31,10 @@ public class JwtUtil {
                     .build()
                     .parseClaimsJws(token)
                     .getBody();
+        } catch (ExpiredJwtException expiredError) {
+            // 서명은 유효하지만 만료된 토큰인 경우, claim 정보(uuId 등)는 그대로 사용할 수 있어야 하므로
+            // 예외에 담긴 claims를 반환한다. 만료 여부 자체는 isExpired()에서 별도로 판단한다.
+            return expiredError.getClaims();
         } catch (Exception e) {
             log.error("raised error: {}",e.getMessage());
             return null;
@@ -68,7 +72,13 @@ public class JwtUtil {
 
     public static Boolean isExpired(String token) {
         try {
-            Date expiration = extractAllClaims(token).getExpiration();
+            Claims claims = extractAllClaims(token);
+            if (claims == null) {
+                // extractAllClaims()는 만료/위변조 토큰에 대해 내부적으로 예외를 삼키고 null을 반환하므로
+                // 이 경우도 만료(유효하지 않음)로 간주한다.
+                return true;
+            }
+            Date expiration = claims.getExpiration();
             return expiration.before(new Date());
         } catch (MalformedJwtException malError) {
             log.error("Invalid JWT token(MalformedJwtException): {}", malError.getMessage());

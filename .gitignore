@@ -1,3 +1,4 @@
+.vscode
 ### db, auth properties ###
 service-discovery/src/main/resources-env/dev/application-db.properties
 service-discovery/src/main/resources-env/dev/application-auth.properties

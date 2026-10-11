@@ -8,5 +8,5 @@ import lombok.Setter;
 @Setter
 @Builder
 public class GuestYnDto {
-    private String isGuest;
+    private String isGuestYn;
 }

@@ -77,6 +77,18 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(ex.getHttpStatus()).body(response);
     }
 
+    @ExceptionHandler(ChatRoomParticipantException.class)
+    public ResponseEntity<CommonApiResponse<Object>> handleChatRoomParticipantException(
+            ChatRoomParticipantException ex) {
+        log.warn("Chat room participant operation rejected: {}", ex.getMessage());
+        CommonApiResponse<Object> response = CommonApiResponse.builder()
+                .statusCode(ex.getApiStatusCode().getCode())
+                .data(ex.getData())
+                .message(ex.getMessage())
+                .build();
+        return ResponseEntity.status(ex.getHttpStatus()).body(response);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<CommonApiResponse<Void>> handleException(Exception ex) {
         log.error("Unhandled exception: ", ex);

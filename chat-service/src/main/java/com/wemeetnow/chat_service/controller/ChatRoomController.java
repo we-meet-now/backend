@@ -129,12 +129,9 @@ public class ChatRoomController {
     })
     @PostMapping("/create-w-participants")
     public ResponseEntity<CommonApiResponse<CreateOneChatRoomResponseDto>> createChatRoomWithParticipants(
-            @RequestBody CreateChatRoomRequestDto createChatRoomRequestDto,
-            HttpServletRequest request) {
-        String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-        String accessToken = authorizationHeader.replace("Bearer ", "");
-        AuthUserDto authUserDto = chatRoomService.fetchUserFromAuthService(accessToken);
-        String inpUserId = String.valueOf(authUserDto.getUserId());
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String token,
+            @RequestBody CreateChatRoomRequestDto createChatRoomRequestDto) {
+        String inpUserId = String.valueOf(chatService.isValidAccessToken(token).getUserId());
         ChatRoom chatRoom = chatRoomService.createChatRoomWithParticipants(
                 inpUserId,
                 createChatRoomRequestDto.getChatRoomNm(),
@@ -168,12 +165,9 @@ public class ChatRoomController {
     })
     @PostMapping("/create")
     public ResponseEntity<CommonApiResponse<CreateOneChatRoomResponseDto>> createChatRoom(
-            @RequestBody CreateChatRoomRequestDto createChatRoomRequestDto,
-            HttpServletRequest request) {
-        String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-        String accessToken = authorizationHeader.replace("Bearer ", "");
-        AuthUserDto authUserDto = chatRoomService.fetchUserFromAuthService(accessToken);
-        String inpUserId = String.valueOf(authUserDto.getUserId());
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String token,
+            @RequestBody CreateChatRoomRequestDto createChatRoomRequestDto) {
+        String inpUserId = String.valueOf(chatService.isValidAccessToken(token).getUserId());
         ChatRoom chatRoom = chatRoomService.createChatRoom(
                 inpUserId,
                 createChatRoomRequestDto.getChatRoomNm()
@@ -241,6 +235,54 @@ public class ChatRoomController {
                 .statusCode(ApiStatusCode.SUCCESS.getCode())
                 .data(responseDto)
                 .message("채팅방 사용자 초대 성공")
+                .build());
+    }
+
+    @Operation(
+            summary = "채팅방 사용자 퇴장",
+            description = "채팅방 생성자만 지정한 사용자를 채팅방에서 퇴장시킬 수 있습니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "사용자 퇴장 성공"),
+            @ApiResponse(responseCode = "400", description = "유효하지 않은 요청 본문"),
+            @ApiResponse(responseCode = "401", description = "Authorization 토큰이 유효하지 않음"),
+            @ApiResponse(responseCode = "403", description = "요청자가 채팅방 생성자가 아님"),
+            @ApiResponse(responseCode = "404", description = "채팅방 또는 퇴장 대상 사용자를 찾을 수 없음")
+    })
+    @PostMapping("/remove-participants")
+    public ResponseEntity<CommonApiResponse<RemoveChatParticipantsResponseDto>> removeChatParticipants(
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String token,
+            @RequestBody RemoveChatParticipantsRequestDto requestDto) {
+        AuthUserResponse authUserResponse;
+        try {
+            authUserResponse = chatService.isValidAccessToken(token);
+        } catch (IllegalArgumentException e) {
+            throw new ChatRoomInviteException(ApiStatusCode.UNAUTHORIZED, HttpStatus.UNAUTHORIZED,
+                    "유효하지 않은 Access Token입니다.");
+        }
+
+        if (authUserResponse == null || authUserResponse.getUserId() == null) {
+            throw new ChatRoomInviteException(ApiStatusCode.UNAUTHORIZED, HttpStatus.UNAUTHORIZED,
+                    "Access Token에서 사용자 정보를 확인할 수 없습니다.");
+        }
+
+        Long roomId = requestDto != null ? requestDto.getRoomId() : null;
+        List<Long> removedUserIds = chatRoomService.removeParticipants(
+                roomId,
+                authUserResponse.getUserId(),
+                requestDto != null ? requestDto.getRemovedUserIdList() : null,
+                token
+        );
+        RemoveChatParticipantsResponseDto responseDto = RemoveChatParticipantsResponseDto.builder()
+                .roomId(roomId)
+                .removedUserIdList(removedUserIds)
+                .removedCount(removedUserIds.size())
+                .build();
+
+        return ResponseEntity.ok(CommonApiResponse.<RemoveChatParticipantsResponseDto>builder()
+                .statusCode(ApiStatusCode.SUCCESS.getCode())
+                .data(responseDto)
+                .message("채팅방 사용자 퇴장 성공")
                 .build());
     }
 

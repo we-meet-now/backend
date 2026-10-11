@@ -8,6 +8,7 @@ import com.wemeetnow.chat_service.constant.ApiStatusCode;
 import com.wemeetnow.chat_service.client.AuthServiceClient;
 import com.wemeetnow.chat_service.dto.*;
 import com.wemeetnow.chat_service.exception.ChatRoomInviteException;
+import com.wemeetnow.chat_service.exception.ChatRoomParticipantException;
 import com.wemeetnow.chat_service.repository.ChatParticipantRepository;
 import com.wemeetnow.chat_service.repository.ChatReadRepository;
 import com.wemeetnow.chat_service.repository.ChatRepository;
@@ -349,6 +350,66 @@ public class ChatRoomService {
     private ChatRoomInviteException inviteException(
             ApiStatusCode code, HttpStatus status, String message, Object data) {
         return new ChatRoomInviteException(code, status, message, data);
+    }
+
+    @Transactional
+    public List<Long> removeParticipants(
+            Long roomId, Long requesterUserId, List<Long> removedUserIdList, String authorizationHeader) {
+        if (roomId == null || roomId <= 0 || requesterUserId == null || requesterUserId <= 0
+                || removedUserIdList == null || removedUserIdList.isEmpty()
+                || removedUserIdList.stream().anyMatch(userId -> userId == null || userId <= 0)
+                || new HashSet<>(removedUserIdList).size() != removedUserIdList.size()) {
+            throw participantException(ApiStatusCode.BAD_REQUEST, HttpStatus.BAD_REQUEST,
+                    "요청 본문의 roomId 또는 removedUserIdList가 유효하지 않습니다.");
+        }
+        if (removedUserIdList.contains(requesterUserId)) {
+            throw participantException(ApiStatusCode.BAD_REQUEST, HttpStatus.BAD_REQUEST,
+                    "요청자 본인은 퇴장 대상에 포함할 수 없습니다. removedUserIdList를 확인해 주세요.");
+        }
+
+        ChatRoom chatRoom = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> participantException(
+                        ApiStatusCode.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND,
+                        "채팅방을 찾을 수 없습니다. roomId=" + roomId));
+
+        if (!String.valueOf(requesterUserId).equals(chatRoom.getInpUserId())) {
+            throw participantException(ApiStatusCode.CHAT_ROOM_ACCESS_DENIED, HttpStatus.FORBIDDEN,
+                    "채팅방 생성자만 사용자를 퇴장시킬 수 있습니다.");
+        }
+
+        for (Long removedUserId : removedUserIdList) {
+            try {
+                CommonApiResponse<ChatParticipantPublicProfileDto> userResponse =
+                        authServiceClient.getUserById(authorizationHeader, removedUserId);
+                ChatParticipantPublicProfileDto user = userResponse != null ? userResponse.getData() : null;
+                if (user == null || !removedUserId.equals(user.getUserId())) {
+                    throw removedUserNotFound(removedUserId);
+                }
+            } catch (FeignException.NotFound e) {
+                throw removedUserNotFound(removedUserId);
+            }
+        }
+
+        List<Long> usersNotInRoom = removedUserIdList.stream()
+                .filter(userId -> !isMember(roomId, userId))
+                .toList();
+        if (!usersNotInRoom.isEmpty()) {
+            throw participantException(ApiStatusCode.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND,
+                    "퇴장 대상 중 채팅방 참여자가 아닌 사용자가 있습니다: " + usersNotInRoom);
+        }
+
+        chatParticipantsRepository.removeByChatRoomIdAndUserIds(roomId, removedUserIdList);
+        return List.copyOf(removedUserIdList);
+    }
+
+    private ChatRoomParticipantException removedUserNotFound(Long userId) {
+        return participantException(ApiStatusCode.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND,
+                "존재하지 않는 사용자입니다. userId=" + userId);
+    }
+
+    private ChatRoomParticipantException participantException(
+            ApiStatusCode code, HttpStatus status, String message) {
+        return new ChatRoomParticipantException(code, status, message);
     }
 
     @Transactional

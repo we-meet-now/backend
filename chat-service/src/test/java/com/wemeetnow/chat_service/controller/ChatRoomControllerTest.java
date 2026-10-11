@@ -1,12 +1,14 @@
 package com.wemeetnow.chat_service.controller;
 
 import com.wemeetnow.chat_service.domain.Chat;
+import com.wemeetnow.chat_service.domain.ChatRoom;
 import com.wemeetnow.chat_service.dto.AuthUserResponse;
+import com.wemeetnow.chat_service.dto.CreateChatRoomRequestDto;
 import com.wemeetnow.chat_service.dto.EnterRoomRequestDto;
 import com.wemeetnow.chat_service.dto.EnterRoomResponseDto;
 import com.wemeetnow.chat_service.dto.GuestYnDto;
 import com.wemeetnow.chat_service.dto.InviteChatParticipantsRequestDto;
-import com.wemeetnow.chat_service.dto.AuthUserResponse;
+import com.wemeetnow.chat_service.dto.RemoveChatParticipantsRequestDto;
 import com.wemeetnow.chat_service.service.ChatRoomService;
 import com.wemeetnow.chat_service.service.ChatService;
 import org.junit.jupiter.api.BeforeEach;
@@ -94,6 +96,70 @@ class ChatRoomControllerTest {
         assertThat(response.getBody().getStatusCode()).isEqualTo("2000");
         assertThat(response.getBody().getData().getInvitedUserIdList()).containsExactly(1L, 2L);
         assertThat(response.getBody().getData().getInvitedCount()).isEqualTo(2);
+    }
+
+    @Test
+    void removesRequestedParticipantsUsingJwtUserAsRequester() {
+        String token = "Bearer jwt-token";
+        AuthUserResponse authUser = new AuthUserResponse();
+        authUser.setUserId(9L);
+        when(chatService.isValidAccessToken(token)).thenReturn(authUser);
+        when(chatRoomService.removeParticipants(5L, 9L, List.of(1L, 2L), token))
+                .thenReturn(List.of(1L, 2L));
+
+        RemoveChatParticipantsRequestDto requestDto = new RemoveChatParticipantsRequestDto();
+        requestDto.setRoomId(5L);
+        requestDto.setRemovedUserIdList(List.of(1L, 2L));
+
+        var response = controller.removeChatParticipants(token, requestDto);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().getStatusCode()).isEqualTo("2000");
+        assertThat(response.getBody().getData().getRemovedUserIdList()).containsExactly(1L, 2L);
+        assertThat(response.getBody().getData().getRemovedCount()).isEqualTo(2);
+        verify(chatRoomService).removeParticipants(5L, 9L, List.of(1L, 2L), token);
+    }
+
+    @Test
+    void createsRoomWithCreatorFromAuthorizationToken() {
+        String token = "Bearer jwt-token";
+        AuthUserResponse authUser = new AuthUserResponse();
+        authUser.setUserId(9L);
+        when(chatService.isValidAccessToken(token)).thenReturn(authUser);
+
+        CreateChatRoomRequestDto requestDto = new CreateChatRoomRequestDto();
+        requestDto.setChatRoomNm("room");
+        ChatRoom chatRoom = ChatRoom.builder().chatRoomNm("room").build();
+        chatRoom.setChatRoomId(12L);
+        chatRoom.setEnterCode("ABCD");
+        when(chatRoomService.createChatRoom("9", "room")).thenReturn(chatRoom);
+
+        var response = controller.createChatRoom(token, requestDto);
+
+        assertThat(response.getBody().getData().getChatRoomId()).isEqualTo(12L);
+        verify(chatRoomService).createChatRoom("9", "room");
+    }
+
+    @Test
+    void createsRoomWithParticipantsAndCreatorFromAuthorizationToken() {
+        String token = "Bearer jwt-token";
+        AuthUserResponse authUser = new AuthUserResponse();
+        authUser.setUserId(9L);
+        when(chatService.isValidAccessToken(token)).thenReturn(authUser);
+
+        CreateChatRoomRequestDto requestDto = new CreateChatRoomRequestDto();
+        requestDto.setChatRoomNm("room");
+        requestDto.setParticipantIds(List.of(9L, 10L));
+        ChatRoom chatRoom = ChatRoom.builder().chatRoomNm("room").build();
+        chatRoom.setChatRoomId(13L);
+        chatRoom.setEnterCode("EFGH");
+        when(chatRoomService.createChatRoomWithParticipants("9", "room", List.of(9L, 10L)))
+                .thenReturn(chatRoom);
+
+        var response = controller.createChatRoomWithParticipants(token, requestDto);
+
+        assertThat(response.getBody().getData().getChatRoomId()).isEqualTo(13L);
+        verify(chatRoomService).createChatRoomWithParticipants("9", "room", List.of(9L, 10L));
     }
 
     private void mockLogin(Long userId) {

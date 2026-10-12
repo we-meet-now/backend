@@ -2,6 +2,7 @@ package com.wemeetnow.chat_service.config;
 
 import com.wemeetnow.chat_service.config.jwt.JwtFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -18,6 +19,9 @@ import org.springframework.web.filter.CorsFilter;
 @EnableWebSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
+
+    @Value("${front.url}")
+    private String frontUrl;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -48,6 +52,7 @@ public class SecurityConfig {
     @Bean
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
+        config.addAllowedOrigin(frontUrl);
         config.addAllowedOrigin("http://localhost:5173");
         config.addAllowedOrigin("http://localhost:3000");
         config.addAllowedHeader("*");

@@ -239,7 +239,7 @@ public class ChatRoomController {
     }
 
     @Operation(
-            summary = "채팅방 사용자 퇴장",
+            summary = "채팅방 사용자 퇴장시키기(방생성자가 다수참여자 퇴장 가능)",
             description = "채팅방 생성자만 지정한 사용자를 채팅방에서 퇴장시킬 수 있습니다."
     )
     @ApiResponses({

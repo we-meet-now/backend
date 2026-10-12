@@ -42,6 +42,7 @@ public class SecurityConfig {
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/reissue")).permitAll()
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/get-id")).permitAll()
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/get-user-info")).authenticated()
+                                 .requestMatchers(AntPathRequestMatcher.antMatcher(HttpMethod.GET, "/api/auth/v1/friends/invitations")).authenticated()
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/login/page")).permitAll() // 카카오로그인 테스트용
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/stores/**")).permitAll() // 맛집 추천받기 테스트용
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/kakao/callback")).permitAll() // 카카오로그인 테스트용
@@ -52,12 +53,6 @@ public class SecurityConfig {
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/h2-console/**")).permitAll()
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/favicon.ico")).permitAll()
                                  .requestMatchers(AntPathRequestMatcher.antMatcher( "/api/auth/v1/error")).permitAll()
-                                 .requestMatchers(AntPathRequestMatcher.antMatcher(HttpMethod.GET, "/api/auth/v1/friends/list")).authenticated()
-                                 .requestMatchers(AntPathRequestMatcher.antMatcher(HttpMethod.POST, "/api/auth/v1/friends/delete")).authenticated()
-                                 .requestMatchers(AntPathRequestMatcher.antMatcher(HttpMethod.POST, "/api/auth/v1/friends/invitations")).authenticated()
-                                 .requestMatchers(AntPathRequestMatcher.antMatcher(HttpMethod.POST, "/api/auth/v1/friends/accept-new-friend")).authenticated()
-                                 .requestMatchers(AntPathRequestMatcher.antMatcher(HttpMethod.POST, "/api/auth/v1/friends/update-friend-status")).authenticated()
-                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/friends/**")).permitAll()
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/create-random-nickname")).permitAll()
                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/email/**")).permitAll()
                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/no-login/**")).permitAll()

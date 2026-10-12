@@ -54,8 +54,7 @@ public class FriendController {
             @ApiResponse(responseCode = "500", description = "서버 오류",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
-    @CrossOrigin(origins = "https://localhost:3000")
-    @GetMapping("/list")
+    @GetMapping("")
     public ResponseEntity<CommonApiResponse<List<FriendInfoDto>>> getFriendList(HttpServletRequest httpRequest) {
         User loginUser = jwtUtil.getAuthenticatedUser(httpRequest);
         List<FriendInfoDto> friendInfoDtos = friendService.getFriendList(loginUser.getId());
@@ -82,7 +81,6 @@ public class FriendController {
             @ApiResponse(responseCode = "500", description = "서버 오류",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
-    @CrossOrigin(origins = "https://localhost:3000")
     @PostMapping("/accept-new-friend")
     public ResponseEntity<CommonApiResponse<Void>> acceptNewFriend(
             @RequestBody(required = false) FriendInvitationAcceptRequestDto request,
@@ -128,10 +126,9 @@ public class FriendController {
             @ApiResponse(responseCode = "500", description = "서버 오류",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
-    @CrossOrigin(origins = "https://localhost:3000")
     @PostMapping("/invitations")
     public ResponseEntity<CommonApiResponse<FriendInvitationResponseDto>> sendFriendInvitations(
-            @RequestBody(required = false) FriendInvitationRequestDto request,
+            @RequestBody FriendInvitationRequestDto request,
             HttpServletRequest httpRequest) {
         User sender = jwtUtil.getAuthenticatedUser(httpRequest);
         if (request == null) {
@@ -145,6 +142,30 @@ public class FriendController {
                 .statusCode("2000")
                 .data(data)
                 .message("친구 초대를 보냈습니다.")
+                .build());
+    }
+
+    @Operation(
+            summary = "받은 친구 초대 목록 조회",
+            description = "Authorization 헤더의 JWT로 로그인 사용자를 확인하고, 해당 사용자에게 도착한 대기 중(WAIT) 친구 초대와 발신자 정보를 조회합니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "받은 친구 초대 목록 조회 성공",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "401", description = "인증 토큰이 유효하지 않거나 로그인 사용자가 존재하지 않음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "500", description = "서버 오류",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
+    @GetMapping("/invitations")
+    public ResponseEntity<CommonApiResponse<List<FriendInfoDto>>> getReceivedFriendInvitations(
+            HttpServletRequest httpRequest) {
+        User receiver = jwtUtil.getAuthenticatedUser(httpRequest);
+        List<FriendInfoDto> invitations = friendService.getReceivedFriendInvitations(receiver.getId());
+        return ResponseEntity.ok(CommonApiResponse.<List<FriendInfoDto>>builder()
+                .statusCode("2000")
+                .data(invitations)
+                .message("받은 친구 초대 목록을 조회했습니다.")
                 .build());
     }
 
@@ -165,7 +186,6 @@ public class FriendController {
             @ApiResponse(responseCode = "500", description = "서버 오류",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
-    @CrossOrigin(origins = "https://localhost:3000")
     @PostMapping("/update-friend-status")
     public ResponseEntity<CommonApiResponse<Void>> updateFriendStatus(
             @RequestBody(required = false) FriendStatusUpdateRequestDto request,
@@ -215,7 +235,6 @@ public class FriendController {
             @ApiResponse(responseCode = "500", description = "서버 오류",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
-    @CrossOrigin(origins = "https://localhost:3000")
     @PostMapping("/delete")
     public ResponseEntity<CommonApiResponse<Void>> deleteFriendOne(
             @RequestBody(required = false) FriendDeleteRequestDto request,

@@ -27,6 +27,15 @@ public interface FriendRepository extends JpaRepository<Friend, Long> {
     List<FriendInfoDto> getFriendList(@Param("userId") Long userId,
                                       @Param("deletedStatus") FriendStatus deletedStatus);
 
+    @Query("SELECT new com.wemeetnow.auth_service.dto.FriendInfoDto(" +
+            "inviter.id, inviter.username, inviter.imgUrl, CAST(f.friendStatus AS string)) " +
+            "FROM Friend f " +
+            "JOIN User inviter ON inviter.id = f.senderId " +
+            "WHERE f.user.id = :receiverId AND f.friendStatus = :pendingStatus " +
+            "ORDER BY f.inpDate DESC")
+    List<FriendInfoDto> getReceivedFriendInvitations(@Param("receiverId") Long receiverId,
+                                                     @Param("pendingStatus") FriendStatus pendingStatus);
+
     @Modifying
     @Transactional
     @Query("UPDATE Friend f SET f.friendStatus = :friendStatus " +

@@ -8,6 +8,8 @@ import java.util.List;
 public interface FriendService {
     List<FriendInfoDto> getFriendList(Long userId);
 
+    List<FriendInfoDto> getReceivedFriendInvitations(Long receiverId);
+
     int acceptNewFriend(Long receiveUserId, Long sendUserId);
 
     int sendNewFriend(Long sendUserId, Long receiveUserId, FriendStatus friendStatus);

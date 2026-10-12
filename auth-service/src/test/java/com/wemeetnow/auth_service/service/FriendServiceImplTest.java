@@ -50,6 +50,31 @@ class FriendServiceImplTest {
     }
 
     @Test
+    void returnsReceivedPendingFriendInvitations() {
+        List<FriendInfoDto> expected = List.of(FriendInfoDto.builder()
+                .friendId(2L)
+                .friendName("sender")
+                .friendStatus("WAIT")
+                .build());
+        when(friendRepository.getReceivedFriendInvitations(1L, FriendStatus.WAIT)).thenReturn(expected);
+
+        List<FriendInfoDto> result = friendService.getReceivedFriendInvitations(1L);
+
+        assertThat(result).isEqualTo(expected);
+        verify(friendRepository).getReceivedFriendInvitations(1L, FriendStatus.WAIT);
+    }
+
+    @Test
+    void rejectsInvalidRecipientForReceivedFriendInvitations() {
+        assertThatThrownBy(() -> friendService.getReceivedFriendInvitations(0L))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+        verify(friendRepository, never()).getReceivedFriendInvitations(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
     void acceptsOnlyPendingFriendInvitations() {
         when(friendRepository.acceptNewFriend(1L, 2L, FriendStatus.NEW, FriendStatus.WAIT)).thenReturn(1);
 

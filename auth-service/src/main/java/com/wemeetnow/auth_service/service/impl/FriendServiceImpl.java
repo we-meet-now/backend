@@ -34,6 +34,15 @@ public class FriendServiceImpl implements FriendService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<FriendInfoDto> getReceivedFriendInvitations(Long receiverId) {
+        if (receiverId == null || receiverId <= 0) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return friendRepository.getReceivedFriendInvitations(receiverId, FriendStatus.WAIT);
+    }
+
+    @Override
     @Transactional
     public int acceptNewFriend(Long receiveUserId, Long sendUserId) {
         if (receiveUserId == null || receiveUserId <= 0 || sendUserId == null || sendUserId <= 0

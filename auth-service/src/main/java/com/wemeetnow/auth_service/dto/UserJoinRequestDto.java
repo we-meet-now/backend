@@ -7,6 +7,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import javax.annotation.Nullable;
+
 @Data
 @Builder
 @NoArgsConstructor @AllArgsConstructor
@@ -14,6 +16,8 @@ public class UserJoinRequestDto {
     private String email;
     private String password;
     private String passwordCorrect;
+
+    @Nullable
     private String nickname;
     private String username;
     private String phoneNumber;

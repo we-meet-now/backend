@@ -27,7 +27,7 @@ public class User extends BaseTime {
 
     private String password;
 
-    @Column(unique = true)
+    @Column
     private String nickname;
     private String provider;
     @Column(name = "email_auth")

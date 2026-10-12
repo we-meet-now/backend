@@ -4,6 +4,7 @@ import com.wemeetnow.chat_service.domain.UserSchedule;
 import com.wemeetnow.chat_service.domain.UserScheduleParticipant;
 import com.wemeetnow.chat_service.domain.enums.UserScheduleStatus;
 import com.wemeetnow.chat_service.dto.*;
+import com.wemeetnow.chat_service.exception.InvalidScheduleMonthException;
 import com.wemeetnow.chat_service.exception.InvalidScheduleTimeException;
 import com.wemeetnow.chat_service.exception.ScheduleAccessDeniedException;
 import com.wemeetnow.chat_service.exception.ScheduleNotFoundException;
@@ -18,6 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 
 import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -26,6 +30,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ScheduleService {
+
+    private static final DateTimeFormatter MONTH_FORMATTER = DateTimeFormatter.ofPattern("uuuuMM");
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
 
     private final UserScheduleRepository userScheduleRepository;
     private final UserScheduleParticipantRepository userScheduleParticipantRepository;
@@ -111,6 +118,46 @@ public class ScheduleService {
         }
 
         return schedule.getUserScheduleId();
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // 일정 목록 조회
+    // ─────────────────────────────────────────────────────────
+
+    public List<ScheduleListItemResponseDto> getSchedules(Long creatorUserId, String month) {
+        YearMonth yearMonth = parseMonth(month);
+        LocalDateTime monthStart = yearMonth.atDay(1).atStartOfDay();
+        LocalDateTime nextMonthStart = yearMonth.plusMonths(1).atDay(1).atStartOfDay();
+
+        return userScheduleRepository.findCreatedBetween(creatorUserId, monthStart, nextMonthStart)
+                .stream()
+                .sorted((left, right) -> left.getStartAt().compareTo(right.getStartAt()))
+                .map(schedule -> ScheduleListItemResponseDto.builder()
+                        .userScheduleId(schedule.getUserScheduleId())
+                        .title(schedule.getTitle())
+                        .startAt(schedule.getStartAt().toLocalDate().format(DATE_FORMATTER))
+                        .endAt(schedule.getEndAt() == null
+                                ? null
+                                : schedule.getEndAt().toLocalDate().format(DATE_FORMATTER))
+                        .status(schedule.getStatus())
+                        .publicScheduleYn(schedule.getPublicScheduleYn())
+                        .publicMemberYn(schedule.getPublicMemberYn())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    private YearMonth parseMonth(String month) {
+        if (month == null) {
+            return YearMonth.now();
+        }
+        if (!month.matches("[0-9]{6}")) {
+            throw new InvalidScheduleMonthException("월 조회 조건은 yyyyMM 형식이어야 합니다.");
+        }
+        try {
+            return YearMonth.parse(month, MONTH_FORMATTER);
+        } catch (DateTimeParseException e) {
+            throw new InvalidScheduleMonthException("유효하지 않은 월입니다. yyyyMM 형식으로 입력해 주세요.");
+        }
     }
 
     // ─────────────────────────────────────────────────────────
@@ -258,4 +305,3 @@ public class ScheduleService {
         }
     }
 }
-

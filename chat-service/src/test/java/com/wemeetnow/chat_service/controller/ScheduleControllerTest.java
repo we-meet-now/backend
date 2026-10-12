@@ -5,6 +5,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.wemeetnow.chat_service.domain.enums.UserScheduleStatus;
 import com.wemeetnow.chat_service.dto.*;
 import com.wemeetnow.chat_service.exception.GlobalExceptionHandler;
+import com.wemeetnow.chat_service.exception.InvalidScheduleMonthException;
 import com.wemeetnow.chat_service.exception.InvalidScheduleTimeException;
 import com.wemeetnow.chat_service.exception.ScheduleAccessDeniedException;
 import com.wemeetnow.chat_service.exception.ScheduleNotFoundException;
@@ -28,6 +29,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -67,6 +69,53 @@ class ScheduleControllerTest {
         AuthUserDto authUserDto = new AuthUserDto();
         authUserDto.setUserId(USER_ID);
         given(scheduleService.fetchUserFromAuthService(anyString())).willReturn(authUserDto);
+    }
+
+    @Nested
+    @DisplayName("GET /api/chat/v1/schedules - 월별 일정 목록 조회")
+    class GetSchedulesControllerTests {
+
+        @Test
+        @DisplayName("Bearer 토큰 사용자 일정 조회 성공")
+        void getSchedules_success_returns200() throws Exception {
+            List<ScheduleListItemResponseDto> response = List.of(
+                    ScheduleListItemResponseDto.builder()
+                            .userScheduleId(SCHEDULE_ID)
+                            .title("팀 미팅")
+                            .startAt("20260701")
+                            .endAt("20260701")
+                            .status(UserScheduleStatus.PENDING)
+                            .publicScheduleYn("Y")
+                            .publicMemberYn("Y")
+                            .build());
+            given(scheduleService.getSchedules(USER_ID, "202607")).willReturn(response);
+
+            mockMvc.perform(get(BASE_URL)
+                            .queryParam("month", "202607")
+                            .header("Authorization", "Bearer " + AUTH_TOKEN))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.statusCode").value("2000"))
+                    .andExpect(jsonPath("$.message").value("일정 목록 조회 성공"))
+                    .andExpect(jsonPath("$.data[0].userScheduleId").value(SCHEDULE_ID))
+                    .andExpect(jsonPath("$.data[0].startAt").value("20260701"))
+                    .andExpect(jsonPath("$.data[0].endAt").value("20260701"));
+
+            verify(scheduleService).fetchUserFromAuthService(anyString());
+            verify(scheduleService).getSchedules(USER_ID, "202607");
+        }
+
+        @Test
+        @DisplayName("잘못된 월 입력 시 400 반환")
+        void getSchedules_invalidMonth_returns400() throws Exception {
+            given(scheduleService.getSchedules(USER_ID, "202613"))
+                    .willThrow(new InvalidScheduleMonthException("유효하지 않은 월입니다."));
+
+            mockMvc.perform(get(BASE_URL)
+                            .queryParam("month", "202613")
+                            .header("Authorization", "Bearer " + AUTH_TOKEN))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.statusCode").value("4000"));
+        }
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -369,4 +418,3 @@ class ScheduleControllerTest {
         }
     }
 }
-

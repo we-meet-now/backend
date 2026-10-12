@@ -4,6 +4,7 @@ import com.wemeetnow.chat_service.constant.ApiStatusCode;
 import com.wemeetnow.chat_service.dto.*;
 import com.wemeetnow.chat_service.service.ScheduleService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -17,6 +18,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @Tag(name = "개인 일정 API", description = "개인 일정 생성, 조회, 수정, 상태 변경, 삭제 API")
 @Slf4j
 @RestController
@@ -25,6 +28,41 @@ import org.springframework.web.bind.annotation.*;
 public class ScheduleController {
 
     private final ScheduleService scheduleService;
+
+    @Operation(
+            summary = "내 일정 월별 전체 조회",
+            description = "Authorization 헤더의 JWT 액세스 토큰으로 요청자를 인증하고, 요청자가 생성한 일정을 조회합니다. " +
+                    "month 쿼리 파라미터는 선택값이며 yyyyMM 형식입니다. 생략하면 현재 월을 조회하고, " +
+                    "일정 시작일(startAt) 기준으로 해당 월을 필터링해 시작일 오름차순으로 반환합니다. " +
+                    "응답의 시작일과 종료일은 yyyyMMdd 문자열입니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "일정 목록 조회 성공",
+                    content = @Content(array = @ArraySchema(
+                            schema = @Schema(implementation = ScheduleListItemResponseDto.class)))),
+            @ApiResponse(responseCode = "400", description = "month 형식이 yyyyMM이 아니거나 유효하지 않은 월",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "500", description = "인증 실패 또는 서버 오류",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
+    @GetMapping("")
+    public ResponseEntity<CommonApiResponse<List<ScheduleListItemResponseDto>>> getSchedules(
+            @RequestParam(required = false) String month,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String token) {
+
+        String accessToken = token.replace("Bearer ", "");
+        AuthUserDto authUserDto = scheduleService.fetchUserFromAuthService(accessToken);
+        List<ScheduleListItemResponseDto> responseDto =
+                scheduleService.getSchedules(authUserDto.getUserId(), month);
+
+        return ResponseEntity.ok(
+                CommonApiResponse.<List<ScheduleListItemResponseDto>>builder()
+                        .statusCode(ApiStatusCode.SUCCESS.getCode())
+                        .data(responseDto)
+                        .message("일정 목록 조회 성공")
+                        .build()
+        );
+    }
 
     // ─────────────────────────────────────────────────────────
     // POST /api/chat/v1/schedules  →  일정 생성
@@ -217,4 +255,3 @@ public class ScheduleController {
         );
     }
 }
-

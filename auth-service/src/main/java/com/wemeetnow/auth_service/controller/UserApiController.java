@@ -33,7 +33,7 @@ public class UserApiController {
 
     @Operation(
             summary = "회원가입",
-            description = "이메일, 비밀번호, 닉네임, 이름, 역할(role)을 입력하여 회원가입합니다."
+            description = "이메일, 비밀번호, 이름(닉네임), 역할(role)을 입력하여 회원가입합니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "회원가입 성공", useReturnTypeSchema = true),
@@ -86,15 +86,6 @@ public class UserApiController {
                             .statusCode("4000")
                             .data(null)
                             .message("사용자명을 입력해주세요.")
-                            .build()
-            );
-        }
-        if (requestDto.getNickname() == null || requestDto.getNickname().trim().isEmpty()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-                    CommonApiResponse.<UserJoinResponseDto>builder()
-                            .statusCode("4000")
-                            .data(null)
-                            .message("닉네임을 입력해주세요.")
                             .build()
             );
         }

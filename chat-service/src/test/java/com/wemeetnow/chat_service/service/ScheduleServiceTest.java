@@ -4,6 +4,7 @@ import com.wemeetnow.chat_service.domain.UserSchedule;
 import com.wemeetnow.chat_service.domain.UserScheduleParticipant;
 import com.wemeetnow.chat_service.domain.enums.UserScheduleStatus;
 import com.wemeetnow.chat_service.dto.*;
+import com.wemeetnow.chat_service.exception.InvalidScheduleMonthException;
 import com.wemeetnow.chat_service.exception.InvalidScheduleTimeException;
 import com.wemeetnow.chat_service.exception.ScheduleAccessDeniedException;
 import com.wemeetnow.chat_service.exception.ScheduleNotFoundException;
@@ -22,6 +23,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestClient;
 
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Optional;
 
@@ -198,6 +200,76 @@ class ScheduleServiceTest {
 
             // then: 생성자(2번) + 2L 한 명(1번) = 총 3번 (creatorUserId는 skip)
             verify(userScheduleParticipantRepository, times(3)).save(any(UserScheduleParticipant.class));
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // 일정 목록 조회
+    // ──────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("getSchedules")
+    class GetSchedulesTests {
+
+        @Test
+        @DisplayName("선택한 월에 생성한 일정만 시작일 오름차순으로 조회하고 yyyyMMdd로 반환")
+        void getSchedules_monthProvided_sortsAndFormatsDates() {
+            LocalDateTime monthStart = LocalDateTime.of(2026, 7, 1, 0, 0);
+            LocalDateTime nextMonthStart = LocalDateTime.of(2026, 8, 1, 0, 0);
+            UserSchedule laterSchedule = UserSchedule.builder()
+                    .userScheduleId(11L)
+                    .title("늦은 일정")
+                    .startAt(LocalDateTime.of(2026, 7, 20, 14, 0))
+                    .endAt(LocalDateTime.of(2026, 7, 20, 16, 0))
+                    .status(UserScheduleStatus.PENDING)
+                    .publicScheduleYn("Y")
+                    .publicMemberYn("Y")
+                    .build();
+            UserSchedule earlierSchedule = UserSchedule.builder()
+                    .userScheduleId(12L)
+                    .title("이른 일정")
+                    .startAt(LocalDateTime.of(2026, 7, 3, 9, 0))
+                    .endAt(LocalDateTime.of(2026, 7, 3, 10, 0))
+                    .status(UserScheduleStatus.CONFIRMED)
+                    .publicScheduleYn("N")
+                    .publicMemberYn("N")
+                    .build();
+
+            given(userScheduleRepository.findCreatedBetween(CREATOR_USER_ID, monthStart, nextMonthStart))
+                    .willReturn(List.of(laterSchedule, earlierSchedule));
+
+            List<ScheduleListItemResponseDto> result = scheduleService.getSchedules(CREATOR_USER_ID, "202607");
+
+            assertThat(result).extracting(ScheduleListItemResponseDto::getUserScheduleId)
+                    .containsExactly(12L, 11L);
+            assertThat(result).extracting(ScheduleListItemResponseDto::getStartAt)
+                    .containsExactly("20260703", "20260720");
+            assertThat(result.get(0).getEndAt()).isEqualTo("20260703");
+            verify(userScheduleRepository).findCreatedBetween(CREATOR_USER_ID, monthStart, nextMonthStart);
+        }
+
+        @Test
+        @DisplayName("월을 생략하면 현재 월의 시작과 다음 달 시작으로 조회")
+        void getSchedules_monthOmitted_usesCurrentMonth() {
+            YearMonth currentMonth = YearMonth.now();
+            LocalDateTime monthStart = currentMonth.atDay(1).atStartOfDay();
+            LocalDateTime nextMonthStart = currentMonth.plusMonths(1).atDay(1).atStartOfDay();
+            given(userScheduleRepository.findCreatedBetween(CREATOR_USER_ID, monthStart, nextMonthStart))
+                    .willReturn(List.of());
+
+            List<ScheduleListItemResponseDto> result = scheduleService.getSchedules(CREATOR_USER_ID, null);
+
+            assertThat(result).isEmpty();
+            verify(userScheduleRepository).findCreatedBetween(CREATOR_USER_ID, monthStart, nextMonthStart);
+        }
+
+        @Test
+        @DisplayName("유효하지 않은 월 입력 시 InvalidScheduleMonthException")
+        void getSchedules_invalidMonth_throwsException() {
+            assertThatThrownBy(() -> scheduleService.getSchedules(CREATOR_USER_ID, "202613"))
+                    .isInstanceOf(InvalidScheduleMonthException.class)
+                    .hasMessageContaining("유효하지 않은 월");
+            verifyNoInteractions(userScheduleRepository);
         }
     }
 
@@ -506,4 +578,3 @@ class ScheduleServiceTest {
         }
     }
 }
-

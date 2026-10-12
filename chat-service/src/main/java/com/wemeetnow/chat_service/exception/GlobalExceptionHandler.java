@@ -42,6 +42,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
+    @ExceptionHandler(InvalidScheduleMonthException.class)
+    public ResponseEntity<CommonApiResponse<Void>> handleInvalidScheduleMonth(InvalidScheduleMonthException ex) {
+        log.warn("InvalidScheduleMonthException: {}", ex.getMessage());
+        CommonApiResponse<Void> response = CommonApiResponse.<Void>builder()
+                .statusCode(ApiStatusCode.BAD_REQUEST.getCode())
+                .data(null)
+                .message(ex.getMessage())
+                .build();
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
     /** 403 - 일정 수정/삭제 권한 없음 */
     @ExceptionHandler(ScheduleAccessDeniedException.class)
     public ResponseEntity<CommonApiResponse<Void>> handleScheduleAccessDenied(ScheduleAccessDeniedException ex) {

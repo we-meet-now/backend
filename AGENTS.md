@@ -12,3 +12,5 @@ For new or materially refactored API endpoints:
 - Add or update focused tests for successful behavior and relevant validation, authorization, and not-found cases.
 
 For services outside `auth-service`, use that service's existing authentication and API response conventions rather than assuming its JWT implementation is shared.
+
+

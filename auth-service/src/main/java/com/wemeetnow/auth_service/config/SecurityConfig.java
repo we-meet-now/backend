@@ -41,6 +41,8 @@ public class SecurityConfig {
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/logout")).permitAll()
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/reissue")).permitAll()
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/get-id")).permitAll()
+                                 .requestMatchers(AntPathRequestMatcher.antMatcher(HttpMethod.GET, "/api/auth/v1/users/all")).permitAll()
+                                 .requestMatchers(AntPathRequestMatcher.antMatcher(HttpMethod.GET, "/api/auth/v1/friends/all")).permitAll()
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/get-user-info")).authenticated()
                                  .requestMatchers(AntPathRequestMatcher.antMatcher(HttpMethod.GET, "/api/auth/v1/friends/invitations")).authenticated()
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/login/page")).permitAll() // 카카오로그인 테스트용

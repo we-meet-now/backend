@@ -11,6 +11,7 @@ import com.wemeetnow.auth_service.dto.FriendInvitationAcceptRequestDto;
 import com.wemeetnow.auth_service.dto.FriendInvitationRequestDto;
 import com.wemeetnow.auth_service.dto.FriendInvitationResponseDto;
 import com.wemeetnow.auth_service.dto.FriendStatusUpdateRequestDto;
+import com.wemeetnow.auth_service.dto.FriendTableRowDto;
 import com.wemeetnow.auth_service.exception.CustomException;
 import com.wemeetnow.auth_service.service.FriendService;
 import com.wemeetnow.auth_service.service.UserService;
@@ -40,6 +41,28 @@ public class FriendController {
     private final UserService userService;
     private final FriendService friendService;
     private final JwtUtil jwtUtil;
+
+    @Operation(
+            summary = "전체 친구 테이블 조회",
+            description = "로그인 없이 친구 테이블의 모든 컬럼을 조회합니다. 친구 관계 식별자와 상태 및 감사 정보를 반환합니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "친구 테이블 조회 성공",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "500", description = "서버 오류",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
+    @GetMapping("/all")
+    public ResponseEntity<CommonApiResponse<List<FriendTableRowDto>>> getAllFriends() {
+        List<FriendTableRowDto> friends = friendService.getAllFriends().stream()
+                .map(FriendTableRowDto::fromEntity)
+                .toList();
+        return ResponseEntity.ok(CommonApiResponse.<List<FriendTableRowDto>>builder()
+                .statusCode("2000")
+                .data(friends)
+                .message("전체 친구 테이블 조회 성공")
+                .build());
+    }
 
     @Operation(
             summary = "친구 목록 조회",

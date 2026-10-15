@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -32,6 +33,11 @@ public class SecurityConfig {
                 .httpBasic(basic -> basic.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/chat/v1/chats/all",
+                                "/api/chat/v1/chat-rooms/all",
+                                "/api/chat/v1/chat-participants/all"
+                        ).permitAll()
                         // Swagger UI 경로 허용
                         .requestMatchers(
                                 "/api/chat/v1/swagger-ui/**",
@@ -65,4 +71,3 @@ public class SecurityConfig {
         return new CorsFilter(source);
     }
 }
-

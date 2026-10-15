@@ -196,22 +196,25 @@ public class UserApiController {
     }
 
     @Operation(
-            summary = "전체 사용자 목록 조회",
-            description = "등록된 모든 사용자 목록을 반환합니다. (관리자용)"
+            summary = "전체 사용자 테이블 조회",
+            description = "로그인 없이 등록된 모든 사용자 테이블의 컬럼 정보를 조회합니다. 비밀번호 해시, 연락처 및 주소 등 민감정보가 포함됩니다."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "사용자 목록 조회 성공", useReturnTypeSchema = true),
+            @ApiResponse(responseCode = "200", description = "사용자 테이블 조회 성공",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
             @ApiResponse(responseCode = "500", description = "서버 오류",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
     @GetMapping("/all")
-    public ResponseEntity<CommonApiResponse<List<User>>> getUsersAll() {
-        List<User> allUsers = userService.getAllUsers();
+    public ResponseEntity<CommonApiResponse<List<UserTableRowDto>>> getUsersAll() {
+        List<UserTableRowDto> allUsers = userService.getAllUsers().stream()
+                .map(UserTableRowDto::fromEntity)
+                .toList();
 
-        return ResponseEntity.ok(CommonApiResponse.<List<User>>builder()
+        return ResponseEntity.ok(CommonApiResponse.<List<UserTableRowDto>>builder()
                 .statusCode("2000")
                 .data(allUsers)
-                .message("사용자 목록 조회 성공")
+                .message("전체 사용자 테이블 조회 성공")
                 .build());
     }
 

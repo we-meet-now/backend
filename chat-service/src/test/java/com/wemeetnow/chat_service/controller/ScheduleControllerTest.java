@@ -116,6 +116,27 @@ class ScheduleControllerTest {
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.statusCode").value("4000"));
         }
+
+        @Test
+        @DisplayName("친구 공개 일정 조회 성공")
+        void getFriendSchedules_success_returns200() throws Exception {
+            List<ScheduleListItemResponseDto> response = List.of(
+                    ScheduleListItemResponseDto.builder()
+                            .userScheduleId(SCHEDULE_ID)
+                            .title("공개 일정")
+                            .startAt("20260701")
+                            .publicScheduleYn("Y")
+                            .build());
+            given(scheduleService.getFriendSchedules(2L, USER_ID, "Bearer " + AUTH_TOKEN, "202607"))
+                    .willReturn(response);
+
+            mockMvc.perform(get(BASE_URL + "/friends/2")
+                            .queryParam("month", "202607")
+                            .header("Authorization", "Bearer " + AUTH_TOKEN))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data[0].userScheduleId").value(SCHEDULE_ID))
+                    .andExpect(jsonPath("$.data[0].publicScheduleYn").value("Y"));
+        }
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -202,7 +223,7 @@ class ScheduleControllerTest {
                     .participants(List.of(new ScheduleParticipantDto(100L, USER_ID, START)))
                     .build();
 
-            given(scheduleService.getScheduleDetail(eq(SCHEDULE_ID), eq(USER_ID))).willReturn(response);
+            given(scheduleService.getScheduleDetail(eq(SCHEDULE_ID), eq(USER_ID), anyString())).willReturn(response);
 
             // when & then
             mockMvc.perform(get(BASE_URL + "/scheduleId=" + SCHEDULE_ID)
@@ -220,7 +241,7 @@ class ScheduleControllerTest {
         @DisplayName("존재하지 않는 일정 조회 시 404 Not Found 반환")
         void getScheduleDetail_notFound_returns404() throws Exception {
             // given
-            given(scheduleService.getScheduleDetail(eq(SCHEDULE_ID), eq(USER_ID)))
+            given(scheduleService.getScheduleDetail(eq(SCHEDULE_ID), eq(USER_ID), anyString()))
                     .willThrow(new ScheduleNotFoundException("존재하지 않는 일정입니다. scheduleId=" + SCHEDULE_ID));
 
             // when & then

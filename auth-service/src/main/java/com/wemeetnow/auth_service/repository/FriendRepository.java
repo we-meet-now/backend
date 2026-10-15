@@ -14,6 +14,9 @@ import java.util.List;
 
 @Repository
 public interface FriendRepository extends JpaRepository<Friend, Long> {
+    @Query("SELECT f FROM Friend f JOIN FETCH f.user")
+    List<Friend> findAllWithUsers();
+
     @Query("SELECT new com.wemeetnow.auth_service.dto.FriendInfoDto(" +
             "CASE WHEN f.senderId = :userId THEN f.user.id ELSE u.id END, " +
             "CASE WHEN f.senderId = :userId THEN f.user.username ELSE u.username END, " +

@@ -64,6 +64,37 @@ public class ScheduleController {
         );
     }
 
+    @Operation(
+            summary = "친구의 공개 일정 월별 조회",
+            description = "JWT로 요청자를 인증하고 Auth Service의 친구 관계를 확인한 뒤, 친구가 공개한 일정만 조회합니다. " +
+                    "친구 상태가 NEW, FAVORITE, HIDE인 경우에만 허용되며 month는 선택 yyyyMM 형식입니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "친구 공개 일정 조회 성공",
+                    content = @Content(array = @ArraySchema(
+                            schema = @Schema(implementation = ScheduleListItemResponseDto.class)))),
+            @ApiResponse(responseCode = "400", description = "month 형식이 올바르지 않음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "403", description = "친구가 아니거나 공개 일정 조회 권한이 없음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
+    @GetMapping("/friends/{userId}")
+    public ResponseEntity<CommonApiResponse<List<ScheduleListItemResponseDto>>> getFriendSchedules(
+            @PathVariable("userId") Long userId,
+            @RequestParam(required = false) String month,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String token) {
+        String accessToken = token.replace("Bearer ", "");
+        AuthUserDto authUserDto = scheduleService.fetchUserFromAuthService(accessToken);
+        List<ScheduleListItemResponseDto> schedules = scheduleService.getFriendSchedules(
+                userId, authUserDto.getUserId(), token, month);
+
+        return ResponseEntity.ok(CommonApiResponse.<List<ScheduleListItemResponseDto>>builder()
+                .statusCode(ApiStatusCode.SUCCESS.getCode())
+                .data(schedules)
+                .message("친구 공개 일정 조회 성공")
+                .build());
+    }
+
     // ─────────────────────────────────────────────────────────
     // POST /api/chat/v1/schedules  →  일정 생성
     // ─────────────────────────────────────────────────────────
@@ -72,12 +103,13 @@ public class ScheduleController {
             summary = "개인 일정 생성 (다중 참여자 초대)",
             description = "일정 정보(제목, 시간 등)와 참여자 ID 목록을 받아 일정을 생성하고, " +
                           "요청한 사용자 및 초대된 참여자들을 일정 참여자로 등록합니다. " +
+                          "publicScheduleYn과 publicMemberYn은 Y/N만 허용하며, 생략하면 비공개(N)로 저장합니다. " +
                           "Authorization 헤더의 JWT 토큰으로 요청자를 식별합니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "일정 생성 성공",
                     content = @Content(schema = @Schema(implementation = CreateScheduleResponseDto.class))),
-            @ApiResponse(responseCode = "400", description = "잘못된 시간 입력 (startAt > endAt)",
+            @ApiResponse(responseCode = "400", description = "잘못된 시간 또는 공개 여부 입력",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
             @ApiResponse(responseCode = "500", description = "서버 오류 (토큰 인증 실패, DB 저장 실패 등)",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
@@ -112,11 +144,13 @@ public class ScheduleController {
     @Operation(
             summary = "일정 상세 조회 (참여자 내역 포함)",
             description = "일정 ID로 해당 일정의 상세 정보와 참여자 목록을 조회합니다. " +
-                          "로그인한 사용자 ID를 바탕으로 공개 여부(Y/N)에 따른 데이터 마스킹을 처리합니다."
+                          "본인 또는 일정 참여자는 조회할 수 있으며, 비참여자는 친구 상태가 NEW, FAVORITE, HIDE인 일정 소유자의 공개 일정만 조회할 수 있습니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "일정 상세 조회 성공",
                     content = @Content(schema = @Schema(implementation = ScheduleDetailResponseDto.class))),
+            @ApiResponse(responseCode = "403", description = "일정 공개 범위 또는 친구 권한 없음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
             @ApiResponse(responseCode = "404", description = "존재하지 않는 일정",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
             @ApiResponse(responseCode = "500", description = "서버 오류 (토큰 인증 실패 등)",
@@ -133,7 +167,8 @@ public class ScheduleController {
         AuthUserDto authUserDto = scheduleService.fetchUserFromAuthService(accessToken);
         Long loginedUserId = authUserDto.getUserId();
 
-        ScheduleDetailResponseDto responseDto = scheduleService.getScheduleDetail(scheduleId, loginedUserId);
+        ScheduleDetailResponseDto responseDto = scheduleService.getScheduleDetail(
+                scheduleId, loginedUserId, token);
 
         return ResponseEntity.ok(
                 CommonApiResponse.<ScheduleDetailResponseDto>builder()
@@ -150,12 +185,13 @@ public class ScheduleController {
 
     @Operation(
             summary = "개인 일정 수정",
-            description = "일정의 제목, 시간, 공개 여부 등을 전체 수정합니다. 일정 소유자만 수정이 가능합니다."
+            description = "일정의 제목, 시간, 공개 여부 등을 수정합니다. 공개 여부는 Y/N만 허용하며, " +
+                    "생략하면 기존 값을 유지합니다. 일정 소유자만 수정이 가능합니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "일정 수정 성공",
                     content = @Content(schema = @Schema(implementation = UpdateScheduleResponseDto.class))),
-            @ApiResponse(responseCode = "400", description = "잘못된 시간 입력",
+            @ApiResponse(responseCode = "400", description = "잘못된 시간 또는 공개 여부 입력",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
             @ApiResponse(responseCode = "403", description = "수정 권한 없음",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),

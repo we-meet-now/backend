@@ -40,6 +40,25 @@ public class ChatRoomController {
     private String chatServiceUrl;
 
     @Operation(
+            summary = "전체 채팅방 테이블 조회",
+            description = "로그인 없이 모든 채팅방 행을 조회합니다. 입장 코드 등 채팅방의 전체 컬럼이 반환됩니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "채팅방 테이블 조회 성공",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "500", description = "서버 오류",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
+    @GetMapping("/all")
+    public ResponseEntity<CommonApiResponse<List<ChatRoom>>> getAllChatRooms() {
+        return ResponseEntity.ok(CommonApiResponse.<List<ChatRoom>>builder()
+                .statusCode(ApiStatusCode.SUCCESS.getCode())
+                .data(chatRoomService.getAllChatRooms())
+                .message("전체 채팅방 테이블 조회 성공")
+                .build());
+    }
+
+    @Operation(
             summary = "내 채팅방 목록 조회",
             description = "JWT 토큰으로 로그인한 사용자가 참여 중인 채팅방 목록과 " +
                           "각 채팅방의 읽지 않은 메시지 수를 함께 반환합니다."
@@ -153,7 +172,7 @@ public class ChatRoomController {
      * 사용자 초대 없이 생성하는 채팅방
      */
     @Operation(
-            summary = "채팅방 생성 (참여자 정보 없이 생성)",
+            summary = "채팅방 생성 (참여자 정보 없이 생성. 즉, 빈배열 보내도 됨)",
             description = "채팅방 이름을 받아 채팅방을 생성하고, " +
                     "Authorization 헤더의 JWT 토큰으로 요청자를 식별합니다."
     )

@@ -1,6 +1,7 @@
 package com.wemeetnow.auth_service.service.impl;
 
 import com.wemeetnow.auth_service.domain.enums.ErrorCode;
+import com.wemeetnow.auth_service.domain.Friend;
 import com.wemeetnow.auth_service.domain.enums.FriendStatus;
 import com.wemeetnow.auth_service.dto.FriendInfoDto;
 import com.wemeetnow.auth_service.exception.CustomException;
@@ -23,6 +24,12 @@ public class FriendServiceImpl implements FriendService {
 
     private final FriendRepository friendRepository;
     private final UserRepository userRepository;
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Friend> getAllFriends() {
+        return friendRepository.findAllWithUsers();
+    }
 
     @Override
     @Transactional(readOnly = true)

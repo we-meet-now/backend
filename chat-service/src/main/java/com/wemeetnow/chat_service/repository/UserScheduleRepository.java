@@ -22,4 +22,16 @@ public interface UserScheduleRepository extends JpaRepository<UserSchedule, Long
             @Param("userId") Long userId,
             @Param("monthStart") LocalDateTime monthStart,
             @Param("nextMonthStart") LocalDateTime nextMonthStart);
+
+    @Query("select schedule from UserSchedule schedule " +
+            "where schedule.userScheduleParticipantId in " +
+            "(select participant.userScheduleParticipantId from UserScheduleParticipant participant " +
+            "where participant.userId = :userId) " +
+            "and schedule.publicScheduleYn = 'Y' " +
+            "and schedule.startAt >= :monthStart and schedule.startAt < :nextMonthStart " +
+            "order by schedule.startAt asc")
+    List<UserSchedule> findPublicSchedulesByOwnerBetween(
+            @Param("userId") Long userId,
+            @Param("monthStart") LocalDateTime monthStart,
+            @Param("nextMonthStart") LocalDateTime nextMonthStart);
 }

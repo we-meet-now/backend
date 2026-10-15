@@ -14,12 +14,25 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 
 @RequiredArgsConstructor
 @Slf4j
 public class JwtFilter extends OncePerRequestFilter {
+
+    private static final List<RequestMatcher> NO_LOGIN_MATCHERS = List.of(
+            new AntPathRequestMatcher("/api/chat/v1/chats/all", "GET"),
+            new AntPathRequestMatcher("/api/chat/v1/chat-rooms/all", "GET"),
+            new AntPathRequestMatcher("/api/chat/v1/chat-participants/all", "GET")
+    );
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return NO_LOGIN_MATCHERS.stream().anyMatch(matcher -> matcher.matches(request));
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {

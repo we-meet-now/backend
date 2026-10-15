@@ -12,6 +12,10 @@ import java.util.List;
 public class ChatParticipantService {
     private final ChatParticipantRepository chatParticipantRepository;
 
+    public List<ChatParticipant> getAllChatParticipants() {
+        return chatParticipantRepository.findAll();
+    }
+
     public List<Long> findByChatRoomId(Long roomId, Long userId) {
         return chatParticipantRepository.findByChatRoomId(roomId, userId);
     }

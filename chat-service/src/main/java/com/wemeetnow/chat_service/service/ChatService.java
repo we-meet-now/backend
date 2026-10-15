@@ -76,6 +76,10 @@ public class ChatService {
         return chatRepository.findByChatRoomIdAndUserId(roomId, userId);
     }
 
+    public List<Chat> getAllChats() {
+        return chatRepository.findAll();
+    }
+
     public AuthUserResponse isValidAccessToken(String token) {
         String authorizationHeader = token.startsWith("Bearer ") ? token : "Bearer " + token;
         log.info("auth-service.url: {}", authServiceUrl);

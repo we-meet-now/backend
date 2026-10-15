@@ -29,6 +29,8 @@ public class JwtFilter extends OncePerRequestFilter {
     // SecurityConfig의 permitAll 경로 중, 게스트(비로그인) 토큰으로 호출되는 엔드포인트는
     // JwtFilter에서 사용자 조회(getUserByEmail)를 시도하지 않도록 필터 자체를 건너뛴다.
     private static final List<RequestMatcher> NO_LOGIN_MATCHERS = List.of(
+            new AntPathRequestMatcher("/api/auth/v1/users/all", "GET"),
+            new AntPathRequestMatcher("/api/auth/v1/friends/all", "GET"),
             new AntPathRequestMatcher("/api/auth/v1/users/no-login/**"),
             new AntPathRequestMatcher("/api/auth/v1/users/is-guest-token"),
             new AntPathRequestMatcher("/api/auth/v1/users/get-guest-id") // 만료된 게스트 토큰도 갱신을 위해 호출 가능해야 함

@@ -42,6 +42,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
+    @ExceptionHandler(InvalidScheduleRequestException.class)
+    public ResponseEntity<CommonApiResponse<Void>> handleInvalidScheduleRequest(InvalidScheduleRequestException ex) {
+        log.warn("InvalidScheduleRequestException: {}", ex.getMessage());
+        CommonApiResponse<Void> response = CommonApiResponse.<Void>builder()
+                .statusCode(ApiStatusCode.BAD_REQUEST.getCode())
+                .data(null)
+                .message(ex.getMessage())
+                .build();
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
     @ExceptionHandler(InvalidScheduleMonthException.class)
     public ResponseEntity<CommonApiResponse<Void>> handleInvalidScheduleMonth(InvalidScheduleMonthException ex) {
         log.warn("InvalidScheduleMonthException: {}", ex.getMessage());

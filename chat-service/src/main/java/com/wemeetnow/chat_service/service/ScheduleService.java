@@ -1,9 +1,11 @@
 package com.wemeetnow.chat_service.service;
 
+import com.wemeetnow.chat_service.client.AuthServiceClient;
 import com.wemeetnow.chat_service.domain.UserSchedule;
 import com.wemeetnow.chat_service.domain.UserScheduleParticipant;
 import com.wemeetnow.chat_service.domain.enums.UserScheduleStatus;
 import com.wemeetnow.chat_service.dto.*;
+import com.wemeetnow.chat_service.exception.InvalidScheduleRequestException;
 import com.wemeetnow.chat_service.exception.InvalidScheduleMonthException;
 import com.wemeetnow.chat_service.exception.InvalidScheduleTimeException;
 import com.wemeetnow.chat_service.exception.ScheduleAccessDeniedException;
@@ -23,6 +25,8 @@ import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -33,9 +37,11 @@ public class ScheduleService {
 
     private static final DateTimeFormatter MONTH_FORMATTER = DateTimeFormatter.ofPattern("uuuuMM");
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
+    private static final Set<String> ACCEPTED_FRIEND_STATUSES = Set.of("NEW", "FAVORITE", "HIDE");
 
     private final UserScheduleRepository userScheduleRepository;
     private final UserScheduleParticipantRepository userScheduleParticipantRepository;
+    private final AuthServiceClient authServiceClient;
     private final RestClient.Builder restClientBuilder;
 
     @Value("${external.auth-service.url}")
@@ -77,7 +83,12 @@ public class ScheduleService {
      */
     @Transactional
     public Long createSchedule(Long creatorUserId, CreateScheduleRequestDto requestDto) {
+        if (requestDto == null) {
+            throw new InvalidScheduleRequestException("요청 데이터가 비어 있습니다.");
+        }
         validateScheduleTime(requestDto.getStartAt(), requestDto.getEndAt());
+        String publicScheduleYn = normalizeVisibility(requestDto.getPublicScheduleYn(), "N");
+        String publicMemberYn = normalizeVisibility(requestDto.getPublicMemberYn(), "N");
 
         // 1) 생성자 UserScheduleParticipant 먼저 저장 (userScheduleId는 아직 없음)
         UserScheduleParticipant creatorParticipant = UserScheduleParticipant.builder()
@@ -92,8 +103,8 @@ public class ScheduleService {
                 .startAt(requestDto.getStartAt())
                 .endAt(requestDto.getEndAt())
                 .status(UserScheduleStatus.PENDING)
-                .publicScheduleYn(requestDto.getPublicScheduleYn())
-                .publicMemberYn(requestDto.getPublicMemberYn())
+                .publicScheduleYn(publicScheduleYn)
+                .publicMemberYn(publicMemberYn)
                 .createdAt(LocalDateTime.now())
                 .modifiedAt(LocalDateTime.now())
                 .userScheduleParticipantId(creatorParticipant.getUserScheduleParticipantId())
@@ -132,18 +143,35 @@ public class ScheduleService {
         return userScheduleRepository.findCreatedBetween(creatorUserId, monthStart, nextMonthStart)
                 .stream()
                 .sorted((left, right) -> left.getStartAt().compareTo(right.getStartAt()))
-                .map(schedule -> ScheduleListItemResponseDto.builder()
-                        .userScheduleId(schedule.getUserScheduleId())
-                        .title(schedule.getTitle())
-                        .startAt(schedule.getStartAt().toLocalDate().format(DATE_FORMATTER))
-                        .endAt(schedule.getEndAt() == null
-                                ? null
-                                : schedule.getEndAt().toLocalDate().format(DATE_FORMATTER))
-                        .status(schedule.getStatus())
-                        .publicScheduleYn(schedule.getPublicScheduleYn())
-                        .publicMemberYn(schedule.getPublicMemberYn())
-                        .build())
+                .map(this::toListItem)
                 .collect(Collectors.toList());
+    }
+
+    public List<ScheduleListItemResponseDto> getFriendSchedules(
+            Long ownerUserId, Long requesterUserId, String authorizationHeader, String month) {
+        validateFriendAccess(ownerUserId, requesterUserId, authorizationHeader);
+        YearMonth yearMonth = parseMonth(month);
+        LocalDateTime monthStart = yearMonth.atDay(1).atStartOfDay();
+        LocalDateTime nextMonthStart = yearMonth.plusMonths(1).atDay(1).atStartOfDay();
+        return userScheduleRepository.findPublicSchedulesByOwnerBetween(
+                        ownerUserId, monthStart, nextMonthStart)
+                .stream()
+                .map(this::toListItem)
+                .collect(Collectors.toList());
+    }
+
+    private ScheduleListItemResponseDto toListItem(UserSchedule schedule) {
+        return ScheduleListItemResponseDto.builder()
+                .userScheduleId(schedule.getUserScheduleId())
+                .title(schedule.getTitle())
+                .startAt(schedule.getStartAt().toLocalDate().format(DATE_FORMATTER))
+                .endAt(schedule.getEndAt() == null
+                        ? null
+                        : schedule.getEndAt().toLocalDate().format(DATE_FORMATTER))
+                .status(schedule.getStatus())
+                .publicScheduleYn(schedule.getPublicScheduleYn())
+                .publicMemberYn(schedule.getPublicMemberYn())
+                .build();
     }
 
     private YearMonth parseMonth(String month) {
@@ -170,14 +198,21 @@ public class ScheduleService {
      * @param scheduleId    조회할 일정 ID
      * @param loginedUserId 로그인한 사용자 ID
      */
-    public ScheduleDetailResponseDto getScheduleDetail(Long scheduleId, Long loginedUserId) {
+    public ScheduleDetailResponseDto getScheduleDetail(
+            Long scheduleId, Long loginedUserId, String authorizationHeader) {
         UserSchedule schedule = findScheduleOrThrow(scheduleId);
 
         boolean isParticipant = userScheduleParticipantRepository
                 .existsByUserScheduleIdAndUserId(scheduleId, loginedUserId);
 
-        // publicScheduleYn = 'N' 이고 비참여자인 경우 → 일정 내용 마스킹
-        if ("N".equalsIgnoreCase(schedule.getPublicScheduleYn()) && !isParticipant) {
+        if (!isParticipant && "Y".equalsIgnoreCase(schedule.getPublicScheduleYn())) {
+            UserScheduleParticipant owner = userScheduleParticipantRepository
+                    .findById(schedule.getUserScheduleParticipantId())
+                    .orElseThrow(() -> new ScheduleNotFoundException("일정 소유자 정보를 찾을 수 없습니다."));
+            validateFriendAccess(owner.getUserId(), loginedUserId, authorizationHeader);
+        }
+
+        if (!"Y".equalsIgnoreCase(schedule.getPublicScheduleYn()) && !isParticipant) {
             return ScheduleDetailResponseDto.builder()
                     .userScheduleId(schedule.getUserScheduleId())
                     .publicScheduleYn(schedule.getPublicScheduleYn())
@@ -230,8 +265,10 @@ public class ScheduleService {
         schedule.setTitle(requestDto.getTitle());
         schedule.setStartAt(requestDto.getStartAt());
         schedule.setEndAt(requestDto.getEndAt());
-        schedule.setPublicScheduleYn(requestDto.getPublicScheduleYn());
-        schedule.setPublicMemberYn(requestDto.getPublicMemberYn());
+        schedule.setPublicScheduleYn(normalizeVisibility(
+                requestDto.getPublicScheduleYn(), schedule.getPublicScheduleYn()));
+        schedule.setPublicMemberYn(normalizeVisibility(
+                requestDto.getPublicMemberYn(), schedule.getPublicMemberYn()));
         schedule.setModifiedAt(LocalDateTime.now());
 
         userScheduleRepository.save(schedule);
@@ -302,6 +339,39 @@ public class ScheduleService {
     private void validateScheduleTime(LocalDateTime startAt, LocalDateTime endAt) {
         if (startAt != null && endAt != null && startAt.isAfter(endAt)) {
             throw new InvalidScheduleTimeException("일정 시작 시간은 종료 시간보다 이전이어야 합니다.");
+        }
+    }
+
+    private String normalizeVisibility(String value, String defaultValue) {
+        if (value == null) {
+            return defaultValue;
+        }
+        String normalizedValue = value.trim().toUpperCase(Locale.ROOT);
+        if (!"Y".equals(normalizedValue) && !"N".equals(normalizedValue)) {
+            throw new InvalidScheduleRequestException("공개 여부는 Y 또는 N만 입력할 수 있습니다.");
+        }
+        return normalizedValue;
+    }
+
+    private void validateFriendAccess(Long ownerUserId, Long requesterUserId, String authorizationHeader) {
+        if (ownerUserId == null || requesterUserId == null) {
+            throw new ScheduleAccessDeniedException("친구 일정 조회 권한이 없습니다.");
+        }
+        if (ownerUserId.equals(requesterUserId)) {
+            return;
+        }
+        CommonApiResponse<List<AuthFriendInfoDto>> response =
+                authServiceClient.getFriendList(authorizationHeader);
+        if (response == null || response.getData() == null) {
+            throw new IllegalStateException("Auth service did not return a friend list.");
+        }
+        boolean acceptedFriend = response.getData().stream()
+                .anyMatch(friend -> ownerUserId.equals(friend.getFriendId())
+                        && friend.getFriendStatus() != null
+                        && ACCEPTED_FRIEND_STATUSES.contains(
+                                friend.getFriendStatus().toUpperCase(Locale.ROOT)));
+        if (!acceptedFriend) {
+            throw new ScheduleAccessDeniedException("친구에게 공개된 일정만 조회할 수 있습니다.");
         }
     }
 }

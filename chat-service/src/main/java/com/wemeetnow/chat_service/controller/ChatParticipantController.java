@@ -3,6 +3,7 @@ package com.wemeetnow.chat_service.controller;
 import com.wemeetnow.chat_service.client.AuthServiceClient;
 import com.wemeetnow.chat_service.constant.ApiStatusCode;
 import com.wemeetnow.chat_service.dto.*;
+import com.wemeetnow.chat_service.domain.ChatParticipant;
 import com.wemeetnow.chat_service.service.ChatParticipantService;
 import com.wemeetnow.chat_service.service.ChatRoomService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -32,6 +33,25 @@ public class ChatParticipantController {
     private final ChatRoomService chatRoomService;
     private final ChatParticipantService chatParticipantService;
     private final AuthServiceClient authServiceClient;
+
+    @Operation(
+            summary = "전체 채팅 참여자 테이블 조회",
+            description = "로그인 없이 모든 채팅 참여자 행과 전체 컬럼을 조회합니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "참여자 테이블 조회 성공",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "500", description = "서버 오류",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
+    @GetMapping("/all")
+    public ResponseEntity<CommonApiResponse<List<ChatParticipant>>> getAllChatParticipants() {
+        return ResponseEntity.ok(CommonApiResponse.<List<ChatParticipant>>builder()
+                .statusCode(ApiStatusCode.SUCCESS.getCode())
+                .data(chatParticipantService.getAllChatParticipants())
+                .message("전체 채팅 참여자 테이블 조회 성공")
+                .build());
+    }
 
     /**
      * 채팅방 참여한 User 정보 조회

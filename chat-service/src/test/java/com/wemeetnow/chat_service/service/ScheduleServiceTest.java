@@ -1,9 +1,11 @@
 package com.wemeetnow.chat_service.service;
 
+import com.wemeetnow.chat_service.client.AuthServiceClient;
 import com.wemeetnow.chat_service.domain.UserSchedule;
 import com.wemeetnow.chat_service.domain.UserScheduleParticipant;
 import com.wemeetnow.chat_service.domain.enums.UserScheduleStatus;
 import com.wemeetnow.chat_service.dto.*;
+import com.wemeetnow.chat_service.exception.InvalidScheduleRequestException;
 import com.wemeetnow.chat_service.exception.InvalidScheduleMonthException;
 import com.wemeetnow.chat_service.exception.InvalidScheduleTimeException;
 import com.wemeetnow.chat_service.exception.ScheduleAccessDeniedException;
@@ -42,6 +44,9 @@ class ScheduleServiceTest {
 
     @Mock
     private UserScheduleParticipantRepository userScheduleParticipantRepository;
+
+    @Mock
+    private AuthServiceClient authServiceClient;
 
     @Mock
     private RestClient.Builder restClientBuilder;
@@ -85,6 +90,15 @@ class ScheduleServiceTest {
                 .userId(CREATOR_USER_ID)
                 .userScheduleId(SCHEDULE_ID)
                 .createdAt(NOW)
+                .build();
+    }
+
+    private CommonApiResponse<List<AuthFriendInfoDto>> friendResponse(Long friendId, String status) {
+        AuthFriendInfoDto friend = new AuthFriendInfoDto();
+        friend.setFriendId(friendId);
+        friend.setFriendStatus(status);
+        return CommonApiResponse.<List<AuthFriendInfoDto>>builder()
+                .data(friendId == null ? List.of() : List.of(friend))
                 .build();
     }
 
@@ -201,6 +215,41 @@ class ScheduleServiceTest {
             // then: 생성자(2번) + 2L 한 명(1번) = 총 3번 (creatorUserId는 skip)
             verify(userScheduleParticipantRepository, times(3)).save(any(UserScheduleParticipant.class));
         }
+
+        @Test
+        @DisplayName("공개 설정을 생략하면 비공개로 저장")
+        void createSchedule_visibilityOmitted_defaultsToPrivate() {
+            CreateScheduleRequestDto request = buildRequest(START, END, List.of());
+            request.setPublicScheduleYn(null);
+            request.setPublicMemberYn(null);
+            doAnswer(inv -> {
+                UserScheduleParticipant participant = inv.getArgument(0);
+                ReflectionTestUtils.setField(participant, "userScheduleParticipantId", PARTICIPANT_ID);
+                return participant;
+            }).when(userScheduleParticipantRepository).save(any(UserScheduleParticipant.class));
+            doAnswer(inv -> {
+                UserSchedule schedule = inv.getArgument(0);
+                ReflectionTestUtils.setField(schedule, "userScheduleId", SCHEDULE_ID);
+                return schedule;
+            }).when(userScheduleRepository).save(any(UserSchedule.class));
+
+            scheduleService.createSchedule(CREATOR_USER_ID, request);
+
+            verify(userScheduleRepository).save(argThat(saved ->
+                    "N".equals(saved.getPublicScheduleYn()) && "N".equals(saved.getPublicMemberYn())));
+        }
+
+        @Test
+        @DisplayName("잘못된 공개 설정을 거부")
+        void createSchedule_invalidVisibility_rejected() {
+            CreateScheduleRequestDto request = buildRequest(START, END, List.of());
+            request.setPublicScheduleYn("PUBLIC");
+
+            assertThatThrownBy(() -> scheduleService.createSchedule(CREATOR_USER_ID, request))
+                    .isInstanceOf(InvalidScheduleRequestException.class)
+                    .hasMessageContaining("Y 또는 N");
+            verifyNoInteractions(userScheduleParticipantRepository, userScheduleRepository);
+        }
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -288,11 +337,16 @@ class ScheduleServiceTest {
             given(userScheduleRepository.findById(SCHEDULE_ID)).willReturn(Optional.of(publicSchedule()));
             given(userScheduleParticipantRepository.existsByUserScheduleIdAndUserId(SCHEDULE_ID, OTHER_USER_ID))
                     .willReturn(false);
+            given(userScheduleParticipantRepository.findById(PARTICIPANT_ID))
+                    .willReturn(Optional.of(creatorParticipant()));
+            given(authServiceClient.getFriendList("Bearer accepted"))
+                    .willReturn(friendResponse(CREATOR_USER_ID, "NEW"));
             given(userScheduleParticipantRepository.findByUserScheduleId(SCHEDULE_ID))
                     .willReturn(List.of(creatorParticipant()));
 
             // when
-            ScheduleDetailResponseDto result = scheduleService.getScheduleDetail(SCHEDULE_ID, OTHER_USER_ID);
+            ScheduleDetailResponseDto result = scheduleService.getScheduleDetail(
+                    SCHEDULE_ID, OTHER_USER_ID, "Bearer accepted");
 
             // then
             assertThat(result.getTitle()).isEqualTo("테스트 일정");
@@ -316,7 +370,8 @@ class ScheduleServiceTest {
                     .willReturn(false);
 
             // when
-            ScheduleDetailResponseDto result = scheduleService.getScheduleDetail(SCHEDULE_ID, OTHER_USER_ID);
+            ScheduleDetailResponseDto result = scheduleService.getScheduleDetail(
+                    SCHEDULE_ID, OTHER_USER_ID, "Bearer stranger");
 
             // then: title, startAt 등은 null (마스킹)
             assertThat(result.getTitle()).isNull();
@@ -342,9 +397,14 @@ class ScheduleServiceTest {
             given(userScheduleRepository.findById(SCHEDULE_ID)).willReturn(Optional.of(schedule));
             given(userScheduleParticipantRepository.existsByUserScheduleIdAndUserId(SCHEDULE_ID, OTHER_USER_ID))
                     .willReturn(false);
+            given(userScheduleParticipantRepository.findById(PARTICIPANT_ID))
+                    .willReturn(Optional.of(creatorParticipant()));
+            given(authServiceClient.getFriendList("Bearer stranger"))
+                    .willReturn(friendResponse(CREATOR_USER_ID, "FAVORITE"));
 
             // when
-            ScheduleDetailResponseDto result = scheduleService.getScheduleDetail(SCHEDULE_ID, OTHER_USER_ID);
+            ScheduleDetailResponseDto result = scheduleService.getScheduleDetail(
+                    SCHEDULE_ID, OTHER_USER_ID, "Bearer stranger");
 
             // then: 일정 정보는 공개, 참여자 목록은 null
             assertThat(result.getTitle()).isEqualTo("일정 제목");
@@ -372,7 +432,8 @@ class ScheduleServiceTest {
                     .willReturn(List.of(creatorParticipant()));
 
             // when
-            ScheduleDetailResponseDto result = scheduleService.getScheduleDetail(SCHEDULE_ID, CREATOR_USER_ID);
+            ScheduleDetailResponseDto result = scheduleService.getScheduleDetail(
+                    SCHEDULE_ID, CREATOR_USER_ID, "Bearer owner");
 
             // then
             assertThat(result.getParticipants()).hasSize(1);
@@ -385,7 +446,8 @@ class ScheduleServiceTest {
             given(userScheduleRepository.findById(SCHEDULE_ID)).willReturn(Optional.empty());
 
             // when & then
-            assertThatThrownBy(() -> scheduleService.getScheduleDetail(SCHEDULE_ID, CREATOR_USER_ID))
+            assertThatThrownBy(() -> scheduleService.getScheduleDetail(
+                    SCHEDULE_ID, CREATOR_USER_ID, "Bearer owner"))
                     .isInstanceOf(ScheduleNotFoundException.class)
                     .hasMessageContaining("존재하지 않는 일정");
         }

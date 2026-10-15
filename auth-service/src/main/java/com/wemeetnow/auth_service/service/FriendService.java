@@ -1,11 +1,14 @@
 package com.wemeetnow.auth_service.service;
 
+import com.wemeetnow.auth_service.domain.Friend;
 import com.wemeetnow.auth_service.domain.enums.FriendStatus;
 import com.wemeetnow.auth_service.dto.FriendInfoDto;
 
 import java.util.List;
 
 public interface FriendService {
+    List<Friend> getAllFriends();
+
     List<FriendInfoDto> getFriendList(Long userId);
 
     List<FriendInfoDto> getReceivedFriendInvitations(Long receiverId);

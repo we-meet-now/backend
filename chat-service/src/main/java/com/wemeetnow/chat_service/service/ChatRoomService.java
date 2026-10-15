@@ -42,6 +42,10 @@ public class ChatRoomService {
     private final EnterCodeGenerator enterCodeGenerator;
     private final AuthServiceClient authServiceClient;
 
+    public List<ChatRoom> getAllChatRooms() {
+        return chatRoomRepository.findAll();
+    }
+
     /**
      * 채팅방 생성 및 참여코드 생성(참여자 정보 없음)
      */

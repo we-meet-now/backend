@@ -22,7 +22,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.web.client.RestClient;
 
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -48,9 +47,6 @@ class ScheduleServiceTest {
     @Mock
     private AuthServiceClient authServiceClient;
 
-    @Mock
-    private RestClient.Builder restClientBuilder;
-
     @InjectMocks
     private ScheduleService scheduleService;
 
@@ -62,6 +58,10 @@ class ScheduleServiceTest {
     private static final Long OTHER_USER_ID    = 2L;
     private static final Long SCHEDULE_ID      = 10L;
     private static final Long PARTICIPANT_ID   = 100L; // 생성자의 UserScheduleParticipant PK
+    private static final String START_DT = "20261017";
+    private static final String START_TIM = "100000";
+    private static final String END_DT = "20261018";
+    private static final String END_TIM = "110000";
 
     private final LocalDateTime NOW   = LocalDateTime.now();
     private final LocalDateTime START = NOW.plusDays(1);
@@ -72,8 +72,10 @@ class ScheduleServiceTest {
         return UserSchedule.builder()
                 .userScheduleId(SCHEDULE_ID)
                 .title("테스트 일정")
-                .startAt(START)
-                .endAt(END)
+                .startDt(START_DT)
+                .startTim(START_TIM)
+                .endDt(END_DT)
+                .endTim(END_TIM)
                 .status(UserScheduleStatus.PENDING)
                 .publicScheduleYn("Y")
                 .publicMemberYn("Y")
@@ -110,12 +112,14 @@ class ScheduleServiceTest {
     @DisplayName("createSchedule")
     class CreateScheduleTests {
 
-        private CreateScheduleRequestDto buildRequest(LocalDateTime start, LocalDateTime end,
-                                                      List<Long> participantIds) {
+        private CreateScheduleRequestDto buildRequest(
+                String startDt, String startTim, String endDt, String endTim, List<Long> participantIds) {
             CreateScheduleRequestDto dto = new CreateScheduleRequestDto();
             dto.setTitle("테스트 일정");
-            dto.setStartAt(start);
-            dto.setEndAt(end);
+            dto.setStartDt(startDt);
+            dto.setStartTim(startTim);
+            dto.setEndDt(endDt);
+            dto.setEndTim(endTim);
             dto.setPublicScheduleYn("Y");
             dto.setPublicMemberYn("Y");
             dto.setParticipantIds(participantIds);
@@ -126,7 +130,7 @@ class ScheduleServiceTest {
         @DisplayName("정상 생성 - 참여자 없음")
         void createSchedule_noParticipants_success() {
             // given
-            CreateScheduleRequestDto request = buildRequest(START, END, List.of());
+            CreateScheduleRequestDto request = buildRequest(START_DT, START_TIM, END_DT, END_TIM, null);
 
             // save 호출 시 PK를 세팅하는 stub
             doAnswer(inv -> {
@@ -156,7 +160,7 @@ class ScheduleServiceTest {
         void createSchedule_withParticipants_success() {
             // given
             List<Long> invited = List.of(2L, 3L);
-            CreateScheduleRequestDto request = buildRequest(START, END, invited);
+            CreateScheduleRequestDto request = buildRequest(START_DT, START_TIM, END_DT, END_TIM, invited);
 
             doAnswer(inv -> {
                 UserScheduleParticipant p = inv.getArgument(0);
@@ -183,7 +187,7 @@ class ScheduleServiceTest {
         @DisplayName("시작 시간이 종료 시간보다 미래이면 InvalidScheduleTimeException")
         void createSchedule_invalidTime_throwsException() {
             // given: start > end
-            CreateScheduleRequestDto request = buildRequest(END, START, List.of());
+            CreateScheduleRequestDto request = buildRequest(END_DT, END_TIM, START_DT, START_TIM, List.of());
 
             // when & then
             assertThatThrownBy(() -> scheduleService.createSchedule(CREATOR_USER_ID, request))
@@ -192,10 +196,29 @@ class ScheduleServiceTest {
         }
 
         @Test
+        @DisplayName("형식이 잘못된 날짜와 누락된 시간은 한글 오류로 거부")
+        void createSchedule_invalidDateOrMissingTime_rejected() {
+            CreateScheduleRequestDto invalidDate =
+                    buildRequest("20260230", START_TIM, END_DT, END_TIM, null);
+            CreateScheduleRequestDto missingTime =
+                    buildRequest(START_DT, null, END_DT, END_TIM, null);
+
+            assertThatThrownBy(() -> scheduleService.createSchedule(CREATOR_USER_ID, invalidDate))
+                    .isInstanceOf(InvalidScheduleTimeException.class)
+                    .hasMessageContaining("유효하지 않습니다");
+            assertThatThrownBy(() -> scheduleService.createSchedule(CREATOR_USER_ID, missingTime))
+                    .isInstanceOf(InvalidScheduleTimeException.class)
+                    .hasMessageContaining("startTim")
+                    .hasMessageContaining("HHmmss");
+            verifyNoInteractions(userScheduleParticipantRepository, userScheduleRepository);
+        }
+
+        @Test
         @DisplayName("참여자 목록에 생성자 ID가 포함되어도 중복 등록하지 않음")
         void createSchedule_creatorInParticipantList_notDuplicated() {
             // given: participantIds에 creatorUserId 포함
-            CreateScheduleRequestDto request = buildRequest(START, END, List.of(CREATOR_USER_ID, 2L));
+            CreateScheduleRequestDto request = buildRequest(
+                    START_DT, START_TIM, END_DT, END_TIM, List.of(CREATOR_USER_ID, 2L));
 
             doAnswer(inv -> {
                 UserScheduleParticipant p = inv.getArgument(0);
@@ -219,7 +242,7 @@ class ScheduleServiceTest {
         @Test
         @DisplayName("공개 설정을 생략하면 비공개로 저장")
         void createSchedule_visibilityOmitted_defaultsToPrivate() {
-            CreateScheduleRequestDto request = buildRequest(START, END, List.of());
+            CreateScheduleRequestDto request = buildRequest(START_DT, START_TIM, END_DT, END_TIM, List.of());
             request.setPublicScheduleYn(null);
             request.setPublicMemberYn(null);
             doAnswer(inv -> {
@@ -242,12 +265,25 @@ class ScheduleServiceTest {
         @Test
         @DisplayName("잘못된 공개 설정을 거부")
         void createSchedule_invalidVisibility_rejected() {
-            CreateScheduleRequestDto request = buildRequest(START, END, List.of());
+            CreateScheduleRequestDto request = buildRequest(START_DT, START_TIM, END_DT, END_TIM, List.of());
             request.setPublicScheduleYn("PUBLIC");
 
             assertThatThrownBy(() -> scheduleService.createSchedule(CREATOR_USER_ID, request))
                     .isInstanceOf(InvalidScheduleRequestException.class)
                     .hasMessageContaining("Y 또는 N");
+            verifyNoInteractions(userScheduleParticipantRepository, userScheduleRepository);
+        }
+
+        @Test
+        @DisplayName("참여자 ID 0은 한글 오류로 거부")
+        void createSchedule_nonPositiveParticipantId_rejected() {
+            CreateScheduleRequestDto request = buildRequest(
+                    START_DT, START_TIM, END_DT, END_TIM, List.of(0L));
+
+            assertThatThrownBy(() -> scheduleService.createSchedule(CREATOR_USER_ID, request))
+                    .isInstanceOf(InvalidScheduleRequestException.class)
+                    .hasMessageContaining("참여자 ID")
+                    .hasMessageContaining("1 이상의 숫자");
             verifyNoInteractions(userScheduleParticipantRepository, userScheduleRepository);
         }
     }
@@ -263,13 +299,15 @@ class ScheduleServiceTest {
         @Test
         @DisplayName("선택한 월에 생성한 일정만 시작일 오름차순으로 조회하고 yyyyMMdd로 반환")
         void getSchedules_monthProvided_sortsAndFormatsDates() {
-            LocalDateTime monthStart = LocalDateTime.of(2026, 7, 1, 0, 0);
-            LocalDateTime nextMonthStart = LocalDateTime.of(2026, 8, 1, 0, 0);
+            String monthStart = "20260701";
+            String nextMonthStart = "20260801";
             UserSchedule laterSchedule = UserSchedule.builder()
                     .userScheduleId(11L)
                     .title("늦은 일정")
-                    .startAt(LocalDateTime.of(2026, 7, 20, 14, 0))
-                    .endAt(LocalDateTime.of(2026, 7, 20, 16, 0))
+                    .startDt("20260720")
+                    .startTim("140000")
+                    .endDt("20260720")
+                    .endTim("160000")
                     .status(UserScheduleStatus.PENDING)
                     .publicScheduleYn("Y")
                     .publicMemberYn("Y")
@@ -277,8 +315,10 @@ class ScheduleServiceTest {
             UserSchedule earlierSchedule = UserSchedule.builder()
                     .userScheduleId(12L)
                     .title("이른 일정")
-                    .startAt(LocalDateTime.of(2026, 7, 3, 9, 0))
-                    .endAt(LocalDateTime.of(2026, 7, 3, 10, 0))
+                    .startDt("20260703")
+                    .startTim("090000")
+                    .endDt("20260703")
+                    .endTim("100000")
                     .status(UserScheduleStatus.CONFIRMED)
                     .publicScheduleYn("N")
                     .publicMemberYn("N")
@@ -291,9 +331,12 @@ class ScheduleServiceTest {
 
             assertThat(result).extracting(ScheduleListItemResponseDto::getUserScheduleId)
                     .containsExactly(12L, 11L);
-            assertThat(result).extracting(ScheduleListItemResponseDto::getStartAt)
+            assertThat(result).extracting(ScheduleListItemResponseDto::getStartDt)
                     .containsExactly("20260703", "20260720");
-            assertThat(result.get(0).getEndAt()).isEqualTo("20260703");
+            assertThat(result).extracting(ScheduleListItemResponseDto::getStartTim)
+                    .containsExactly("090000", "140000");
+            assertThat(result.get(0).getEndDt()).isEqualTo("20260703");
+            assertThat(result.get(0).getEndTim()).isEqualTo("100000");
             verify(userScheduleRepository).findCreatedBetween(CREATOR_USER_ID, monthStart, nextMonthStart);
         }
 
@@ -301,8 +344,9 @@ class ScheduleServiceTest {
         @DisplayName("월을 생략하면 현재 월의 시작과 다음 달 시작으로 조회")
         void getSchedules_monthOmitted_usesCurrentMonth() {
             YearMonth currentMonth = YearMonth.now();
-            LocalDateTime monthStart = currentMonth.atDay(1).atStartOfDay();
-            LocalDateTime nextMonthStart = currentMonth.plusMonths(1).atDay(1).atStartOfDay();
+            String monthStart = currentMonth.atDay(1).format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+            String nextMonthStart = currentMonth.plusMonths(1).atDay(1)
+                    .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
             given(userScheduleRepository.findCreatedBetween(CREATOR_USER_ID, monthStart, nextMonthStart))
                     .willReturn(List.of());
 
@@ -373,9 +417,9 @@ class ScheduleServiceTest {
             ScheduleDetailResponseDto result = scheduleService.getScheduleDetail(
                     SCHEDULE_ID, OTHER_USER_ID, "Bearer stranger");
 
-            // then: title, startAt 등은 null (마스킹)
+            // then: title, startDt 등은 null (마스킹)
             assertThat(result.getTitle()).isNull();
-            assertThat(result.getStartAt()).isNull();
+            assertThat(result.getStartDt()).isNull();
             assertThat(result.getParticipants()).isNull();
             assertThat(result.getUserScheduleId()).isEqualTo(SCHEDULE_ID);
         }
@@ -387,7 +431,7 @@ class ScheduleServiceTest {
             UserSchedule schedule = UserSchedule.builder()
                     .userScheduleId(SCHEDULE_ID)
                     .title("일정 제목")
-                    .startAt(START).endAt(END)
+                    .startDt(START_DT).startTim(START_TIM).endDt(END_DT).endTim(END_TIM)
                     .status(UserScheduleStatus.PENDING)
                     .publicScheduleYn("Y")
                     .publicMemberYn("N")
@@ -418,7 +462,7 @@ class ScheduleServiceTest {
             UserSchedule schedule = UserSchedule.builder()
                     .userScheduleId(SCHEDULE_ID)
                     .title("일정 제목")
-                    .startAt(START).endAt(END)
+                    .startDt(START_DT).startTim(START_TIM).endDt(END_DT).endTim(END_TIM)
                     .status(UserScheduleStatus.PENDING)
                     .publicScheduleYn("Y")
                     .publicMemberYn("N")
@@ -461,11 +505,14 @@ class ScheduleServiceTest {
     @DisplayName("updateSchedule")
     class UpdateScheduleTests {
 
-        private UpdateScheduleRequestDto buildUpdateRequest(LocalDateTime start, LocalDateTime end) {
+        private UpdateScheduleRequestDto buildUpdateRequest(
+                String startDt, String startTim, String endDt, String endTim) {
             UpdateScheduleRequestDto dto = new UpdateScheduleRequestDto();
             dto.setTitle("수정된 제목");
-            dto.setStartAt(start);
-            dto.setEndAt(end);
+            dto.setStartDt(startDt);
+            dto.setStartTim(startTim);
+            dto.setEndDt(endDt);
+            dto.setEndTim(endTim);
             dto.setPublicScheduleYn("N");
             dto.setPublicMemberYn("N");
             return dto;
@@ -480,7 +527,7 @@ class ScheduleServiceTest {
                     .willReturn(Optional.of(creatorParticipant()));
             given(userScheduleRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
 
-            UpdateScheduleRequestDto request = buildUpdateRequest(START, END);
+            UpdateScheduleRequestDto request = buildUpdateRequest(START_DT, START_TIM, END_DT, END_TIM);
 
             // when
             UpdateScheduleResponseDto result = scheduleService.updateSchedule(SCHEDULE_ID, CREATOR_USER_ID, request);
@@ -498,7 +545,7 @@ class ScheduleServiceTest {
             given(userScheduleParticipantRepository.findById(PARTICIPANT_ID))
                     .willReturn(Optional.of(creatorParticipant())); // owner = CREATOR_USER_ID
 
-            UpdateScheduleRequestDto request = buildUpdateRequest(START, END);
+            UpdateScheduleRequestDto request = buildUpdateRequest(START_DT, START_TIM, END_DT, END_TIM);
 
             // when & then (OTHER_USER_ID로 수정 시도)
             assertThatThrownBy(() -> scheduleService.updateSchedule(SCHEDULE_ID, OTHER_USER_ID, request))
@@ -512,7 +559,7 @@ class ScheduleServiceTest {
             // given
             given(userScheduleRepository.findById(SCHEDULE_ID)).willReturn(Optional.empty());
 
-            UpdateScheduleRequestDto request = buildUpdateRequest(START, END);
+            UpdateScheduleRequestDto request = buildUpdateRequest(START_DT, START_TIM, END_DT, END_TIM);
 
             // when & then
             assertThatThrownBy(() -> scheduleService.updateSchedule(SCHEDULE_ID, CREATOR_USER_ID, request))
@@ -527,7 +574,8 @@ class ScheduleServiceTest {
             given(userScheduleParticipantRepository.findById(PARTICIPANT_ID))
                     .willReturn(Optional.of(creatorParticipant()));
 
-            UpdateScheduleRequestDto request = buildUpdateRequest(END, START); // start > end
+            UpdateScheduleRequestDto request =
+                    buildUpdateRequest(END_DT, END_TIM, START_DT, START_TIM); // start > end
 
             // when & then
             assertThatThrownBy(() -> scheduleService.updateSchedule(SCHEDULE_ID, CREATOR_USER_ID, request))

@@ -25,7 +25,7 @@ public class GlobalExceptionHandler {
         CommonApiResponse<Void> response = CommonApiResponse.<Void>builder()
                 .statusCode(ApiStatusCode.BAD_REQUEST.getCode())
                 .data(null)
-                .message("요청 본문 형식이 올바르지 않습니다.")
+                .message("요청 본문 형식이 올바르지 않습니다. 필수 값과 데이터 형식을 확인해 주세요.")
                 .build();
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }

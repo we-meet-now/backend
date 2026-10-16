@@ -36,7 +36,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,
                                 "/api/chat/v1/chats/all",
                                 "/api/chat/v1/chat-rooms/all",
-                                "/api/chat/v1/chat-participants/all"
+                                "/api/chat/v1/chat-participants/all",
+                                "/api/chat/v1/swagger-ui.html"
                         ).permitAll()
                         // Swagger UI 경로 허용
                         .requestMatchers(

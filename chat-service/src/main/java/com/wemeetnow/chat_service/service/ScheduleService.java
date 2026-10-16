@@ -14,16 +14,17 @@ import com.wemeetnow.chat_service.repository.UserScheduleParticipantRepository;
 import com.wemeetnow.chat_service.repository.UserScheduleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestClient;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -37,38 +38,13 @@ public class ScheduleService {
 
     private static final DateTimeFormatter MONTH_FORMATTER = DateTimeFormatter.ofPattern("uuuuMM");
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HHmmss")
+            .withResolverStyle(ResolverStyle.STRICT);
     private static final Set<String> ACCEPTED_FRIEND_STATUSES = Set.of("NEW", "FAVORITE", "HIDE");
 
     private final UserScheduleRepository userScheduleRepository;
     private final UserScheduleParticipantRepository userScheduleParticipantRepository;
     private final AuthServiceClient authServiceClient;
-    private final RestClient.Builder restClientBuilder;
-
-    @Value("${external.auth-service.url}")
-    private String AUTH_SERVICE_URL;
-
-    // ─────────────────────────────────────────────────────────
-    // Auth 서비스 연동
-    // ─────────────────────────────────────────────────────────
-
-    /**
-     * Auth 서비스로부터 토큰 기반 유저 정보 조회
-     */
-    public AuthUserDto fetchUserFromAuthService(String token) {
-        try {
-            String jwtHeader = token.startsWith("Bearer ") ? token : "Bearer " + token;
-            RestClient restClient = restClientBuilder.baseUrl(AUTH_SERVICE_URL).build();
-            return restClient.get()
-                    .uri("/api/auth/v1/users/get-id")
-                    .header("Authorization", jwtHeader)
-                    .accept(MediaType.APPLICATION_JSON)
-                    .retrieve()
-                    .body(AuthUserDto.class);
-        } catch (Exception e) {
-            log.error("Auth service 호출 실패: {}", e.getMessage());
-            throw new RuntimeException("사용자 인증에 실패했습니다.");
-        }
-    }
 
     // ─────────────────────────────────────────────────────────
     // 일정 생성
@@ -86,7 +62,10 @@ public class ScheduleService {
         if (requestDto == null) {
             throw new InvalidScheduleRequestException("요청 데이터가 비어 있습니다.");
         }
-        validateScheduleTime(requestDto.getStartAt(), requestDto.getEndAt());
+        validateScheduleTime(
+                requestDto.getStartDt(), requestDto.getStartTim(),
+                requestDto.getEndDt(), requestDto.getEndTim());
+        validateParticipantIds(requestDto.getParticipantIds());
         String publicScheduleYn = normalizeVisibility(requestDto.getPublicScheduleYn(), "N");
         String publicMemberYn = normalizeVisibility(requestDto.getPublicMemberYn(), "N");
 
@@ -100,8 +79,10 @@ public class ScheduleService {
         // 2) UserSchedule 저장
         UserSchedule schedule = UserSchedule.builder()
                 .title(requestDto.getTitle())
-                .startAt(requestDto.getStartAt())
-                .endAt(requestDto.getEndAt())
+                .startDt(requestDto.getStartDt())
+                .startTim(requestDto.getStartTim())
+                .endDt(requestDto.getEndDt())
+                .endTim(requestDto.getEndTim())
                 .status(UserScheduleStatus.PENDING)
                 .publicScheduleYn(publicScheduleYn)
                 .publicMemberYn(publicMemberYn)
@@ -137,12 +118,13 @@ public class ScheduleService {
 
     public List<ScheduleListItemResponseDto> getSchedules(Long creatorUserId, String month) {
         YearMonth yearMonth = parseMonth(month);
-        LocalDateTime monthStart = yearMonth.atDay(1).atStartOfDay();
-        LocalDateTime nextMonthStart = yearMonth.plusMonths(1).atDay(1).atStartOfDay();
+        String monthStart = yearMonth.atDay(1).format(DATE_FORMATTER);
+        String nextMonthStart = yearMonth.plusMonths(1).atDay(1).format(DATE_FORMATTER);
 
         return userScheduleRepository.findCreatedBetween(creatorUserId, monthStart, nextMonthStart)
                 .stream()
-                .sorted((left, right) -> left.getStartAt().compareTo(right.getStartAt()))
+                .sorted(Comparator.comparing(UserSchedule::getStartDt)
+                        .thenComparing(UserSchedule::getStartTim))
                 .map(this::toListItem)
                 .collect(Collectors.toList());
     }
@@ -151,8 +133,8 @@ public class ScheduleService {
             Long ownerUserId, Long requesterUserId, String authorizationHeader, String month) {
         validateFriendAccess(ownerUserId, requesterUserId, authorizationHeader);
         YearMonth yearMonth = parseMonth(month);
-        LocalDateTime monthStart = yearMonth.atDay(1).atStartOfDay();
-        LocalDateTime nextMonthStart = yearMonth.plusMonths(1).atDay(1).atStartOfDay();
+        String monthStart = yearMonth.atDay(1).format(DATE_FORMATTER);
+        String nextMonthStart = yearMonth.plusMonths(1).atDay(1).format(DATE_FORMATTER);
         return userScheduleRepository.findPublicSchedulesByOwnerBetween(
                         ownerUserId, monthStart, nextMonthStart)
                 .stream()
@@ -164,10 +146,10 @@ public class ScheduleService {
         return ScheduleListItemResponseDto.builder()
                 .userScheduleId(schedule.getUserScheduleId())
                 .title(schedule.getTitle())
-                .startAt(schedule.getStartAt().toLocalDate().format(DATE_FORMATTER))
-                .endAt(schedule.getEndAt() == null
-                        ? null
-                        : schedule.getEndAt().toLocalDate().format(DATE_FORMATTER))
+                .startDt(schedule.getStartDt())
+                .startTim(schedule.getStartTim())
+                .endDt(schedule.getEndDt())
+                .endTim(schedule.getEndTim())
                 .status(schedule.getStatus())
                 .publicScheduleYn(schedule.getPublicScheduleYn())
                 .publicMemberYn(schedule.getPublicMemberYn())
@@ -237,8 +219,10 @@ public class ScheduleService {
         return ScheduleDetailResponseDto.builder()
                 .userScheduleId(schedule.getUserScheduleId())
                 .title(schedule.getTitle())
-                .startAt(schedule.getStartAt())
-                .endAt(schedule.getEndAt())
+                .startDt(schedule.getStartDt())
+                .startTim(schedule.getStartTim())
+                .endDt(schedule.getEndDt())
+                .endTim(schedule.getEndTim())
                 .status(schedule.getStatus())
                 .publicScheduleYn(schedule.getPublicScheduleYn())
                 .publicMemberYn(schedule.getPublicMemberYn())
@@ -260,11 +244,18 @@ public class ScheduleService {
                                                     UpdateScheduleRequestDto requestDto) {
         UserSchedule schedule = findScheduleOrThrow(scheduleId);
         checkOwnership(schedule, loginedUserId);
-        validateScheduleTime(requestDto.getStartAt(), requestDto.getEndAt());
+        if (requestDto == null) {
+            throw new InvalidScheduleRequestException("요청 데이터가 비어 있습니다.");
+        }
+        validateScheduleTime(
+                requestDto.getStartDt(), requestDto.getStartTim(),
+                requestDto.getEndDt(), requestDto.getEndTim());
 
         schedule.setTitle(requestDto.getTitle());
-        schedule.setStartAt(requestDto.getStartAt());
-        schedule.setEndAt(requestDto.getEndAt());
+        schedule.setStartDt(requestDto.getStartDt());
+        schedule.setStartTim(requestDto.getStartTim());
+        schedule.setEndDt(requestDto.getEndDt());
+        schedule.setEndTim(requestDto.getEndTim());
         schedule.setPublicScheduleYn(normalizeVisibility(
                 requestDto.getPublicScheduleYn(), schedule.getPublicScheduleYn()));
         schedule.setPublicMemberYn(normalizeVisibility(
@@ -333,12 +324,40 @@ public class ScheduleService {
         }
     }
 
-    /**
-     * 시작 시간이 종료 시간보다 미래인 경우 예외 발생
-     */
-    private void validateScheduleTime(LocalDateTime startAt, LocalDateTime endAt) {
-        if (startAt != null && endAt != null && startAt.isAfter(endAt)) {
+    private void validateScheduleTime(
+            String startDt, String startTim, String endDt, String endTim) {
+        LocalDateTime startAt = parseScheduleDateTime(startDt, startTim, "시작", "startDt", "startTim");
+        LocalDateTime endAt = parseScheduleDateTime(endDt, endTim, "종료", "endDt", "endTim");
+        if (startAt.isAfter(endAt)) {
             throw new InvalidScheduleTimeException("일정 시작 시간은 종료 시간보다 이전이어야 합니다.");
+        }
+    }
+
+    private LocalDateTime parseScheduleDateTime(
+            String date, String time, String label, String dateField, String timeField) {
+        if (date == null || !date.matches("[0-9]{8}")) {
+            throw new InvalidScheduleTimeException(
+                    label + " 날짜(" + dateField + ")는 yyyyMMdd 형식의 문자열로 입력해 주세요.");
+        }
+        if (time == null || !time.matches("[0-9]{6}")) {
+            throw new InvalidScheduleTimeException(
+                    label + " 시간(" + timeField + ")은 HHmmss 형식의 문자열로 입력해 주세요.");
+        }
+        try {
+            return LocalDateTime.of(
+                    LocalDate.parse(date, DATE_FORMATTER),
+                    LocalTime.parse(time, TIME_FORMATTER));
+        } catch (DateTimeParseException ex) {
+            throw new InvalidScheduleTimeException(
+                    label + " 날짜 또는 시간이 유효하지 않습니다. 날짜는 yyyyMMdd, 시간은 HHmmss 형식으로 입력해 주세요.");
+        }
+    }
+
+    private void validateParticipantIds(List<Long> participantIds) {
+        if (participantIds != null
+                && participantIds.stream().anyMatch(id -> id == null || id <= 0)) {
+            throw new InvalidScheduleRequestException(
+                    "참여자 ID(participantIds)는 1 이상의 숫자만 입력할 수 있습니다.");
         }
     }
 

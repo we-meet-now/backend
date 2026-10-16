@@ -5,7 +5,7 @@ import com.wemeetnow.chat_service.dto.RoomScheduleResponseDto;
 import com.wemeetnow.chat_service.exception.GlobalExceptionHandler;
 import com.wemeetnow.chat_service.exception.ScheduleAccessDeniedException;
 import com.wemeetnow.chat_service.service.RoomScheduleService;
-import com.wemeetnow.chat_service.service.ScheduleService;
+import com.wemeetnow.chat_service.service.CommonService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,7 +35,7 @@ class RoomScheduleControllerTest {
     private RoomScheduleService roomScheduleService;
 
     @Mock
-    private ScheduleService scheduleService;
+    private CommonService commonService;
 
     @InjectMocks
     private RoomScheduleController controller;
@@ -48,7 +48,7 @@ class RoomScheduleControllerTest {
                 .build();
         AuthUserDto user = new AuthUserDto();
         user.setUserId(USER_ID);
-        given(scheduleService.fetchUserFromAuthService(anyString())).willReturn(user);
+        given(commonService.fetchUserFromAuthService(anyString())).willReturn(user);
     }
 
     @Test

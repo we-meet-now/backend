@@ -12,8 +12,10 @@ import java.util.List;
 public class ScheduleDetailResponseDto {
     private Long userScheduleId;
     private String title;
-    private LocalDateTime startAt;
-    private LocalDateTime endAt;
+    private String startDt;
+    private String startTim;
+    private String endDt;
+    private String endTim;
     private UserScheduleStatus status;
     private String publicScheduleYn;
     private String publicMemberYn;
@@ -22,4 +24,3 @@ public class ScheduleDetailResponseDto {
     /** publicMemberYn = 'N' 이고 비참여자인 경우 null 처리 */
     private List<ScheduleParticipantDto> participants;
 }
-

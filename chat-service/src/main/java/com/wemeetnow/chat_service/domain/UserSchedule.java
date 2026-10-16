@@ -24,11 +24,17 @@ public class UserSchedule {
     @Column(name = "user_schedule_id")
     private Long userScheduleId;
 
-    @Column(name = "start_at")
-    private LocalDateTime startAt;
+    @Column(name = "start_dt", length = 8)
+    private String startDt;
 
-    @Column(name = "end_at")
-    private LocalDateTime endAt;
+    @Column(name = "start_tim", length = 6)
+    private String startTim;
+
+    @Column(name = "end_dt", length = 8)
+    private String endDt;
+
+    @Column(name = "end_tim", length = 6)
+    private String endTim;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 50)
@@ -52,4 +58,3 @@ public class UserSchedule {
     @Column(name = "user_schedule_participant_id", nullable = false)
     private Long userScheduleParticipantId;
 }
-

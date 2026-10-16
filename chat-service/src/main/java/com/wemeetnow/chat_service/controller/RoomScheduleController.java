@@ -5,8 +5,8 @@ import com.wemeetnow.chat_service.dto.AuthUserDto;
 import com.wemeetnow.chat_service.dto.CommonApiResponse;
 import com.wemeetnow.chat_service.dto.RoomScheduleRequestDto;
 import com.wemeetnow.chat_service.dto.RoomScheduleResponseDto;
+import com.wemeetnow.chat_service.service.CommonService;
 import com.wemeetnow.chat_service.service.RoomScheduleService;
-import com.wemeetnow.chat_service.service.ScheduleService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -34,7 +34,7 @@ import java.util.List;
 public class RoomScheduleController {
 
     private final RoomScheduleService roomScheduleService;
-    private final ScheduleService scheduleService;
+    private final CommonService commonService;
 
     @Operation(
             summary = "채팅방 일정 목록 조회",
@@ -184,7 +184,7 @@ public class RoomScheduleController {
 
     private Long getUserId(String authorizationHeader) {
         String token = authorizationHeader.replace("Bearer ", "");
-        AuthUserDto authUser = scheduleService.fetchUserFromAuthService(token);
+        AuthUserDto authUser = commonService.fetchUserFromAuthService(token);
         return authUser.getUserId();
     }
 }

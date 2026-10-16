@@ -6,7 +6,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -16,22 +15,22 @@ public interface UserScheduleRepository extends JpaRepository<UserSchedule, Long
             "where schedule.userScheduleParticipantId in " +
             "(select participant.userScheduleParticipantId from UserScheduleParticipant participant " +
             "where participant.userId = :userId) " +
-            "and schedule.startAt >= :monthStart and schedule.startAt < :nextMonthStart " +
-            "order by schedule.startAt asc")
+            "and schedule.startDt >= :monthStart and schedule.startDt < :nextMonthStart " +
+            "order by schedule.startDt asc, schedule.startTim asc")
     List<UserSchedule> findCreatedBetween(
             @Param("userId") Long userId,
-            @Param("monthStart") LocalDateTime monthStart,
-            @Param("nextMonthStart") LocalDateTime nextMonthStart);
+            @Param("monthStart") String monthStart,
+            @Param("nextMonthStart") String nextMonthStart);
 
     @Query("select schedule from UserSchedule schedule " +
             "where schedule.userScheduleParticipantId in " +
             "(select participant.userScheduleParticipantId from UserScheduleParticipant participant " +
             "where participant.userId = :userId) " +
             "and schedule.publicScheduleYn = 'Y' " +
-            "and schedule.startAt >= :monthStart and schedule.startAt < :nextMonthStart " +
-            "order by schedule.startAt asc")
+            "and schedule.startDt >= :monthStart and schedule.startDt < :nextMonthStart " +
+            "order by schedule.startDt asc, schedule.startTim asc")
     List<UserSchedule> findPublicSchedulesByOwnerBetween(
             @Param("userId") Long userId,
-            @Param("monthStart") LocalDateTime monthStart,
-            @Param("nextMonthStart") LocalDateTime nextMonthStart);
+            @Param("monthStart") String monthStart,
+            @Param("nextMonthStart") String nextMonthStart);
 }

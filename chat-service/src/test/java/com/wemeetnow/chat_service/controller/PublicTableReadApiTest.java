@@ -7,6 +7,7 @@ import com.wemeetnow.chat_service.domain.ChatRoom;
 import com.wemeetnow.chat_service.service.ChatParticipantService;
 import com.wemeetnow.chat_service.service.ChatRoomService;
 import com.wemeetnow.chat_service.service.ChatService;
+import com.wemeetnow.chat_service.service.CommonService;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -37,7 +38,8 @@ class PublicTableReadApiTest {
         chatRoom.setEnterCode("entry");
         when(chatRoomService.getAllChatRooms()).thenReturn(List.of(chatRoom));
 
-        var response = new ChatRoomController(chatRoomService, mock(ChatService.class)).getAllChatRooms();
+        var response = new ChatRoomController(
+                chatRoomService, mock(ChatService.class), mock(CommonService.class)).getAllChatRooms();
 
         assertThat(response.getBody().getStatusCode()).isEqualTo("2000");
         assertThat(response.getBody().getData()).containsExactly(chatRoom);
@@ -55,9 +57,9 @@ class PublicTableReadApiTest {
         when(participantService.getAllChatParticipants()).thenReturn(List.of(participant));
 
         var response = new ChatParticipantController(
-                mock(ChatRoomService.class),
                 participantService,
-                mock(AuthServiceClient.class)).getAllChatParticipants();
+                mock(AuthServiceClient.class),
+                mock(CommonService.class)).getAllChatParticipants();
 
         assertThat(response.getBody().getStatusCode()).isEqualTo("2000");
         assertThat(response.getBody().getData()).containsExactly(participant);

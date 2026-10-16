@@ -11,6 +11,7 @@ import com.wemeetnow.chat_service.dto.InviteChatParticipantsRequestDto;
 import com.wemeetnow.chat_service.dto.RemoveChatParticipantsRequestDto;
 import com.wemeetnow.chat_service.service.ChatRoomService;
 import com.wemeetnow.chat_service.service.ChatService;
+import com.wemeetnow.chat_service.service.CommonService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
@@ -35,7 +36,7 @@ class ChatRoomControllerTest {
     void setUp() {
         chatRoomService = mock(ChatRoomService.class);
         chatService = mock(ChatService.class);
-        controller = new ChatRoomController(chatRoomService, chatService);
+        controller = new ChatRoomController(chatRoomService, chatService, mock(CommonService.class));
     }
 
     @Test

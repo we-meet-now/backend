@@ -192,12 +192,35 @@ public ResponseEntity<CommonApiResponse<Void>> deleteSchedule(
 
 ### 🔒 4. 예외 처리 및 예방 벨리데이션 (Validation & Exceptions)
 
-1. **시간 역전 방지:** `startAt`이 `endAt`보다 미래의 시간일 수 없습니다. (400 Bad Request)
+1. **날짜/시간 입력:** `startDt`/`endDt`는 유효한 `yyyyMMdd`, `startTim`/`endTim`은 24시간제 `HHmmss` 문자열이어야 합니다. 생성/수정에서 네 값은 필수입니다.
 
-2. **권한 검증:** 수정(PUT, PATCH) 및 삭제(DELETE) 요청 시, 요청자(requesterId)가 해당 일정의 소유자 혹은 등록 권한이 있는지 검증해야 합니다. (403 Forbidden)
+2. **시간 역전 방지:** 시작 시각이 종료 시각보다 늦을 수 없습니다. 잘못된 입력은 `statusCode: "4000"`과 한글 원인 메시지를 반환합니다.
 
-3. **존재하지 않는 일정:** 존재하지 않는 `scheduleId`로 요청이 올 경우 에러를 반환합니다. (404 Not Found)
+3. **참여자 입력:** `participantIds`는 추가 초대자 목록이므로 생략하거나 빈 배열로 보낼 수 있습니다. 생성자는 서버가 자동으로 참여자로 등록합니다. 지정한 참여자 ID는 1 이상의 숫자여야 합니다.
+
+4. **권한 검증:** 수정(PUT, PATCH) 및 삭제(DELETE) 요청 시, 요청자(requesterId)가 해당 일정의 소유자 혹은 등록 권한이 있는지 검증해야 합니다. (403 Forbidden)
+
+5. **존재하지 않는 일정:** 존재하지 않는 `scheduleId`로 요청이 올 경우 에러를 반환합니다. (404 Not Found)
    (`com.wemeetnow.chat_service.exception.GlobalExceptionHandler` 참고해서 전역 예외처리 구현/활용)
 
-4. **statusCode**는 성공 응답은 `"2000"`, 클라이언트 오류는 `"4000"`대, 서버 오류는 `"5000"`대로 구분하여 일관된 API 응답 구조를 유지합니다. (`dto/CommonApiResponse` 활용)
+6. **statusCode**는 성공 응답은 `"2000"`, 클라이언트 오류는 `"4000"`대, 서버 오류는 `"5000"`대로 구분하여 일관된 API 응답 구조를 유지합니다. (`dto/CommonApiResponse` 활용)
+
+### 일정 생성/수정 요청 시간 필드
+
+```json
+{
+  "title": "개인 일정",
+  "startDt": "20261016",
+  "startTim": "125315",
+  "endDt": "20261016",
+  "endTim": "135315",
+  "publicScheduleYn": "Y",
+  "publicMemberYn": "Y",
+  "participantIds": []
+}
+```
+
+일정 목록 및 상세 응답도 `startDt`, `startTim`, `endDt`, `endTim`으로 반환합니다. `participantIds`는 생략할 수 있으며, 생성자는 자동 참여자로 등록되므로 개인 일정 생성에 초대 참여자가 필수는 아닙니다.
+
+기존 timestamp 데이터가 있는 DB는 신규 버전을 실행하기 전에 PostgreSQL 마이그레이션 스크립트 `docs/migrations/20261016_split_user_schedule_datetime.sql`을 1회 실행해야 합니다. 스크립트는 기존 값을 초 단위까지 분리한 뒤 구 컬럼을 제거합니다.
 ```

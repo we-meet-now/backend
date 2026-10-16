@@ -111,63 +111,6 @@ public class ChatRoomService {
         return chatRoomRepository.findByUserId(userId);
     }
 
-    public AuthUserDto fetchUserFromAuthService(String token) {
-        try {
-            // "Bearer " 접두사가 중복되지 않도록 처리
-            String jwtHeader = token.startsWith("Bearer ") ? token : "Bearer " + token;
-
-            RestClient restClient = restClientBuilder
-                    .baseUrl(AUTH_SERVICE_URL)
-                    .build();
-
-            // Auth Service 호출: CommonApiResponse 형태로 응답받음
-            CommonApiResponse<AuthUserDto> response = restClient.get()
-                    .uri("/api/auth/v1/users/get-id")
-                    .header("Authorization", jwtHeader)
-                    .accept(MediaType.APPLICATION_JSON)
-                    .retrieve()
-                    .body(new org.springframework.core.ParameterizedTypeReference<CommonApiResponse<AuthUserDto>>() {});
-            
-            if (response != null) {
-                log.info("Successfully fetched user from auth-service: userId={}", response.getData().getUserId());
-                return response.getData();
-            }
-            return null;
-        } catch (Exception e) {
-            log.error("raised error: {}", e.getMessage());
-            return null;
-        }
-
-    }
-
-    public ChatUserInfo fetchUserInfoFromAuthService(String token) {
-        try {
-            String jwtHeader = token.startsWith("Bearer ") ? token : "Bearer " + token;
-
-            RestClient restClient = restClientBuilder
-                    .baseUrl(AUTH_SERVICE_URL)
-                    .build();
-
-            // Auth Service 호출: CommonApiResponse 형태로 응답받음
-            CommonApiResponse<ChatUserInfo> response = restClient.get()
-                    .uri("/api/auth/v1/users/get-user-info")
-                    .header("Authorization", jwtHeader)
-                    .accept(MediaType.APPLICATION_JSON)
-                    .retrieve()
-                    .body(new org.springframework.core.ParameterizedTypeReference<CommonApiResponse<ChatUserInfo>>() {});
-
-            if (response != null) {
-                log.info("Successfully fetched user info from auth-service");
-                return response.getData();
-            }
-            return null;
-        } catch (Exception e) {
-            log.error("raised error: {}", e.getMessage());
-            return null;
-        }
-    }
-
-
     public EnterRoomResponseDto enterRoomAndMarkRead(Long roomId, Long userId) {
         String statusCode = ApiStatusCode.SUCCESS.getCode();
         String statusMsg = "success";

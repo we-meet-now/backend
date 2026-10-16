@@ -2,6 +2,7 @@ package com.wemeetnow.chat_service.controller;
 
 import com.wemeetnow.chat_service.constant.ApiStatusCode;
 import com.wemeetnow.chat_service.dto.*;
+import com.wemeetnow.chat_service.service.CommonService;
 import com.wemeetnow.chat_service.service.ScheduleService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -28,13 +29,14 @@ import java.util.List;
 public class ScheduleController {
 
     private final ScheduleService scheduleService;
+    private final CommonService commonService;
 
     @Operation(
             summary = "내 일정 월별 전체 조회",
             description = "Authorization 헤더의 JWT 액세스 토큰으로 요청자를 인증하고, 요청자가 생성한 일정을 조회합니다. " +
                     "month 쿼리 파라미터는 선택값이며 yyyyMM 형식입니다. 생략하면 현재 월을 조회하고, " +
-                    "일정 시작일(startAt) 기준으로 해당 월을 필터링해 시작일 오름차순으로 반환합니다. " +
-                    "응답의 시작일과 종료일은 yyyyMMdd 문자열입니다."
+                    "일정 시작일(startDt) 기준으로 해당 월을 필터링해 시작 일자·시각 오름차순으로 반환합니다. " +
+                    "응답의 startDt/endDt는 yyyyMMdd, startTim/endTim은 HHmmss 문자열입니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "일정 목록 조회 성공",
@@ -50,8 +52,7 @@ public class ScheduleController {
             @RequestParam(required = false) String month,
             @RequestHeader(HttpHeaders.AUTHORIZATION) String token) {
 
-        String accessToken = token.replace("Bearer ", "");
-        AuthUserDto authUserDto = scheduleService.fetchUserFromAuthService(accessToken);
+        AuthUserDto authUserDto = commonService.fetchUserFromAuthService(token);
         List<ScheduleListItemResponseDto> responseDto =
                 scheduleService.getSchedules(authUserDto.getUserId(), month);
 
@@ -83,8 +84,7 @@ public class ScheduleController {
             @PathVariable("userId") Long userId,
             @RequestParam(required = false) String month,
             @RequestHeader(HttpHeaders.AUTHORIZATION) String token) {
-        String accessToken = token.replace("Bearer ", "");
-        AuthUserDto authUserDto = scheduleService.fetchUserFromAuthService(accessToken);
+        AuthUserDto authUserDto = commonService.fetchUserFromAuthService(token);
         List<ScheduleListItemResponseDto> schedules = scheduleService.getFriendSchedules(
                 userId, authUserDto.getUserId(), token, month);
 
@@ -101,15 +101,17 @@ public class ScheduleController {
 
     @Operation(
             summary = "개인 일정 생성 (다중 참여자 초대)",
-            description = "일정 정보(제목, 시간 등)와 참여자 ID 목록을 받아 일정을 생성하고, " +
-                          "요청한 사용자 및 초대된 참여자들을 일정 참여자로 등록합니다. " +
+            description = "Authorization 헤더의 JWT 토큰으로 요청자를 인증합니다. " +
+                          "startDt/endDt는 yyyyMMdd, startTim/endTim은 HHmmss 문자열로 입력해야 하며 네 필드는 모두 필수입니다. " +
+                          "요청한 사용자는 자동으로 참여자로 등록되고, participantIds는 추가 초대자 ID 목록으로 선택 입력입니다. " +
+                          "입력한 일정 시작 시각은 종료 시각보다 늦을 수 없습니다. " +
                           "publicScheduleYn과 publicMemberYn은 Y/N만 허용하며, 생략하면 비공개(N)로 저장합니다. " +
-                          "Authorization 헤더의 JWT 토큰으로 요청자를 식별합니다."
+                          "날짜·시각 형식이 잘못되거나 참여자 ID가 1 미만이면 4000 오류를 반환합니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "일정 생성 성공",
                     content = @Content(schema = @Schema(implementation = CreateScheduleResponseDto.class))),
-            @ApiResponse(responseCode = "400", description = "잘못된 시간 또는 공개 여부 입력",
+            @ApiResponse(responseCode = "400", description = "날짜·시각 형식/순서, 참여자 ID 또는 공개 여부 입력 오류",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
             @ApiResponse(responseCode = "500", description = "서버 오류 (토큰 인증 실패, DB 저장 실패 등)",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
@@ -120,9 +122,7 @@ public class ScheduleController {
             HttpServletRequest request) {
 
         String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-        String accessToken = authorizationHeader.replace("Bearer ", "");
-
-        AuthUserDto authUserDto = scheduleService.fetchUserFromAuthService(accessToken);
+        AuthUserDto authUserDto = commonService.fetchUserFromAuthService(authorizationHeader);
         Long creatorUserId = authUserDto.getUserId();
 
         Long userScheduleId = scheduleService.createSchedule(creatorUserId, createScheduleRequestDto);
@@ -163,8 +163,7 @@ public class ScheduleController {
 
         log.info("scheduleId: {}", scheduleId);
 
-        String accessToken = token.replace("Bearer ", "");
-        AuthUserDto authUserDto = scheduleService.fetchUserFromAuthService(accessToken);
+        AuthUserDto authUserDto = commonService.fetchUserFromAuthService(token);
         Long loginedUserId = authUserDto.getUserId();
 
         ScheduleDetailResponseDto responseDto = scheduleService.getScheduleDetail(
@@ -185,13 +184,15 @@ public class ScheduleController {
 
     @Operation(
             summary = "개인 일정 수정",
-            description = "일정의 제목, 시간, 공개 여부 등을 수정합니다. 공개 여부는 Y/N만 허용하며, " +
+            description = "Authorization 헤더의 JWT 토큰으로 요청자를 인증합니다. " +
+                    "startDt/endDt는 yyyyMMdd, startTim/endTim은 HHmmss 문자열로 입력해야 하며 네 필드는 모두 필수입니다. " +
+                    "시작 시각은 종료 시각보다 늦을 수 없습니다. 공개 여부는 Y/N만 허용하며, " +
                     "생략하면 기존 값을 유지합니다. 일정 소유자만 수정이 가능합니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "일정 수정 성공",
                     content = @Content(schema = @Schema(implementation = UpdateScheduleResponseDto.class))),
-            @ApiResponse(responseCode = "400", description = "잘못된 시간 또는 공개 여부 입력",
+            @ApiResponse(responseCode = "400", description = "날짜·시각 형식/순서 또는 공개 여부 입력 오류",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
             @ApiResponse(responseCode = "403", description = "수정 권한 없음",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
@@ -204,8 +205,7 @@ public class ScheduleController {
             @RequestBody UpdateScheduleRequestDto updateScheduleRequestDto,
             @RequestHeader(HttpHeaders.AUTHORIZATION) String token) {
 
-        String accessToken = token.replace("Bearer ", "");
-        AuthUserDto authUserDto = scheduleService.fetchUserFromAuthService(accessToken);
+        AuthUserDto authUserDto = commonService.fetchUserFromAuthService(token);
         Long loginedUserId = authUserDto.getUserId();
 
         UpdateScheduleResponseDto responseDto = scheduleService.updateSchedule(scheduleId, loginedUserId, updateScheduleRequestDto);
@@ -241,8 +241,7 @@ public class ScheduleController {
             @RequestBody UpdateStatusRequestDto statusRequestDto,
             @RequestHeader(HttpHeaders.AUTHORIZATION) String token) {
 
-        String accessToken = token.replace("Bearer ", "");
-        AuthUserDto authUserDto = scheduleService.fetchUserFromAuthService(accessToken);
+        AuthUserDto authUserDto = commonService.fetchUserFromAuthService(token);
         Long loginedUserId = authUserDto.getUserId();
 
         UpdateScheduleStatusResponseDto responseDto = scheduleService.updateScheduleStatus(
@@ -277,8 +276,7 @@ public class ScheduleController {
             @PathVariable("scheduleId") Long scheduleId,
             @RequestHeader(HttpHeaders.AUTHORIZATION) String token) {
 
-        String accessToken = token.replace("Bearer ", "");
-        AuthUserDto authUserDto = scheduleService.fetchUserFromAuthService(accessToken);
+        AuthUserDto authUserDto = commonService.fetchUserFromAuthService(token);
         Long loginedUserId = authUserDto.getUserId();
 
         scheduleService.deleteSchedule(scheduleId, loginedUserId);

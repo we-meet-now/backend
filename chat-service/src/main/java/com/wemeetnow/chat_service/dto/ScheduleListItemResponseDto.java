@@ -9,8 +9,10 @@ import lombok.Getter;
 public class ScheduleListItemResponseDto {
     private Long userScheduleId;
     private String title;
-    private String startAt;
-    private String endAt;
+    private String startDt;
+    private String startTim;
+    private String endDt;
+    private String endTim;
     private UserScheduleStatus status;
     private String publicScheduleYn;
     private String publicMemberYn;

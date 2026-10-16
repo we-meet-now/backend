@@ -5,10 +5,12 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.wemeetnow.chat_service.domain.enums.UserScheduleStatus;
 import com.wemeetnow.chat_service.dto.*;
 import com.wemeetnow.chat_service.exception.GlobalExceptionHandler;
+import com.wemeetnow.chat_service.exception.InvalidScheduleRequestException;
 import com.wemeetnow.chat_service.exception.InvalidScheduleMonthException;
 import com.wemeetnow.chat_service.exception.InvalidScheduleTimeException;
 import com.wemeetnow.chat_service.exception.ScheduleAccessDeniedException;
 import com.wemeetnow.chat_service.exception.ScheduleNotFoundException;
+import com.wemeetnow.chat_service.service.CommonService;
 import com.wemeetnow.chat_service.service.ScheduleService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -44,6 +46,9 @@ class ScheduleControllerTest {
     @Mock
     private ScheduleService scheduleService;
 
+    @Mock
+    private CommonService commonService;
+
     @InjectMocks
     private ScheduleController scheduleController;
 
@@ -53,22 +58,21 @@ class ScheduleControllerTest {
     private static final Long USER_ID = 1L;
 
     private final LocalDateTime START = LocalDateTime.of(2026, 7, 1, 10, 0);
-    private final LocalDateTime END   = LocalDateTime.of(2026, 7, 1, 12, 0);
 
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper();
-        objectMapper.registerModule(new JavaTimeModule()); // LocalDateTime 직렬화 지원
+        objectMapper.registerModule(new JavaTimeModule());
 
         mockMvc = MockMvcBuilders
                 .standaloneSetup(scheduleController)
                 .setControllerAdvice(new GlobalExceptionHandler()) // 예외 핸들러 등록
                 .build();
 
-        // 모든 테스트에서 공통으로 사용: fetchUserFromAuthService mock
+        // 모든 테스트에서 공통으로 사용하는 인증 사용자 mock
         AuthUserDto authUserDto = new AuthUserDto();
         authUserDto.setUserId(USER_ID);
-        given(scheduleService.fetchUserFromAuthService(anyString())).willReturn(authUserDto);
+        given(commonService.fetchUserFromAuthService(anyString())).willReturn(authUserDto);
     }
 
     @Nested
@@ -82,8 +86,10 @@ class ScheduleControllerTest {
                     ScheduleListItemResponseDto.builder()
                             .userScheduleId(SCHEDULE_ID)
                             .title("팀 미팅")
-                            .startAt("20260701")
-                            .endAt("20260701")
+                            .startDt("20260701")
+                            .startTim("100000")
+                            .endDt("20260701")
+                            .endTim("120000")
                             .status(UserScheduleStatus.PENDING)
                             .publicScheduleYn("Y")
                             .publicMemberYn("Y")
@@ -97,10 +103,12 @@ class ScheduleControllerTest {
                     .andExpect(jsonPath("$.statusCode").value("2000"))
                     .andExpect(jsonPath("$.message").value("일정 목록 조회 성공"))
                     .andExpect(jsonPath("$.data[0].userScheduleId").value(SCHEDULE_ID))
-                    .andExpect(jsonPath("$.data[0].startAt").value("20260701"))
-                    .andExpect(jsonPath("$.data[0].endAt").value("20260701"));
+                    .andExpect(jsonPath("$.data[0].startDt").value("20260701"))
+                    .andExpect(jsonPath("$.data[0].startTim").value("100000"))
+                    .andExpect(jsonPath("$.data[0].endDt").value("20260701"))
+                    .andExpect(jsonPath("$.data[0].endTim").value("120000"));
 
-            verify(scheduleService).fetchUserFromAuthService(anyString());
+            verify(commonService).fetchUserFromAuthService(anyString());
             verify(scheduleService).getSchedules(USER_ID, "202607");
         }
 
@@ -124,7 +132,8 @@ class ScheduleControllerTest {
                     ScheduleListItemResponseDto.builder()
                             .userScheduleId(SCHEDULE_ID)
                             .title("공개 일정")
-                            .startAt("20260701")
+                            .startDt("20260701")
+                            .startTim("100000")
                             .publicScheduleYn("Y")
                             .build());
             given(scheduleService.getFriendSchedules(2L, USER_ID, "Bearer " + AUTH_TOKEN, "202607"))
@@ -153,8 +162,10 @@ class ScheduleControllerTest {
             // given
             CreateScheduleRequestDto request = new CreateScheduleRequestDto();
             request.setTitle("팀 미팅");
-            request.setStartAt(START);
-            request.setEndAt(END);
+            request.setStartDt("20260701");
+            request.setStartTim("100000");
+            request.setEndDt("20260701");
+            request.setEndTim("120000");
             request.setPublicScheduleYn("Y");
             request.setPublicMemberYn("Y");
             request.setParticipantIds(List.of(2L, 3L));
@@ -172,6 +183,12 @@ class ScheduleControllerTest {
                     .andExpect(jsonPath("$.statusCode").value("2001"))
                     .andExpect(jsonPath("$.message").value("일정 생성 성공"))
                     .andExpect(jsonPath("$.data.userScheduleId").value(SCHEDULE_ID));
+
+            verify(scheduleService).createSchedule(eq(USER_ID), argThat(body ->
+                    "20260701".equals(body.getStartDt())
+                            && "100000".equals(body.getStartTim())
+                            && "20260701".equals(body.getEndDt())
+                            && "120000".equals(body.getEndTim())));
         }
 
         @Test
@@ -180,8 +197,10 @@ class ScheduleControllerTest {
             // given
             CreateScheduleRequestDto request = new CreateScheduleRequestDto();
             request.setTitle("잘못된 일정");
-            request.setStartAt(END);   // start > end (역전)
-            request.setEndAt(START);
+            request.setStartDt("20260701");
+            request.setStartTim("130000");   // start > end (역전)
+            request.setEndDt("20260701");
+            request.setEndTim("120000");
             request.setPublicScheduleYn("Y");
             request.setPublicMemberYn("Y");
             request.setParticipantIds(List.of());
@@ -197,6 +216,30 @@ class ScheduleControllerTest {
                     .andDo(print())
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.statusCode").value("4000"));
+        }
+
+        @Test
+        @DisplayName("잘못된 participantIds는 원인을 한글로 반환")
+        void createSchedule_invalidParticipantId_returnsKoreanError() throws Exception {
+            CreateScheduleRequestDto request = new CreateScheduleRequestDto();
+            request.setStartDt("20261016");
+            request.setStartTim("125315");
+            request.setEndDt("20261016");
+            request.setEndTim("135315");
+            request.setParticipantIds(List.of(0L));
+
+            given(scheduleService.createSchedule(eq(USER_ID), any(CreateScheduleRequestDto.class)))
+                    .willThrow(new InvalidScheduleRequestException(
+                            "참여자 ID(participantIds)는 1 이상의 숫자만 입력할 수 있습니다."));
+
+            mockMvc.perform(post(BASE_URL)
+                            .header("Authorization", AUTH_TOKEN)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.statusCode").value("4000"))
+                    .andExpect(jsonPath("$.message").value(
+                            "참여자 ID(participantIds)는 1 이상의 숫자만 입력할 수 있습니다."));
         }
     }
 
@@ -215,8 +258,10 @@ class ScheduleControllerTest {
             ScheduleDetailResponseDto response = ScheduleDetailResponseDto.builder()
                     .userScheduleId(SCHEDULE_ID)
                     .title("팀 미팅")
-                    .startAt(START)
-                    .endAt(END)
+                    .startDt("20260701")
+                    .startTim("100000")
+                    .endDt("20260701")
+                    .endTim("120000")
                     .status(UserScheduleStatus.PENDING)
                     .publicScheduleYn("Y")
                     .publicMemberYn("Y")
@@ -234,6 +279,10 @@ class ScheduleControllerTest {
                     .andExpect(jsonPath("$.message").value("일정 상세 조회 성공"))
                     .andExpect(jsonPath("$.data.userScheduleId").value(SCHEDULE_ID))
                     .andExpect(jsonPath("$.data.title").value("팀 미팅"))
+                    .andExpect(jsonPath("$.data.startDt").value("20260701"))
+                    .andExpect(jsonPath("$.data.startTim").value("100000"))
+                    .andExpect(jsonPath("$.data.endDt").value("20260701"))
+                    .andExpect(jsonPath("$.data.endTim").value("120000"))
                     .andExpect(jsonPath("$.data.participants").isArray());
         }
 
@@ -267,8 +316,10 @@ class ScheduleControllerTest {
             // given
             UpdateScheduleRequestDto request = new UpdateScheduleRequestDto();
             request.setTitle("수정된 제목");
-            request.setStartAt(START);
-            request.setEndAt(END);
+            request.setStartDt("20260701");
+            request.setStartTim("100000");
+            request.setEndDt("20260701");
+            request.setEndTim("120000");
             request.setPublicScheduleYn("N");
             request.setPublicMemberYn("N");
 
@@ -293,8 +344,10 @@ class ScheduleControllerTest {
             // given
             UpdateScheduleRequestDto request = new UpdateScheduleRequestDto();
             request.setTitle("수정된 제목");
-            request.setStartAt(START);
-            request.setEndAt(END);
+            request.setStartDt("20260701");
+            request.setStartTim("100000");
+            request.setEndDt("20260701");
+            request.setEndTim("120000");
             request.setPublicScheduleYn("Y");
             request.setPublicMemberYn("Y");
 
@@ -317,8 +370,10 @@ class ScheduleControllerTest {
             // given
             UpdateScheduleRequestDto request = new UpdateScheduleRequestDto();
             request.setTitle("수정된 제목");
-            request.setStartAt(START);
-            request.setEndAt(END);
+            request.setStartDt("20260701");
+            request.setStartTim("100000");
+            request.setEndDt("20260701");
+            request.setEndTim("120000");
 
             given(scheduleService.updateSchedule(eq(SCHEDULE_ID), eq(USER_ID), any(UpdateScheduleRequestDto.class)))
                     .willThrow(new ScheduleNotFoundException("존재하지 않는 일정입니다."));

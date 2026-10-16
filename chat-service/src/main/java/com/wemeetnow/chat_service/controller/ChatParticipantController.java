@@ -5,7 +5,7 @@ import com.wemeetnow.chat_service.constant.ApiStatusCode;
 import com.wemeetnow.chat_service.dto.*;
 import com.wemeetnow.chat_service.domain.ChatParticipant;
 import com.wemeetnow.chat_service.service.ChatParticipantService;
-import com.wemeetnow.chat_service.service.ChatRoomService;
+import com.wemeetnow.chat_service.service.CommonService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -30,9 +30,9 @@ import java.util.List;
 @RequiredArgsConstructor
 @RequestMapping("/api/chat/v1/chat-participants")
 public class ChatParticipantController {
-    private final ChatRoomService chatRoomService;
     private final ChatParticipantService chatParticipantService;
     private final AuthServiceClient authServiceClient;
+    private final CommonService commonService;
 
     @Operation(
             summary = "전체 채팅 참여자 테이블 조회",
@@ -76,7 +76,7 @@ public class ChatParticipantController {
 
         String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
         String accessToken = authorizationHeader.replace("Bearer ", "");
-        AuthUserDto authUserDto = chatRoomService.fetchUserFromAuthService(accessToken);
+        AuthUserDto authUserDto = commonService.fetchUserFromAuthService(accessToken);
         Long loginedUserId = authUserDto.getUserId();
 
         List<Long> userIdList = chatParticipantService.findByChatRoomId(roomId, loginedUserId);

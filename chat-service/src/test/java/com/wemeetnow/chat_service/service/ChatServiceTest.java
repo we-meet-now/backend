@@ -24,15 +24,19 @@ class ChatServiceTest {
 
     private MockRestServiceServer mockServer;
     private ChatService chatService;
+    private CommonService commonService;
 
     @BeforeEach
     void setUp() {
         RestClient.Builder restClientBuilder = RestClient.builder();
         mockServer = MockRestServiceServer.bindTo(restClientBuilder).build();
+        commonService = new CommonService(restClientBuilder);
+        ReflectionTestUtils.setField(commonService, "authServiceUrl", "http://auth-service");
         chatService = new ChatService(
                 mock(ChatRepository.class),
                 mock(ChatRoomRepository.class),
-                restClientBuilder
+                restClientBuilder,
+                commonService
         );
         ReflectionTestUtils.setField(chatService, "authServiceUrl", "http://auth-service");
     }
@@ -73,7 +77,35 @@ class ChatServiceTest {
 
         assertThatThrownBy(() -> chatService.isValidAccessToken("Bearer test-token"))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Auth service did not return a user ID.");
+                .hasMessage("Auth 서비스에서 사용자 정보를 받지 못했습니다.");
+        mockServer.verify();
+    }
+
+    @Test
+    void fetchUserInfoFromAuthServiceReadsWrappedResponse() {
+        mockServer.expect(requestTo("http://auth-service/api/auth/v1/users/get-user-info"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer test-token"))
+                .andRespond(withSuccess(
+                        """
+                                {
+                                  "statusCode": "2000",
+                                  "data": {
+                                    "userId": 6,
+                                    "username": "test-user",
+                                    "email": "test@example.com",
+                                    "nickname": "tester"
+                                  },
+                                  "message": "사용자 정보 조회 성공"
+                                }
+                                """,
+                        MediaType.APPLICATION_JSON
+                ));
+
+        ChatUserInfo userInfo = commonService.fetchUserInfoFromAuthService("test-token");
+
+        assertThat(userInfo.getUserId()).isEqualTo(6L);
+        assertThat(userInfo.getUsername()).isEqualTo("test-user");
         mockServer.verify();
     }
 }

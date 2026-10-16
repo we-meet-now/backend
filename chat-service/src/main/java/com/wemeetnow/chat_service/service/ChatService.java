@@ -5,6 +5,7 @@ import com.wemeetnow.chat_service.domain.ChatRoom;
 import com.wemeetnow.chat_service.domain.enums.ChatType;
 import com.wemeetnow.chat_service.constant.ApiStatusCode;
 import com.wemeetnow.chat_service.dto.AuthGuestResponse;
+import com.wemeetnow.chat_service.dto.AuthUserDto;
 import com.wemeetnow.chat_service.dto.AuthUserResponse;
 import com.wemeetnow.chat_service.dto.ChatResponseDto;
 import com.wemeetnow.chat_service.dto.CommonApiResponse;
@@ -15,10 +16,8 @@ import com.wemeetnow.chat_service.repository.ChatRoomRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +34,7 @@ public class ChatService {
     private final ChatRepository chatRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final RestClient.Builder restClientBuilder;
+    private final CommonService commonService;
     @Value("${auth-service.url}")
     private String authServiceUrl;
 
@@ -81,24 +81,9 @@ public class ChatService {
     }
 
     public AuthUserResponse isValidAccessToken(String token) {
-        String authorizationHeader = token.startsWith("Bearer ") ? token : "Bearer " + token;
-        log.info("auth-service.url: {}", authServiceUrl);
-        RestClient restClient = restClientBuilder.baseUrl(authServiceUrl).build();
-
-        CommonApiResponse<AuthUserResponse> response = restClient.get()
-                .uri("/api/auth/v1/users/get-id")
-                .header(HttpHeaders.AUTHORIZATION, authorizationHeader) // Bearer 토큰 전달
-                .accept(MediaType.APPLICATION_JSON)
-                .retrieve()
-                .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
-                    // 401 Unauthorized 등 처리
-                    throw new IllegalArgumentException("유효하지 않은 토큰입니다.");
-                })
-                .body(new ParameterizedTypeReference<>() {});
-        AuthUserResponse authUserResponse = response != null ? response.getData() : null;
-        if (authUserResponse == null || authUserResponse.getUserId() == null) {
-            throw new IllegalStateException("Auth service did not return a user ID.");
-        }
+        AuthUserDto authUserDto = commonService.fetchUserFromAuthService(token);
+        AuthUserResponse authUserResponse = new AuthUserResponse();
+        authUserResponse.setUserId(authUserDto.getUserId());
         return authUserResponse;
     }
 

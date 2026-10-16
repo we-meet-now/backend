@@ -16,7 +16,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.client.RestClient;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -53,15 +52,17 @@ class FriendScheduleAccessTest {
         UserSchedule schedule = UserSchedule.builder()
                 .userScheduleId(SCHEDULE_ID)
                 .title("Open event")
-                .startAt(LocalDateTime.of(2026, 10, 12, 10, 0))
-                .endAt(LocalDateTime.of(2026, 10, 12, 11, 0))
+                .startDt("20261012")
+                .startTim("100000")
+                .endDt("20261012")
+                .endTim("110000")
                 .status(UserScheduleStatus.CONFIRMED)
                 .publicScheduleYn("Y")
                 .publicMemberYn("N")
                 .build();
         when(authServiceClient.getFriendList(AUTH_HEADER)).thenReturn(friendResponse(OWNER_ID, "HIDE"));
         when(userScheduleRepository.findPublicSchedulesByOwnerBetween(
-                eq(OWNER_ID), any(LocalDateTime.class), any(LocalDateTime.class)))
+                eq(OWNER_ID), anyString(), anyString()))
                 .thenReturn(List.of(schedule));
 
         var result = scheduleService.getFriendSchedules(OWNER_ID, REQUESTER_ID, AUTH_HEADER, "202610");
@@ -86,7 +87,8 @@ class FriendScheduleAccessTest {
         UserSchedule schedule = UserSchedule.builder()
                 .userScheduleId(SCHEDULE_ID)
                 .title("Private to friends")
-                .startAt(LocalDateTime.of(2026, 10, 12, 10, 0))
+                .startDt("20261012")
+                .startTim("100000")
                 .status(UserScheduleStatus.PENDING)
                 .publicScheduleYn("Y")
                 .userScheduleParticipantId(OWNER_PARTICIPANT_ID)

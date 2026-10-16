@@ -6,6 +6,7 @@ import com.wemeetnow.chat_service.constant.ApiStatusCode;
 import com.wemeetnow.chat_service.dto.*;
 import com.wemeetnow.chat_service.exception.ChatRoomInviteException;
 import com.wemeetnow.chat_service.service.ChatGuestTokenInfo;
+import com.wemeetnow.chat_service.service.CommonService;
 import com.wemeetnow.chat_service.service.ChatRoomService;
 import com.wemeetnow.chat_service.service.ChatService;
 import com.wemeetnow.chat_service.service.ChatUserInfo;
@@ -34,6 +35,7 @@ import java.util.List;
 public class ChatRoomController {
     private final ChatRoomService chatRoomService;
     private final ChatService chatService;
+    private final CommonService commonService;
     private final String AUTH_HEADER = "Authorization";
 
     @Value("${chat-service.url}")
@@ -431,7 +433,7 @@ public class ChatRoomController {
         Long loginedUserId = authUserResponse.getUserId();
         log.info("loginedUserId: {}", loginedUserId);
 
-        ChatUserInfo loginedUserInfo = chatRoomService.fetchUserInfoFromAuthService(token);
+        ChatUserInfo loginedUserInfo = commonService.fetchUserInfoFromAuthService(token);
         String chatRoomNm = requestDto.getMeetType().isBlank()
                 ? loginedUserInfo.getUsername() + "의 아무거나 다 좋은 모임"
                 : loginedUserInfo.getUsername() + "의 " + requestDto.getMeetType();

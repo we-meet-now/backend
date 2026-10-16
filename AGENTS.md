@@ -13,4 +13,8 @@ For new or materially refactored API endpoints:
 
 For services outside `auth-service`, use that service's existing authentication and API response conventions rather than assuming its JWT implementation is shared.
 
+### `chat-service` User Identity
 
+- When a `chat-service` API needs the authenticated user's ID, call `CommonService.fetchUserFromAuthService(authorizationHeader)` and use the returned `AuthUserDto.userId`.
+- Do not fetch the user ID directly from `auth-service`, decode the JWT in controllers, accept a caller-supplied user ID as the authenticated identity, or duplicate this lookup in another service. Keep Auth-service user lookups centralized in `CommonService`.
+- Pass the incoming Authorization header to `CommonService`; it normalizes the authorization scheme and validates the wrapped Auth-service response.

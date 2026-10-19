@@ -111,26 +111,18 @@ public class ChatRoomService {
         return chatRoomRepository.findByUserId(userId);
     }
 
+    @Transactional
     public EnterRoomResponseDto enterRoomAndMarkRead(Long roomId, Long userId) {
-        String statusCode = ApiStatusCode.SUCCESS.getCode();
-        String statusMsg = "success";
         int markedCount = 0;
-        try {
-            List<Chat> unreadChats = chatRepository.findUnreadChatsForUser(roomId, userId, LocalDateTime.now());
-            for (Chat chat : unreadChats) {
-                if (!chatReadRepository.existsByChatIdAndUserId(chat.getChatId(), userId)) {
-                    ChatRead chatRead = new ChatRead(chat.getChatId(), userId);
-                    chatReadRepository.save(chatRead);
-                    markedCount++;
-                }
+        List<Chat> unreadChats = chatRepository.findUnreadChatsForUser(roomId, userId, LocalDateTime.now());
+        for (Chat chat : unreadChats) {
+            if (!chatReadRepository.existsByChatIdAndUserId(chat.getChatId(), userId)) {
+                ChatRead chatRead = new ChatRead(chat.getChatId(), userId);
+                chatReadRepository.save(chatRead);
+                markedCount++;
             }
-        } catch (Exception e) {
-            log.error("Error in enterRoomAndMarkRead: {}", e.getMessage());
-            statusCode = ApiStatusCode.INTERNAL_SERVER_ERROR.getCode();
-            statusMsg = "fail";
-            markedCount = 0;
         }
-        return new EnterRoomResponseDto(statusCode, statusMsg, markedCount);
+        return new EnterRoomResponseDto(ApiStatusCode.SUCCESS.getCode(), "success", markedCount);
     }
     // ChatRoomService.java
     @Transactional

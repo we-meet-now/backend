@@ -695,24 +695,54 @@ public class UserApiController {
                 .build());
     }
 
-    @ApiResponses()
+    @Operation(
+            summary = "토큰 유형 확인",
+            description = "Authorization 헤더 인증 없이 요청 본문의 guestToken으로 토큰 유형을 확인합니다. " +
+                    "유효한 게스트 토큰은 isGuestYn=Y, 유효한 AccessToken은 isGuestYn=N으로 반환하며, " +
+                    "토큰이 없거나 유효하지 않은 경우 401을 반환합니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "토큰 유형 확인 성공",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "401", description = "유효하지 않거나 만료된 AccessToken",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "404", description = "게스트 사용자를 찾을 수 없음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
     @PostMapping("/no-login/is-guest-token")
     public ResponseEntity<CommonApiResponse<GuestYnDto>> getIsGuestTokenYn(
             @RequestBody GuestCheckRequestDto requestDto){
-        log.info("getIsGuestToken/Authorization Header: {}", requestDto.getGuestToken());
+        if (requestDto == null || requestDto.getGuestToken() == null || requestDto.getGuestToken().isBlank()) {
+            return invalidGuestTokenResponse();
+        }
+
         String token = requestDto.getGuestToken();
         boolean hasUUID = JwtUtil.hasUUID(token);
-        if (!hasUUID && JwtUtil.isExpired(token)) { // Guest Token도 아니면서 만료된 토큰인 경우
-            log.info("토큰이 유효하지 않습니다.");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
-                    CommonApiResponse.<GuestYnDto>builder()
-                            .statusCode("4010")
-                            .data(null)
-                            .message("토큰이 유효하지 않거나 만료되었습니다.")
-                            .build()
-            );
+        if (!hasUUID) {
+            if (JwtUtil.isExpired(token)) {
+                return invalidGuestTokenResponse();
+            }
+
+            Long userId;
+            try {
+                userId = JwtUtil.getId(token);
+            } catch (NumberFormatException e) {
+                return invalidGuestTokenResponse();
+            }
+            if (userId == null || userId <= 0) {
+                return invalidGuestTokenResponse();
+            }
+
+            GuestYnDto responseDto = GuestYnDto.builder()
+                    .isGuestYn("N")
+                    .build();
+            return ResponseEntity.ok(CommonApiResponse.<GuestYnDto>builder()
+                    .statusCode("2000")
+                    .data(responseDto)
+                    .message("일반 AccessToken입니다.")
+                    .build());
         }
-        // Guest Token 이거나 만료되지 않은 토큰인 경우
+
         String uuid = JwtUtil.getUUID(token);
         User findUser = userService.getUserByUUID(uuid).orElse(null);
         if (findUser == null) {
@@ -734,6 +764,16 @@ public class UserApiController {
                 .data(responseDto)
                 .message("게스트 여부 조회 성공")
                 .build());
+    }
+
+    private ResponseEntity<CommonApiResponse<GuestYnDto>> invalidGuestTokenResponse() {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                CommonApiResponse.<GuestYnDto>builder()
+                        .statusCode("4010")
+                        .data(null)
+                        .message("토큰이 유효하지 않거나 만료되었습니다.")
+                        .build()
+        );
     }
 
 }

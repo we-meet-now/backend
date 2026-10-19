@@ -82,6 +82,37 @@ class ChatServiceTest {
     }
 
     @Test
+    void isValidGuestTokenResolvesUserIdFromTokenWithoutClientUuid() {
+        mockServer.expect(requestTo("http://auth-service/api/auth/v1/users/get-guest-id"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer guest-token"))
+                .andRespond(withSuccess(
+                        """
+                                {
+                                  "statusCode": "2000",
+                                  "data": {
+                                    "userId": 42,
+                                    "uuId": "guest-uuid",
+                                    "statusCd": "2000",
+                                    "statusMsg": "success",
+                                    "isGuestYn": "Y",
+                                    "guestToken": "guest-token",
+                                    "isRefreshed": "N"
+                                  },
+                                  "message": "userId 조회 성공"
+                                }
+                                """,
+                        MediaType.APPLICATION_JSON
+                ));
+
+        var response = chatService.isValidGuestToken("guest-token");
+
+        assertThat(response.getUserId()).isEqualTo(42L);
+        assertThat(response.getUuId()).isEqualTo("guest-uuid");
+        mockServer.verify();
+    }
+
+    @Test
     void fetchUserInfoFromAuthServiceReadsWrappedResponse() {
         mockServer.expect(requestTo("http://auth-service/api/auth/v1/users/get-user-info"))
                 .andExpect(method(HttpMethod.GET))

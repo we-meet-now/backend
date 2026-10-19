@@ -10,6 +10,7 @@ import lombok.ToString;
 public class ChatDto {
     private Long chatRoomId;
     private Long userId;
+    private String uuId;
     private String message;
     private ChatType chatType;
 

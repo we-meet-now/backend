@@ -225,6 +225,8 @@ public class UserApiController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "userId 조회 성공", useReturnTypeSchema = true),
             @ApiResponse(responseCode = "401", description = "토큰 만료 또는 유효하지 않은 토큰",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "404", description = "게스트 UUID에 해당하는 사용자를 찾을 수 없음",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
     @GetMapping("/get-id")
@@ -259,22 +261,33 @@ public class UserApiController {
 
     @Operation(
             summary = "GuestToken으로 userId 조회",
-            description = "Authorization 헤더의 JWT GuestToken을 파싱하여 사용자 ID(userId)를 반환합니다. MSA 서비스 간 내부 호출에 사용됩니다."
+            description = "Authorization 헤더의 JWT GuestToken에서 UUID를 확인하고 해당 사용자 ID(userId)를 반환합니다. " +
+                    "요청 본문의 uuid는 선택값이며, 전달하면 토큰의 UUID와 일치해야 합니다. " +
+                    "만료된 게스트 토큰은 같은 UUID의 새 토큰을 반환합니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "userId 조회 성공", useReturnTypeSchema = true),
             @ApiResponse(responseCode = "401", description = "토큰 만료 또는 유효하지 않은 토큰",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "404", description = "토큰 UUID에 해당하는 게스트 사용자를 찾을 수 없음",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
     @PostMapping("/get-guest-id")
     public ResponseEntity<CommonApiResponse<GuestUserDto>> getUserIdFromGuestToken(
-            @RequestBody GuestIdRequestDto requestDto
-            ,HttpServletRequest request) {
+            @RequestBody GuestIdRequestDto requestDto,
+            HttpServletRequest request) {
         String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-        String token = authorizationHeader.replace("Bearer ", "");
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            return invalidGuestTokenResponse("Authorization Bearer 토큰이 필요합니다.");
+        }
 
-        String uuid = requestDto != null ? requestDto.getUuid() : null;
-        if (uuid == null || !userService.validUUID(uuid)) { // 요청받은 uuid가 DB에 존재하는지 검증
+        String token = authorizationHeader.substring("Bearer ".length()).trim();
+        String uuid = JwtUtil.getUUID(token);
+        String requestUuid = requestDto != null ? requestDto.getUuid() : null;
+        if (token.isEmpty() || uuid == null || (requestUuid != null && !requestUuid.equals(uuid))) {
+            return invalidGuestTokenResponse("게스트 토큰이 유효하지 않습니다.");
+        }
+        if (!userService.validUUID(uuid)) {
             GuestUserDto errorDto = GuestUserDto.builder().userId(0L).statusCd("4040").statusMsg("유효하지 않은 UUID입니다.").isGuestYn("N").isRefreshed("N").build();
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
                     CommonApiResponse.<GuestUserDto>builder()
@@ -321,6 +334,23 @@ public class UserApiController {
                 .data(responseDto)
                 .message("userId 조회 성공")
                 .build());
+    }
+
+    private ResponseEntity<CommonApiResponse<GuestUserDto>> invalidGuestTokenResponse(String message) {
+        GuestUserDto errorDto = GuestUserDto.builder()
+                .userId(0L)
+                .statusCd("4010")
+                .statusMsg(message)
+                .isGuestYn("N")
+                .isRefreshed("N")
+                .build();
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                CommonApiResponse.<GuestUserDto>builder()
+                        .statusCode("4010")
+                        .data(errorDto)
+                        .message(message)
+                        .build()
+        );
     }
 
     @Operation(

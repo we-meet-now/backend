@@ -4,6 +4,7 @@ import com.wemeetnow.auth_service.config.jwt.JwtUtil;
 import com.wemeetnow.auth_service.domain.User;
 import com.wemeetnow.auth_service.dto.CommonApiResponse;
 import com.wemeetnow.auth_service.dto.GuestCheckRequestDto;
+import com.wemeetnow.auth_service.dto.GuestIdRequestDto;
 import com.wemeetnow.auth_service.dto.GuestYnDto;
 import com.wemeetnow.auth_service.service.UserService;
 import io.jsonwebtoken.Jwts;
@@ -12,8 +13,10 @@ import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.nio.charset.StandardCharsets;
@@ -107,6 +110,41 @@ class GuestTokenClassificationTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         assertThat(response.getBody().getStatusCode()).isEqualTo("4010");
+        verifyNoInteractions(userService);
+    }
+
+    @Test
+    void resolvesGuestUserIdFromUuidInTokenWhenBodyUuidIsMissing() {
+        String uuid = "guest-uuid";
+        String token = createToken(null, uuid, Instant.now().plusSeconds(600));
+        User guestUser = mock(User.class);
+        when(userService.validUUID(uuid)).thenReturn(true);
+        when(userService.getUserByUUID(uuid)).thenReturn(Optional.of(guestUser));
+        when(guestUser.getId()).thenReturn(42L);
+        MockHttpServletRequest httpRequest = new MockHttpServletRequest();
+        httpRequest.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+
+        ResponseEntity<CommonApiResponse<com.wemeetnow.auth_service.dto.GuestUserDto>> response =
+                controller.getUserIdFromGuestToken(new GuestIdRequestDto(), httpRequest);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().getData().getUserId()).isEqualTo(42L);
+        assertThat(response.getBody().getData().getUuId()).isEqualTo(uuid);
+        verify(userService).getUserByUUID(uuid);
+    }
+
+    @Test
+    void rejectsBodyUuidThatDoesNotMatchGuestToken() {
+        String token = createToken(null, "signed-uuid", Instant.now().plusSeconds(600));
+        GuestIdRequestDto request = new GuestIdRequestDto();
+        request.setUuid("different-uuid");
+        MockHttpServletRequest httpRequest = new MockHttpServletRequest();
+        httpRequest.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+
+        ResponseEntity<CommonApiResponse<com.wemeetnow.auth_service.dto.GuestUserDto>> response =
+                controller.getUserIdFromGuestToken(request, httpRequest);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         verifyNoInteractions(userService);
     }
 

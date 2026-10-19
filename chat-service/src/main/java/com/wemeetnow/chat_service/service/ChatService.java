@@ -88,12 +88,12 @@ public class ChatService {
     }
 
     public AuthGuestResponse isValidGuestToken(String token, String uuId) {
+        if (token == null || token.isBlank()) {
+            throw new IllegalArgumentException("게스트 토큰이 필요합니다.");
+        }
+
         String authorizationHeader = token.startsWith("Bearer ") ? token : "Bearer " + token;
-        log.info("auth-service.url: {}", authServiceUrl);
-        log.info("authorizationHeader: {}", authorizationHeader);
-        log.info("requestDto.uuId: {}", uuId);
         RestClient restClient = restClientBuilder.baseUrl(authServiceUrl).build();
-        // 4xx/5xx 여부와 관계없이 본문을 그대로 읽어서 실패 사유를 정확히 로그로 남긴다.
         CommonApiResponse<GuestUserDto> response = restClient.post()
                 .uri("/api/auth/v1/users/get-guest-id")
                 .header(HttpHeaders.AUTHORIZATION, authorizationHeader)
@@ -115,6 +115,10 @@ public class ChatService {
                 .guestToken(data.getGuestToken())
                 .isRefreshed(data.getIsRefreshed())
                 .build();
+    }
+
+    public AuthGuestResponse isValidGuestToken(String token) {
+        return isValidGuestToken(token, null);
     }
 
     public int getNotReadCountByRoomIdAndUserId(Long roomId, Long userId) {

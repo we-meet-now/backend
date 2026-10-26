@@ -2,7 +2,7 @@ package com.wemeetnow.chat_service.config;
 
 import java.security.Principal;
 
-public record ChatUserPrincipal(Long userId, String uuid, boolean guest) implements Principal {
+public record ChatUserPrincipal(Long userId, String uuid, boolean guest, String username) implements Principal {
 
     @Override
     public String getName() {

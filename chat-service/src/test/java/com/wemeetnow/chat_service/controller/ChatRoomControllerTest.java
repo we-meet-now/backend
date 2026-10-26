@@ -3,6 +3,7 @@ package com.wemeetnow.chat_service.controller;
 import com.wemeetnow.chat_service.domain.Chat;
 import com.wemeetnow.chat_service.domain.ChatRoom;
 import com.wemeetnow.chat_service.dto.AuthUserResponse;
+import com.wemeetnow.chat_service.dto.ChatResponseDto;
 import com.wemeetnow.chat_service.dto.CreateChatRoomRequestDto;
 import com.wemeetnow.chat_service.dto.EnterRoomRequestDto;
 import com.wemeetnow.chat_service.dto.EnterRoomResponseDto;
@@ -69,6 +70,16 @@ class ChatRoomControllerTest {
                 .userId(8L)
                 .message("Hello")
                 .build()));
+        when(chatService.getChatResponseList(
+                org.mockito.ArgumentMatchers.anyList(),
+                org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn(List.of(ChatResponseDto.builder()
+                        .chatId(23L)
+                        .chatRoomId(roomId)
+                        .userId(8L)
+                        .username("author-name")
+                        .message("Hello")
+                        .build()));
 
         var response = controller.enterRoomAndMarkRead(request(roomId), requestWithToken());
 
@@ -76,6 +87,7 @@ class ChatRoomControllerTest {
         assertThat(response.getBody().getLoginedUserId()).isEqualTo(userId);
         assertThat(response.getBody().getChatList()).hasSize(1);
         assertThat(response.getBody().getChatList().get(0).getChatId()).isEqualTo(23L);
+        assertThat(response.getBody().getChatList().get(0).getUsername()).isEqualTo("author-name");
         verify(chatRoomService).isMember(roomId, userId);
     }
 

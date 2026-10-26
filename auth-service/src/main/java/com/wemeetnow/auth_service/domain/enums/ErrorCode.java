@@ -13,6 +13,7 @@ public enum ErrorCode {
     BAD_REQUEST(HttpStatus.BAD_REQUEST, "4010", "요청이 잘못됐습니다."),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "4010", "유효한 사용자 인증이 필요합니다."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "4040", "요청한 사용자를 찾을 수 없습니다."),
+    USERNAME_ALREADY_EXISTS(HttpStatus.CONFLICT, "4090", "이미 사용 중인 username입니다."),
     FRIEND_RELATIONSHIP_NOT_FOUND(HttpStatus.NOT_FOUND, "4041", "친구 관계를 찾을 수 없습니다."),
     FRIEND_INVITATION_NOT_FOUND(HttpStatus.NOT_FOUND, "4042", "수락할 친구 초대를 찾을 수 없습니다."),
     FRIEND_ALREADY_EXISTS(HttpStatus.CONFLICT, "4090", "이미 친구이거나 친구 초대가 존재하는 사용자입니다."),

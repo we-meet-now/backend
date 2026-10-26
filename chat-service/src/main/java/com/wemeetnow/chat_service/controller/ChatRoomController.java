@@ -309,7 +309,10 @@ public class ChatRoomController {
 
     @Operation(
             summary = "채팅방 입장 및 채팅 내역 조회",
-            description = "참여자 여부를 확인한 뒤 채팅 내역을 반환하고 읽지 않은 메시지를 읽음 처리합니다."
+            description = "Authorization 헤더의 사용자 또는 게스트 토큰으로 요청자를 확인합니다. " +
+                    "요청 본문의 필수 roomId 채팅방 참여자만 채팅 내역을 조회할 수 있으며, " +
+                    "성공하면 채팅별 작성자 userId와 username을 포함한 목록을 반환하고 읽지 않은 메시지를 읽음 처리합니다. " +
+                    "해당 사용자 프로필이 없거나 username이 null이면 username도 null로 반환합니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "채팅방 입장 및 채팅 내역 조회 성공",
@@ -351,9 +354,10 @@ public class ChatRoomController {
                         chatRoomService.enterRoomAndMarkRead(requestDto.getRoomId(), userId);
                 responseDto.setLoginedUserId(userId);
                 if (ApiStatusCode.SUCCESS.getCode().equals(responseDto.getStatusCode())) {
-                    responseDto.setChatList(chatService.getChatList(requestDto.getRoomId(), userId).stream()
-                            .map(ChatResponseDto::fromEntity)
-                            .toList());
+                    List<Chat> chats = chatService.getChatList(requestDto.getRoomId(), userId);
+                    responseDto.setChatList(guestAuthResponse == null
+                            ? chatService.getChatResponseList(chats, authorizationHeader)
+                            : chats.stream().map(ChatResponseDto::fromEntity).toList());
                 }
                 if (guestAuthResponse != null) {
                     responseDto.setUuId(guestAuthResponse.getUuId());

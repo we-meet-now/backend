@@ -125,7 +125,7 @@ public class UserService{
     };
     private final Random random = new Random();
 
-    public String createRandomNickname() {
+    public String createRandomUsername() {
         String adjective = ADJECTIVES[random.nextInt(ADJECTIVES.length)];
         String noun = NOUNS[random.nextInt(NOUNS.length)];
         int number = 100 + random.nextInt(900);
@@ -222,6 +222,20 @@ public class UserService{
 
     public Optional<User> getUserByUUID(String uuid) {
         return userRepository.findByUuid(uuid);
+    }
+
+    @Transactional
+    public SetUsernameResponseDto updateUsername(User user, String username) {
+        if (user == null) {
+            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        }
+        if (!username.equals(user.getUsername()) && userRepository.existsByUsername(username)) {
+            throw new CustomException(ErrorCode.USERNAME_ALREADY_EXISTS);
+        }
+
+        user.setUsername(username);
+        User updatedUser = userRepository.save(user);
+        return new SetUsernameResponseDto(true, updatedUser.getUsername());
     }
 
     public boolean validUUID(String uuid) {

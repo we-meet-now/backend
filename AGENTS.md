@@ -19,9 +19,9 @@ For services outside `auth-service`, use that service's existing authentication 
 - Do not fetch the user ID directly from `auth-service`, decode the JWT in controllers, accept a caller-supplied user ID as the authenticated identity, or duplicate this lookup in another service. Keep Auth-service user lookups centralized in `CommonService`.
 - Pass the incoming Authorization header to `CommonService`; it normalizes the authorization scheme and validates the wrapped Auth-service response.
 
-### `chat-service` Swagger Documentation
+### `chat-service`, `auth-service` Swagger Documentation
 
-- When creating or changing a `chat-service` API, update its Springdoc/Swagger documentation in the same change so the documented request, response, authentication requirements, and success/error cases match the implementation.
+- When creating or changing a `chat-service` or `auth-service` API, update its Springdoc/Swagger documentation in the same change so the documented request, response, authentication requirements, and success/error cases match the implementation.
 - Document endpoints with `@Operation` and `@ApiResponses`, using a clear Korean summary and description. For example:
 
 ```java

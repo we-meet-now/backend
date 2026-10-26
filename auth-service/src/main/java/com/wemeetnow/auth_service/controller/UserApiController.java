@@ -2,11 +2,14 @@ package com.wemeetnow.auth_service.controller;
 
 import com.wemeetnow.auth_service.config.jwt.JwtUtil;
 import com.wemeetnow.auth_service.domain.User;
+import com.wemeetnow.auth_service.domain.enums.ErrorCode;
 import com.wemeetnow.auth_service.dto.*;
+import com.wemeetnow.auth_service.exception.CustomException;
 import com.wemeetnow.auth_service.service.UserService;
 import io.jsonwebtoken.Claims;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -468,13 +471,13 @@ public class UserApiController {
             @ApiResponse(responseCode = "500", description = "서버 오류",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
-    @GetMapping("/create-random-nickname")
-    public ResponseEntity<CommonApiResponse<RandomNicknameResponseDto>> createRandomNickname() {
-        String randomNickname = userService.createRandomNickname();
+    @GetMapping("/create-random-username")
+    public ResponseEntity<CommonApiResponse<RandomNicknameResponseDto>> createRandomUsername() {
+        String randomUsername = userService.createRandomUsername();
 
         return ResponseEntity.ok(CommonApiResponse.<RandomNicknameResponseDto>builder()
                 .statusCode("2000")
-                .data(new RandomNicknameResponseDto(randomNickname))
+                .data(new RandomNicknameResponseDto(randomUsername))
                 .message("랜덤 닉네임 생성 성공")
                 .build());
     }
@@ -713,6 +716,64 @@ public class UserApiController {
                 .build());
     }
 
+
+    @Operation(
+            summary = "사용자 username 변경",
+            description = "Authorization 헤더의 Bearer JWT를 검증해 guestToken은 UUID, accessToken은 userId로 사용자를 찾고 필수 요청 본문의 username으로 변경합니다. username은 비어 있을 수 없으며 이미 사용 중인 이름은 변경할 수 없습니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "username 변경 성공",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "400", description = "요청 본문 또는 username이 유효하지 않음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "401", description = "유효하지 않거나 만료된 JWT",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "404", description = "토큰에 해당하는 사용자를 찾을 수 없음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "409", description = "요청한 username이 이미 사용 중임",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "500", description = "서버 오류",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
+    @PutMapping("/set-username")
+    public ResponseEntity<CommonApiResponse<SetUsernameResponseDto>> setUsername(
+            @Parameter(name = "Authorization", in = ParameterIn.HEADER,
+                    description = "Bearer JWT accessToken 또는 guestToken", required = true,
+                    example = "Bearer {JWT Token}")
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorizationHeader,
+            HttpServletRequest request,
+            @RequestBody SetUsernameRequestDto requestDto) {
+        if (requestDto == null || requestDto.getUsername() == null || requestDto.getUsername().isBlank()) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            throw new CustomException(ErrorCode.UNAUTHORIZED);
+        }
+
+        String token = authorizationHeader.substring("Bearer ".length()).trim();
+        if (token.isEmpty() || JwtUtil.isExpired(token)) {
+            throw new CustomException(ErrorCode.UNAUTHORIZED);
+        }
+
+        User user;
+        if (JwtUtil.hasUUID(token)) {
+            String uuid = JwtUtil.getUUID(token);
+            if (uuid == null || uuid.isBlank()) {
+                throw new CustomException(ErrorCode.UNAUTHORIZED);
+            }
+            user = userService.getUserByUUID(uuid)
+                    .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        } else {
+            user = jwtUtil.getAuthenticatedUser(request);
+        }
+
+        SetUsernameResponseDto responseDto = userService.updateUsername(user, requestDto.getUsername());
+        return ResponseEntity.ok(CommonApiResponse.<SetUsernameResponseDto>builder()
+                .statusCode("2000")
+                .data(responseDto)
+                .message("username 변경 성공")
+                .build());
+    }
 
     @GetMapping("/no-login/get-guest-token")
     public ResponseEntity<CommonApiResponse<ChatGuestTokenInfoDto>> getGuestTokenWithNoLogin() {

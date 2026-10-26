@@ -47,7 +47,8 @@ public class ChatController {
                 chatDto.getChatRoomId(),
                 userId,
                 chatDto.getMessage(),
-                chatDto.getChatType()
+                chatDto.getChatType(),
+                ((ChatUserPrincipal) principal).username()
         );
     }
 
@@ -62,7 +63,8 @@ public class ChatController {
                 chatMessageDto.getChatRoomId(),
                 userId,
                 content,
-                ChatType.ENTER
+                ChatType.ENTER,
+                ((ChatUserPrincipal) principal).username()
         );
     }
 

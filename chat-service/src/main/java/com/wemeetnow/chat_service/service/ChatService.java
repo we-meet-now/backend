@@ -1,18 +1,21 @@
 package com.wemeetnow.chat_service.service;
 
+import com.wemeetnow.chat_service.client.AuthServiceClient;
+import com.wemeetnow.chat_service.constant.ApiStatusCode;
 import com.wemeetnow.chat_service.domain.Chat;
 import com.wemeetnow.chat_service.domain.ChatRoom;
 import com.wemeetnow.chat_service.domain.enums.ChatType;
-import com.wemeetnow.chat_service.constant.ApiStatusCode;
 import com.wemeetnow.chat_service.dto.AuthGuestResponse;
 import com.wemeetnow.chat_service.dto.AuthUserDto;
 import com.wemeetnow.chat_service.dto.AuthUserResponse;
+import com.wemeetnow.chat_service.dto.ChatParticipantPublicProfileDto;
 import com.wemeetnow.chat_service.dto.ChatResponseDto;
 import com.wemeetnow.chat_service.dto.CommonApiResponse;
 import com.wemeetnow.chat_service.dto.GuestIdRequestDto;
 import com.wemeetnow.chat_service.dto.GuestUserDto;
 import com.wemeetnow.chat_service.repository.ChatRepository;
 import com.wemeetnow.chat_service.repository.ChatRoomRepository;
+import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,8 +26,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 @Slf4j
@@ -35,6 +40,7 @@ public class ChatService {
     private final ChatRoomRepository chatRoomRepository;
     private final RestClient.Builder restClientBuilder;
     private final CommonService commonService;
+    private final AuthServiceClient authServiceClient;
     @Value("${auth-service.url}")
     private String authServiceUrl;
 
@@ -52,7 +58,8 @@ public class ChatService {
     }
 
     @Transactional
-    public ChatResponseDto saveMessage(Long roomId, Long userId, String message, ChatType chatType) throws Exception {
+    public ChatResponseDto saveMessage(
+            Long roomId, Long userId, String message, ChatType chatType, String username) throws Exception {
         Chat savedChat = null;
         try {
             Chat chat = Chat.builder()
@@ -63,7 +70,7 @@ public class ChatService {
                     .notReadCount(0)
                     .build();
             savedChat = chatRepository.save(chat); // 여기서 inpDate 등이 자동 생성됨
-            return ChatResponseDto.fromEntity(savedChat);
+            return ChatResponseDto.fromEntity(savedChat, username);
         } catch (Exception e) {
             log.error("raised error: {}", e.getMessage());
             throw new Exception();
@@ -74,6 +81,43 @@ public class ChatService {
 
     public List<Chat> getChatList(Long roomId, Long userId) {
         return chatRepository.findByChatRoomIdAndUserId(roomId, userId);
+    }
+
+    public List<ChatResponseDto> getChatResponseList(List<Chat> chats, String authorizationHeader) {
+        Map<Long, String> usernamesByUserId = new HashMap<>();
+        chats.stream()
+                .map(Chat::getUserId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .forEach(userId -> usernamesByUserId.put(userId, getUsername(userId, authorizationHeader)));
+
+        return chats.stream()
+                .map(chat -> ChatResponseDto.fromEntity(chat, usernamesByUserId.get(chat.getUserId())))
+                .toList();
+    }
+
+    public String getUsername(Long userId, String authorizationHeader) {
+        if (authorizationHeader == null || authorizationHeader.isBlank()) {
+            throw new IllegalArgumentException("Authorization 토큰이 필요합니다.");
+        }
+        String bearerToken = authorizationHeader.startsWith("Bearer ")
+                ? authorizationHeader
+                : "Bearer " + authorizationHeader;
+
+        try {
+            CommonApiResponse<ChatParticipantPublicProfileDto> response =
+                    authServiceClient.getUserById(bearerToken, userId);
+            ChatParticipantPublicProfileDto profile = response != null ? response.getData() : null;
+            if (response == null
+                    || !ApiStatusCode.SUCCESS.getCode().equals(response.getStatusCode())
+                    || profile == null
+                    || !userId.equals(profile.getUserId())) {
+                throw new IllegalStateException("Auth 서비스에서 유효한 사용자 프로필을 받지 못했습니다.");
+            }
+            return profile.getUsername();
+        } catch (FeignException.NotFound e) {
+            return null;
+        }
     }
 
     public List<Chat> getAllChats() {

@@ -35,12 +35,13 @@ class ChatControllerTest {
         chatDto.setMessage("guest message");
         chatDto.setChatType(ChatType.CHAT);
         ChatResponseDto expected = mock(ChatResponseDto.class);
-        when(chatService.saveMessage(13L, 42L, "guest message", ChatType.CHAT)).thenReturn(expected);
+        when(chatService.saveMessage(13L, 42L, "guest message", ChatType.CHAT, "member-name"))
+                .thenReturn(expected);
 
-        ChatResponseDto response = chatController.sendMessage(chatDto, principal(42L, null, false));
+        ChatResponseDto response = chatController.sendMessage(chatDto, principal(42L, null, false, "member-name"));
 
         assertThat(response).isSameAs(expected);
-        verify(chatService).saveMessage(13L, 42L, "guest message", ChatType.CHAT);
+        verify(chatService).saveMessage(13L, 42L, "guest message", ChatType.CHAT, "member-name");
     }
 
     @Test
@@ -51,13 +52,13 @@ class ChatControllerTest {
         chatDto.setMessage("guest message");
         chatDto.setChatType(ChatType.CHAT);
         ChatResponseDto expected = mock(ChatResponseDto.class);
-        when(chatService.saveMessage(13L, 42L, "guest message", ChatType.CHAT)).thenReturn(expected);
+        when(chatService.saveMessage(13L, 42L, "guest message", ChatType.CHAT, null)).thenReturn(expected);
 
         ChatResponseDto response = chatController.sendMessage(
-                chatDto, principal(42L, "guest-uuid", true));
+                chatDto, principal(42L, "guest-uuid", true, null));
 
         assertThat(response).isSameAs(expected);
-        verify(chatService).saveMessage(13L, 42L, "guest message", ChatType.CHAT);
+        verify(chatService).saveMessage(13L, 42L, "guest message", ChatType.CHAT, null);
     }
 
     @Test
@@ -69,7 +70,7 @@ class ChatControllerTest {
         chatDto.setChatType(ChatType.CHAT);
 
         assertThatThrownBy(() -> chatController.sendMessage(
-                chatDto, principal(42L, null, false)))
+                chatDto, principal(42L, null, false, null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("요청 userId가 인증된 사용자와 일치하지 않습니다.");
     }
@@ -83,7 +84,7 @@ class ChatControllerTest {
         chatDto.setChatType(ChatType.CHAT);
 
         assertThatThrownBy(() -> chatController.sendMessage(
-                chatDto, principal(42L, "guest-uuid", true)))
+                chatDto, principal(42L, "guest-uuid", true, null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("요청 uuId가 인증된 게스트와 일치하지 않습니다.");
     }
@@ -101,7 +102,7 @@ class ChatControllerTest {
                 .hasMessage("WebSocket 연결에 인증된 토큰이 없습니다.");
     }
 
-    private Principal principal(Long userId, String uuid, boolean guest) {
-        return new ChatUserPrincipal(userId, uuid, guest);
+    private Principal principal(Long userId, String uuid, boolean guest, String username) {
+        return new ChatUserPrincipal(userId, uuid, guest, username);
     }
 }

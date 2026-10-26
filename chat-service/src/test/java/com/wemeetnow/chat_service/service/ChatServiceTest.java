@@ -1,5 +1,10 @@
 package com.wemeetnow.chat_service.service;
 
+import com.wemeetnow.chat_service.client.AuthServiceClient;
+import com.wemeetnow.chat_service.constant.ApiStatusCode;
+import com.wemeetnow.chat_service.domain.Chat;
+import com.wemeetnow.chat_service.dto.ChatParticipantPublicProfileDto;
+import com.wemeetnow.chat_service.dto.CommonApiResponse;
 import com.wemeetnow.chat_service.dto.AuthUserResponse;
 import com.wemeetnow.chat_service.repository.ChatRepository;
 import com.wemeetnow.chat_service.repository.ChatRoomRepository;
@@ -12,9 +17,13 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -25,6 +34,7 @@ class ChatServiceTest {
     private MockRestServiceServer mockServer;
     private ChatService chatService;
     private CommonService commonService;
+    private AuthServiceClient authServiceClient;
 
     @BeforeEach
     void setUp() {
@@ -32,11 +42,13 @@ class ChatServiceTest {
         mockServer = MockRestServiceServer.bindTo(restClientBuilder).build();
         commonService = new CommonService(restClientBuilder);
         ReflectionTestUtils.setField(commonService, "authServiceUrl", "http://auth-service");
+        authServiceClient = mock(AuthServiceClient.class);
         chatService = new ChatService(
                 mock(ChatRepository.class),
                 mock(ChatRoomRepository.class),
                 restClientBuilder,
-                commonService
+                commonService,
+                authServiceClient
         );
         ReflectionTestUtils.setField(chatService, "authServiceUrl", "http://auth-service");
     }
@@ -138,5 +150,47 @@ class ChatServiceTest {
         assertThat(userInfo.getUserId()).isEqualTo(6L);
         assertThat(userInfo.getUsername()).isEqualTo("test-user");
         mockServer.verify();
+    }
+
+    @Test
+    void getChatResponseListLooksUpEachDistinctUserAndReturnsUsername() {
+        List<Chat> chats = List.of(
+                Chat.builder().chatId(1L).userId(8L).build(),
+                Chat.builder().chatId(2L).userId(8L).build(),
+                Chat.builder().chatId(3L).userId(9L).build()
+        );
+        when(authServiceClient.getUserById("Bearer access-token", 8L))
+                .thenReturn(profile(8L, "first-author"));
+        when(authServiceClient.getUserById("Bearer access-token", 9L))
+                .thenReturn(profile(9L, null));
+
+        var responses = chatService.getChatResponseList(chats, "access-token");
+
+        assertThat(responses).extracting("username").containsExactly("first-author", "first-author", null);
+        verify(authServiceClient).getUserById("Bearer access-token", 8L);
+        verify(authServiceClient).getUserById("Bearer access-token", 9L);
+    }
+
+    @Test
+    void getChatResponseListReturnsNullUsernameWhenAuthServiceHasNoUser() {
+        List<Chat> chats = List.of(Chat.builder().chatId(1L).userId(404L).build());
+        when(authServiceClient.getUserById("Bearer access-token", 404L))
+                .thenThrow(mock(feign.FeignException.NotFound.class));
+
+        var responses = chatService.getChatResponseList(chats, "Bearer access-token");
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.get(0).getUsername()).isNull();
+        verify(authServiceClient).getUserById("Bearer access-token", 404L);
+    }
+
+    private CommonApiResponse<ChatParticipantPublicProfileDto> profile(Long userId, String username) {
+        return CommonApiResponse.<ChatParticipantPublicProfileDto>builder()
+                .statusCode(ApiStatusCode.SUCCESS.getCode())
+                .data(ChatParticipantPublicProfileDto.builder()
+                        .userId(userId)
+                        .username(username)
+                        .build())
+                .build();
     }
 }

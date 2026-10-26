@@ -46,7 +46,10 @@ class ChatStompAuthChannelInterceptorTest {
         assertThat(principal.getName()).isEqualTo("42");
         assertThat(principal.uuid()).isEqualTo("guest-uuid");
         assertThat(principal.guest()).isTrue();
+        assertThat(principal.username()).isNull();
         verify(chatService).isValidGuestToken("guest-token");
+        verify(chatService, org.mockito.Mockito.never())
+                .getUsername(org.mockito.ArgumentMatchers.eq(42L), org.mockito.ArgumentMatchers.anyString());
     }
 
     @Test
@@ -57,11 +60,18 @@ class ChatStompAuthChannelInterceptorTest {
         authUser.setUserId(17L);
         when(chatRoomService.isGuestToken("access-token")).thenReturn(guestYn);
         when(chatService.isValidAccessToken("access-token")).thenReturn(authUser);
+        when(chatService.getUsername(
+                org.mockito.ArgumentMatchers.eq(17L), org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn("member-name");
 
         Message<?> authenticated = interceptConnect("Bearer access-token");
 
-        assertThat(StompHeaderAccessor.wrap(authenticated).getUser().getName()).isEqualTo("17");
+        var principal = (ChatUserPrincipal) StompHeaderAccessor.wrap(authenticated).getUser();
+        assertThat(principal.getName()).isEqualTo("17");
+        assertThat(principal.username()).isEqualTo("member-name");
         verify(chatService).isValidAccessToken("access-token");
+        verify(chatService).getUsername(
+                org.mockito.ArgumentMatchers.eq(17L), org.mockito.ArgumentMatchers.anyString());
     }
 
     @Test

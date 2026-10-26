@@ -71,6 +71,7 @@ public class ChatStompAuthChannelInterceptor implements ChannelInterceptor {
         if (isGuest && (uuid == null || uuid.isBlank())) {
             throw new MessageDeliveryException(message, "게스트 토큰에 UUID가 없습니다.");
         }
-        return new ChatUserPrincipal(userId, uuid, isGuest);
+        String username = isGuest ? null : chatService.getUsername(userId, token);
+        return new ChatUserPrincipal(userId, uuid, isGuest, username);
     }
 }

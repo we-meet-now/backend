@@ -57,7 +57,7 @@ public class SecurityConfig {
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/h2-console/**")).permitAll()
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/favicon.ico")).permitAll()
                                  .requestMatchers(AntPathRequestMatcher.antMatcher( "/api/auth/v1/error")).permitAll()
-                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/create-random-nickname")).permitAll()
+                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/create-random-username")).permitAll()
                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/email/**")).permitAll()
                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/no-login/**")).permitAll()
                                 .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/is-guest-token")).permitAll()

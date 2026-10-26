@@ -735,7 +735,7 @@ public class UserApiController {
             @ApiResponse(responseCode = "500", description = "서버 오류",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
-    @PutMapping("/set-username")
+    @PostMapping("/set-username")
     public ResponseEntity<CommonApiResponse<SetUsernameResponseDto>> setUsername(
             @Parameter(name = "Authorization", in = ParameterIn.HEADER,
                     description = "Bearer JWT accessToken 또는 guestToken", required = true,

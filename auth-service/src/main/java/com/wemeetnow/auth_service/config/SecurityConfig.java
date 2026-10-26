@@ -46,7 +46,7 @@ public class SecurityConfig {
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/users/get-user-info")).authenticated()
                                  .requestMatchers(AntPathRequestMatcher.antMatcher(HttpMethod.GET, "/api/auth/v1/friends/invitations")).authenticated()
                                  // Guest tokens do not establish a SecurityContext, so the controller validates both token types.
-                                 .requestMatchers(AntPathRequestMatcher.antMatcher(HttpMethod.PUT, "/api/auth/v1/users/set-username")).permitAll()
+                                 .requestMatchers(AntPathRequestMatcher.antMatcher(HttpMethod.POST, "/api/auth/v1/users/set-username")).permitAll()
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/login/page")).permitAll() // 카카오로그인 테스트용
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/stores/**")).permitAll() // 맛집 추천받기 테스트용
                                  .requestMatchers(AntPathRequestMatcher.antMatcher("/api/auth/v1/kakao/callback")).permitAll() // 카카오로그인 테스트용

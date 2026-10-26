@@ -11,6 +11,7 @@ import com.wemeetnow.auth_service.service.UserService;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,7 +20,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
@@ -48,6 +52,15 @@ class UsernameUpdateTest {
         userService = mock(UserService.class);
         jwtUtil = mock(JwtUtil.class);
         controller = new UserApiController(userService, jwtUtil);
+    }
+
+    @Test
+    void exposesUsernameUpdateAsPostOnly() throws NoSuchMethodException {
+        Method endpoint = UserApiController.class.getMethod(
+                "setUsername", String.class, HttpServletRequest.class, SetUsernameRequestDto.class);
+
+        assertThat(endpoint.getAnnotation(PostMapping.class).value()).containsExactly("/set-username");
+        assertThat(endpoint.getAnnotation(PutMapping.class)).isNull();
     }
 
     @AfterEach

@@ -7,6 +7,7 @@ import com.wemeetnow.chat_service.dto.ChatResponseDto;
 import com.wemeetnow.chat_service.service.ChatService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.security.Principal;
 
@@ -20,11 +21,13 @@ class ChatControllerTest {
 
     private ChatService chatService;
     private ChatController chatController;
+    private SimpMessagingTemplate messagingTemplate;
 
     @BeforeEach
     void setUp() {
         chatService = mock(ChatService.class);
-        chatController = new ChatController(chatService);
+        messagingTemplate = mock(SimpMessagingTemplate.class);
+        chatController = new ChatController(chatService, messagingTemplate);
     }
 
     @Test
@@ -52,13 +55,13 @@ class ChatControllerTest {
         chatDto.setMessage("guest message");
         chatDto.setChatType(ChatType.CHAT);
         ChatResponseDto expected = mock(ChatResponseDto.class);
-        when(chatService.saveMessage(13L, 42L, "guest message", ChatType.CHAT, null)).thenReturn(expected);
+        when(chatService.saveMessage(13L, 42L, "guest message", ChatType.CHAT, "guest-name")).thenReturn(expected);
 
         ChatResponseDto response = chatController.sendMessage(
-                chatDto, principal(42L, "guest-uuid", true, null));
+                chatDto, principal(42L, "guest-uuid", true, "guest-name"));
 
         assertThat(response).isSameAs(expected);
-        verify(chatService).saveMessage(13L, 42L, "guest message", ChatType.CHAT, null);
+        verify(chatService).saveMessage(13L, 42L, "guest message", ChatType.CHAT, "guest-name");
     }
 
     @Test
@@ -87,6 +90,24 @@ class ChatControllerTest {
                 chatDto, principal(42L, "guest-uuid", true, null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("요청 uuId가 인증된 게스트와 일치하지 않습니다.");
+    }
+
+    @Test
+    void sendsRefreshedGuestTokenOnlyToAuthenticatedUserQueue() throws Exception {
+        ChatDto chatDto = new ChatDto();
+        chatDto.setChatRoomId(13L);
+        chatDto.setUuId("guest-uuid");
+        chatDto.setMessage("message");
+        chatDto.setChatType(ChatType.CHAT);
+        ChatUserPrincipal principal = new ChatUserPrincipal(
+                42L, "guest-uuid", true, null, "new-guest-token", "Y");
+
+        chatController.sendMessage(chatDto, principal);
+
+        verify(messagingTemplate).convertAndSendToUser(
+                org.mockito.ArgumentMatchers.eq("42"),
+                org.mockito.ArgumentMatchers.eq("/queue/guest-token"),
+                org.mockito.ArgumentMatchers.any());
     }
 
     @Test

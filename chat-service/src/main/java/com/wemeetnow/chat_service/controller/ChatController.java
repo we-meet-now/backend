@@ -4,23 +4,35 @@ import com.wemeetnow.chat_service.config.ChatUserPrincipal;
 import com.wemeetnow.chat_service.domain.enums.ChatType;
 import com.wemeetnow.chat_service.dto.ChatDto;
 import com.wemeetnow.chat_service.dto.ChatResponseDto;
+import com.wemeetnow.chat_service.dto.GuestTokenRefreshDto;
 import com.wemeetnow.chat_service.service.ChatService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.stereotype.Controller;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.CrossOrigin;
 
 import java.security.Principal;
 
 @Slf4j
 @Controller
-@RequiredArgsConstructor
 public class ChatController {
 
     private final ChatService chatService;
+    private final SimpMessagingTemplate messagingTemplate;
+
+    @Autowired
+    public ChatController(ChatService chatService, SimpMessagingTemplate messagingTemplate) {
+        this.chatService = chatService;
+        this.messagingTemplate = messagingTemplate;
+    }
+
+    public ChatController(ChatService chatService) {
+        this(chatService, null);
+    }
 
     //    @MessageMapping("/chat.sendMessage")
 //    @SendTo("/topic/public")
@@ -41,6 +53,7 @@ public class ChatController {
     @SendTo("/api/chat/v1/message/topic/public")
     public ChatResponseDto sendMessage(@Payload ChatDto chatDto, Principal principal) throws Exception {
         Long userId = authenticatedUserId(chatDto, principal);
+        sendRefreshedGuestToken((ChatUserPrincipal) principal);
         log.info("chat message: roomId={}, userId={}, chatType={}",
                 chatDto.getChatRoomId(), userId, chatDto.getChatType());
         return chatService.saveMessage(
@@ -57,6 +70,7 @@ public class ChatController {
     @SendTo("/api/chat/v1/message/topic/public")
     public ChatResponseDto addUser(@Payload ChatDto chatMessageDto, Principal principal) throws Exception {
         Long userId = authenticatedUserId(chatMessageDto, principal);
+        sendRefreshedGuestToken((ChatUserPrincipal) principal);
         String content = userId + " 님이 입장했습니다.";
         log.info("chat participant joined: roomId={}, userId={}", chatMessageDto.getChatRoomId(), userId);
         return chatService.saveMessage(
@@ -87,5 +101,14 @@ public class ChatController {
             throw new IllegalArgumentException("요청 userId가 인증된 사용자와 일치하지 않습니다.");
         }
         return authenticatedUser.userId();
+    }
+
+    private void sendRefreshedGuestToken(ChatUserPrincipal principal) {
+        if (principal.guest() && "Y".equals(principal.isRefreshed())
+                && principal.guestToken() != null && !principal.guestToken().isBlank()) {
+            messagingTemplate.convertAndSendToUser(
+                    principal.getName(), "/queue/guest-token",
+                    new GuestTokenRefreshDto(principal.guestToken(), principal.isRefreshed()));
+        }
     }
 }

@@ -105,6 +105,7 @@ class ChatServiceTest {
                                   "data": {
                                     "userId": 42,
                                     "uuId": "guest-uuid",
+                                    "username": "guest-name",
                                     "statusCd": "2000",
                                     "statusMsg": "success",
                                     "isGuestYn": "Y",
@@ -121,6 +122,7 @@ class ChatServiceTest {
 
         assertThat(response.getUserId()).isEqualTo(42L);
         assertThat(response.getUuId()).isEqualTo("guest-uuid");
+        assertThat(response.getUsername()).isEqualTo("guest-name");
         mockServer.verify();
     }
 

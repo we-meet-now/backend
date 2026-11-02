@@ -38,7 +38,8 @@ class ChatStompAuthChannelInterceptorTest {
         guestYn.setIsGuestYn("Y");
         when(chatRoomService.isGuestToken("guest-token")).thenReturn(guestYn);
         when(chatService.isValidGuestToken("guest-token"))
-                .thenReturn(AuthGuestResponse.builder().userId(42L).uuId("guest-uuid").build());
+                .thenReturn(AuthGuestResponse.builder().userId(42L).uuId("guest-uuid")
+                        .username("guest-name").guestToken("refreshed-guest-token").isRefreshed("Y").build());
 
         Message<?> authenticated = interceptConnect("Bearer guest-token");
 
@@ -46,10 +47,10 @@ class ChatStompAuthChannelInterceptorTest {
         assertThat(principal.getName()).isEqualTo("42");
         assertThat(principal.uuid()).isEqualTo("guest-uuid");
         assertThat(principal.guest()).isTrue();
-        assertThat(principal.username()).isNull();
+        assertThat(principal.guestToken()).isEqualTo("refreshed-guest-token");
+        assertThat(principal.isRefreshed()).isEqualTo("Y");
+        assertThat(principal.username()).isEqualTo("guest-name");
         verify(chatService).isValidGuestToken("guest-token");
-        verify(chatService, org.mockito.Mockito.never())
-                .getUsername(org.mockito.ArgumentMatchers.eq(42L), org.mockito.ArgumentMatchers.anyString());
     }
 
     @Test

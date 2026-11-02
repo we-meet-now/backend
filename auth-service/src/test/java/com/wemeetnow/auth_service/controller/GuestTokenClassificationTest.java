@@ -121,6 +121,7 @@ class GuestTokenClassificationTest {
         when(userService.validUUID(uuid)).thenReturn(true);
         when(userService.getUserByUUID(uuid)).thenReturn(Optional.of(guestUser));
         when(guestUser.getId()).thenReturn(42L);
+        when(guestUser.getUsername()).thenReturn("guest-name");
         MockHttpServletRequest httpRequest = new MockHttpServletRequest();
         httpRequest.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token);
 
@@ -130,6 +131,7 @@ class GuestTokenClassificationTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody().getData().getUserId()).isEqualTo(42L);
         assertThat(response.getBody().getData().getUuId()).isEqualTo(uuid);
+        assertThat(response.getBody().getData().getUsername()).isEqualTo("guest-name");
         verify(userService).getUserByUUID(uuid);
     }
 

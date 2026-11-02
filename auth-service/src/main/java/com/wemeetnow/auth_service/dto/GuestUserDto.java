@@ -10,6 +10,7 @@ import lombok.Setter;
 public class GuestUserDto {
     private Long userId;
     private String uuId;
+    private String username;
     private String statusCd;
     private String statusMsg;
     private String isGuestYn;

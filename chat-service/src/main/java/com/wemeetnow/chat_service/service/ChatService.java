@@ -156,6 +156,7 @@ public class ChatService {
         return AuthGuestResponse.builder()
                 .userId(data.getUserId())
                 .uuId(data.getUuId())
+                .username(data.getUsername())
                 .guestToken(data.getGuestToken())
                 .isRefreshed(data.getIsRefreshed())
                 .build();

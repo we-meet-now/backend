@@ -54,11 +54,13 @@ public class ChatStompAuthChannelInterceptor implements ChannelInterceptor {
         GuestYnDto guestYn = chatRoomService.isGuestToken(token);
         Long userId;
         String uuid = null;
+        String username = null;
         boolean isGuest = false;
         if (guestYn != null && "Y".equals(guestYn.getIsGuestYn())) {
             AuthGuestResponse guestUser = chatService.isValidGuestToken(token);
             userId = guestUser.getUserId();
             uuid = guestUser.getUuId();
+            username = guestUser.getUsername();
             isGuest = true;
         } else {
             AuthUserResponse authUser = chatService.isValidAccessToken(token);
@@ -71,7 +73,9 @@ public class ChatStompAuthChannelInterceptor implements ChannelInterceptor {
         if (isGuest && (uuid == null || uuid.isBlank())) {
             throw new MessageDeliveryException(message, "게스트 토큰에 UUID가 없습니다.");
         }
-        String username = isGuest ? null : chatService.getUsername(userId, token);
+        if (!isGuest) {
+            username = chatService.getUsername(userId, token);
+        }
         return new ChatUserPrincipal(userId, uuid, isGuest, username);
     }
 }

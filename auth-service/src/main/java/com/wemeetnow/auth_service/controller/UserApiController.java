@@ -263,10 +263,8 @@ public class UserApiController {
     }
 
     @Operation(
-            summary = "GuestToken으로 userId 조회",
-            description = "Authorization 헤더의 JWT GuestToken에서 UUID를 확인하고 해당 사용자 ID(userId)를 반환합니다. " +
-                    "요청 본문의 uuid는 선택값이며, 전달하면 토큰의 UUID와 일치해야 합니다. " +
-                    "만료된 게스트 토큰은 같은 UUID의 새 토큰을 반환합니다."
+            summary = "GuestToken으로 userId 및 username 조회",
+            description = "Authorization 헤더의 guest Bearer 토큰과 요청 UUID를 검증하고 UUID에 연결된 사용자 userId와 username을 반환합니다. 요청 본문의 UUID가 있으면 토큰의 UUID와 일치해야 하며, 만료된 토큰은 갱신된 guest token도 반환합니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "userId 조회 성공", useReturnTypeSchema = true),
@@ -325,6 +323,7 @@ public class UserApiController {
         GuestUserDto responseDto = GuestUserDto.builder()
                 .userId(userId)
                 .uuId(uuid)
+                .username(findUser.getUsername())
                 .statusCd("2000")
                 .statusMsg("success")
                 .isGuestYn("Y")

@@ -30,7 +30,7 @@ public class UserLog {
     @Column(name = "inp_date", nullable = false, updatable = false)
     private LocalDateTime inpDate;
 
-    @Column(name = "inp_user_id", nullable = false, length = 255, updatable = false)
+    @Column(name = "inp_user_id", nullable = true, length = 255, updatable = false)
     private String inpUserId;
 
     @Column(name = "req_method", nullable = false, length = 20, updatable = false)

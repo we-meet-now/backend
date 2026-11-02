@@ -34,7 +34,8 @@ class UserPublicProfileTest {
         ReflectionTestUtils.setField(user, "id", 7L);
         when(userService.getUserById(7L)).thenReturn(Optional.of(user));
 
-        UserApiController controller = new UserApiController(userService, mock(JwtUtil.class));
+        UserApiController controller = new UserApiController(
+                userService, mock(JwtUtil.class), mock(com.wemeetnow.auth_service.service.UserLogService.class));
         JsonNode response = new ObjectMapper().valueToTree(controller.getUserById(7L).getBody());
 
         assertThat(response.at("/data/userId").asLong()).isEqualTo(7L);
@@ -55,7 +56,8 @@ class UserPublicProfileTest {
         ReflectionTestUtils.setField(user, "id", 11L);
         when(userService.getAllUsers()).thenReturn(List.of(user));
 
-        UserApiController controller = new UserApiController(userService, mock(JwtUtil.class));
+        UserApiController controller = new UserApiController(
+                userService, mock(JwtUtil.class), mock(com.wemeetnow.auth_service.service.UserLogService.class));
         UserTableRowDto row = controller.getUsersAll().getBody().getData().get(0);
 
         assertThat(row.getUserId()).isEqualTo(11L);

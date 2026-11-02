@@ -8,6 +8,7 @@ import com.wemeetnow.auth_service.dto.SetUsernameRequestDto;
 import com.wemeetnow.auth_service.dto.SetUsernameResponseDto;
 import com.wemeetnow.auth_service.exception.CustomException;
 import com.wemeetnow.auth_service.service.UserService;
+import com.wemeetnow.auth_service.service.UserLogService;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
@@ -51,7 +52,7 @@ class UsernameUpdateTest {
         ReflectionTestUtils.setField(JwtUtil.class, "SECRET_KEY", SECRET);
         userService = mock(UserService.class);
         jwtUtil = mock(JwtUtil.class);
-        controller = new UserApiController(userService, jwtUtil);
+        controller = new UserApiController(userService, jwtUtil, mock(UserLogService.class));
     }
 
     @Test

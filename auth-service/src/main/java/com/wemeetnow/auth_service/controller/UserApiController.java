@@ -6,6 +6,7 @@ import com.wemeetnow.auth_service.domain.enums.ErrorCode;
 import com.wemeetnow.auth_service.dto.*;
 import com.wemeetnow.auth_service.exception.CustomException;
 import com.wemeetnow.auth_service.service.UserService;
+import com.wemeetnow.auth_service.service.UserLogService;
 import io.jsonwebtoken.Claims;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -33,26 +34,41 @@ import java.util.List;
 public class UserApiController {
     private final UserService userService;
     private final JwtUtil jwtUtil;
+    private final UserLogService userLogService;
 
     @Operation(
             summary = "회원가입",
-            description = "이메일, 비밀번호, 이름(닉네임), 역할(role)을 입력하여 회원가입합니다."
+            description = "이메일, 비밀번호, 사용자 이름을 받아 계정을 생성합니다. 인증 없이 호출할 수 있으며, "
+                    + "가입 성공과 실패 요청의 식별자 및 요청 정보를 USER_LOG에 기록합니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "회원가입 성공", useReturnTypeSchema = true),
-            @ApiResponse(responseCode = "500", description = "서버 오류 (이메일 중복, 비밀번호 불일치 등)",
+            @ApiResponse(responseCode = "400", description = "요청 본문 또는 필수 회원가입 정보 누락",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "500", description = "회원가입 처리 중 서버 오류",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
     @PostMapping("/join")
-    public ResponseEntity<CommonApiResponse<UserJoinResponseDto>> join(@RequestBody UserJoinRequestDto requestDto) {
-        
-        // 필수 필드 null 체크
+    public ResponseEntity<CommonApiResponse<UserJoinResponseDto>> join(
+            @RequestBody UserJoinRequestDto requestDto,
+            HttpServletRequest servletRequest
+    ) {
+        return userLogService.executeWithLogging(
+                servletRequest,
+                () -> resolveUserIdByEmail(requestDto == null ? null : requestDto.getEmail()),
+                "/api/auth/v1/users/join",
+                () -> performJoin(requestDto),
+                response -> response.getStatusCode().value()
+        );
+    }
+
+    private ResponseEntity<CommonApiResponse<UserJoinResponseDto>> performJoin(UserJoinRequestDto requestDto) {
         if (requestDto == null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
                     CommonApiResponse.<UserJoinResponseDto>builder()
                             .statusCode("4000")
                             .data(null)
-                            .message("요청 데이터가 비어있습니다.")
+                            .message("요청 데이터가 비어 있습니다.")
                             .build()
             );
         }
@@ -61,7 +77,7 @@ public class UserApiController {
                     CommonApiResponse.<UserJoinResponseDto>builder()
                             .statusCode("4000")
                             .data(null)
-                            .message("이메일을 입력해주세요.")
+                            .message("이메일을 입력해 주세요.")
                             .build()
             );
         }
@@ -70,7 +86,7 @@ public class UserApiController {
                     CommonApiResponse.<UserJoinResponseDto>builder()
                             .statusCode("4000")
                             .data(null)
-                            .message("비밀번호를 입력해주세요.")
+                            .message("비밀번호를 입력해 주세요.")
                             .build()
             );
         }
@@ -79,7 +95,7 @@ public class UserApiController {
                     CommonApiResponse.<UserJoinResponseDto>builder()
                             .statusCode("4000")
                             .data(null)
-                            .message("비밀번호 확인을 입력해주세요.")
+                            .message("비밀번호 확인을 입력해 주세요.")
                             .build()
             );
         }
@@ -88,44 +104,54 @@ public class UserApiController {
                     CommonApiResponse.<UserJoinResponseDto>builder()
                             .statusCode("4000")
                             .data(null)
-                            .message("사용자명을 입력해주세요.")
+                            .message("사용자 이름을 입력해 주세요.")
                             .build()
             );
         }
 
-        UserJoinResponseDto resDto = userService.join(requestDto);
-
+        UserJoinResponseDto responseDto = userService.join(requestDto);
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 CommonApiResponse.<UserJoinResponseDto>builder()
                         .statusCode("2010")
-                        .data(resDto)
+                        .data(responseDto)
                         .message("회원가입 성공")
                         .build()
         );
-
-
     }
 
     @Operation(
             summary = "로그인",
-            description = "이메일과 비밀번호로 로그인하여 AccessToken과 RefreshToken을 발급받습니다."
+            description = "이메일과 비밀번호로 로그인하고 Access Token과 Refresh Token을 발급합니다. "
+                    + "인증 없이 호출할 수 있으며, 계정 식별자와 요청 정보는 성공·실패 모두 USER_LOG에 기록합니다."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "202", description = "로그인 성공 (AccessToken, RefreshToken 반환)", useReturnTypeSchema = true),
-            @ApiResponse(responseCode = "500", description = "서버 오류 (이메일 미존재, 비밀번호 불일치 등)",
+            @ApiResponse(responseCode = "202", description = "로그인 성공 및 토큰 발급", useReturnTypeSchema = true),
+            @ApiResponse(responseCode = "400", description = "요청 본문 또는 필수 로그인 정보 누락",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "500", description = "계정이 없거나 비밀번호가 일치하지 않아 로그인 실패",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
     @PostMapping("/login")
-    public ResponseEntity<CommonApiResponse<UserLoginResponseDto>> login(@RequestBody UserLoginRequestDto requestDto) {
-        log.info("UserLoginRequestDto = [{}]", requestDto);
-        
-        // 필수 필드 null 체크
+    public ResponseEntity<CommonApiResponse<UserLoginResponseDto>> login(
+            @RequestBody UserLoginRequestDto requestDto,
+            HttpServletRequest servletRequest
+    ) {
+        return userLogService.executeWithLogging(
+                servletRequest,
+                () -> resolveUserIdByEmail(requestDto == null ? null : requestDto.getEmail()),
+                "/api/auth/v1/users/login",
+                () -> performLogin(requestDto),
+                response -> response.getStatusCode().value()
+        );
+    }
+
+    private ResponseEntity<CommonApiResponse<UserLoginResponseDto>> performLogin(UserLoginRequestDto requestDto) {
         if (requestDto == null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
                     CommonApiResponse.<UserLoginResponseDto>builder()
                             .statusCode("4000")
                             .data(null)
-                            .message("요청 데이터가 비어있습니다.")
+                            .message("요청 데이터가 비어 있습니다.")
                             .build()
             );
         }
@@ -134,7 +160,7 @@ public class UserApiController {
                     CommonApiResponse.<UserLoginResponseDto>builder()
                             .statusCode("4000")
                             .data(null)
-                            .message("이메일을 입력해주세요.")
+                            .message("이메일을 입력해 주세요.")
                             .build()
             );
         }
@@ -143,13 +169,12 @@ public class UserApiController {
                     CommonApiResponse.<UserLoginResponseDto>builder()
                             .statusCode("4000")
                             .data(null)
-                            .message("비밀번호를 입력해주세요.")
+                            .message("비밀번호를 입력해 주세요.")
                             .build()
             );
         }
 
         UserLoginResponseDto responseDto = userService.login(requestDto);
-
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(
                 CommonApiResponse.<UserLoginResponseDto>builder()
                         .statusCode("2020")
@@ -157,6 +182,12 @@ public class UserApiController {
                         .message("로그인 성공")
                         .build()
         );
+    }
+
+    private String resolveUserIdByEmail(String email) {
+        return userService.getUserIdByEmail(email)
+                .map(String::valueOf)
+                .orElse(null);
     }
 
     @Operation(

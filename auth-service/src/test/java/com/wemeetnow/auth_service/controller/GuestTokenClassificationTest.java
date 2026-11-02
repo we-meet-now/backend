@@ -43,7 +43,8 @@ class GuestTokenClassificationTest {
         originalSecret = ReflectionTestUtils.getField(JwtUtil.class, "SECRET_KEY");
         ReflectionTestUtils.setField(JwtUtil.class, "SECRET_KEY", SECRET);
         userService = mock(UserService.class);
-        controller = new UserApiController(userService, mock(JwtUtil.class));
+        controller = new UserApiController(
+                userService, mock(JwtUtil.class), mock(com.wemeetnow.auth_service.service.UserLogService.class));
     }
 
     @AfterEach

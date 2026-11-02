@@ -15,6 +15,15 @@ For new or materially refactored API endpoints:
 - Use typed request and response DTOs. Validate required values and return the appropriate `ErrorCode` through `CustomException`; rely on `GlobalExceptionHandler` for the common error response.
 - Add or update focused tests for successful behavior and relevant validation, authorization, and not-found cases.
 
+### `auth-service` User Access Logging
+
+- For user-facing `auth-service` API methods whose access should be audited, wrap the operation with `UserLogService.executeWithLogging(...)`. It records returned HTTP statuses and thrown failures, measures duration, and writes the row through `UserLogPersistenceService` in a separate transaction.
+- Pass the canonical endpoint path as `menuLink`, a `Supplier<String>` that resolves the persisted `User.user_id`, the operation, and a status resolver that returns the actual HTTP status (for example, `response -> response.getStatusCode().value()`).
+- Never store the submitted email, username, request-supplied ID, password, token, or a hardcoded value in `inp_user_id`. Resolve the ID from the persisted `User`; return `null` when no persisted user exists, such as an unknown-account login attempt. Keep `UserLog.inpUserId` nullable for that case.
+- Do not log credentials, tokens, or raw request bodies. `UserLogService` fills request method, IP, request ID, user agent, request URI, device type, status, and duration.
+- Use `UserLogService.recordUserLog(...)` when an operation cannot be wrapped, supplying the resolved persisted user ID, endpoint path, HTTP status, and elapsed duration.
+- Add focused tests for both successful and failed operations, including the resolved `inp_user_id` and response status.
+
 For services outside `auth-service`, use that service's existing authentication and API response conventions rather than assuming its JWT implementation is shared.
 
 ### `chat-service` User Identity

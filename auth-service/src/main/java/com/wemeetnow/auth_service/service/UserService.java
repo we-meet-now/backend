@@ -70,6 +70,12 @@ public class UserService{
     public User getUserByEmail(String email){
         return userRepository.findByEmail(email).orElseThrow(() -> new UsernameNotFoundException("일치하는 사용자 이메일이 없습니다."));
     }
+    public Optional<Long> getUserIdByEmail(String email) {
+        if (email == null || email.isBlank()) {
+            return Optional.empty();
+        }
+        return userRepository.findByEmail(email).map(User::getId);
+    }
     public Optional<User> getUserById(Long id) {
         return userRepository.findById(id);
     }

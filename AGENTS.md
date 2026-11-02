@@ -1,5 +1,9 @@
 # Repository Instructions
 
+## Windows Test Worktrees
+
+- On Windows, when creating a Git worktree to test a commit or branch separately, create the worktree on the same drive as the project being tested. For example, if the project is on `D:`, put the test worktree on `D:` as well; do not use the default `C:` temporary directory for the worktree.
+
 ## Spring API Development
 
 For new or materially refactored API endpoints:

@@ -1,4 +1,7 @@
 .vscode
+.venv-mcp/
+__pycache__/
+**/__pycache__/
 ### db, auth properties ###
 service-discovery/src/main/resources-env/dev/application-db.properties
 service-discovery/src/main/resources-env/dev/application-auth.properties

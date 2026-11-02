@@ -27,7 +27,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
         // Simple broker를 활성화하고 "/topic" prefix를 사용
-        config.enableSimpleBroker("/api/chat/v1/message/topic");
+        config.enableSimpleBroker("/api/chat/v1/message/topic", "/queue");
         // 클라이언트에서 서버로 보내는 메시지의 prefix를 "/app"으로 설정
         config.setApplicationDestinationPrefixes("/api/chat/v1/message/app");
         System.out.println("WebSocketConfig.configureMessageBroker - 메시지 브로커 설정 완료");

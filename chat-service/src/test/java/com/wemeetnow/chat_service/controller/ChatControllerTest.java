@@ -4,9 +4,11 @@ import com.wemeetnow.chat_service.config.ChatUserPrincipal;
 import com.wemeetnow.chat_service.domain.enums.ChatType;
 import com.wemeetnow.chat_service.dto.ChatDto;
 import com.wemeetnow.chat_service.dto.ChatResponseDto;
+import com.wemeetnow.chat_service.dto.GuestTokenRefreshDto;
 import com.wemeetnow.chat_service.service.ChatService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.security.Principal;
@@ -104,10 +106,16 @@ class ChatControllerTest {
 
         chatController.sendMessage(chatDto, principal);
 
+        ArgumentCaptor<Object> payloadCaptor = ArgumentCaptor.forClass(Object.class);
         verify(messagingTemplate).convertAndSendToUser(
                 org.mockito.ArgumentMatchers.eq("42"),
                 org.mockito.ArgumentMatchers.eq("/queue/guest-token"),
-                org.mockito.ArgumentMatchers.any());
+                payloadCaptor.capture());
+
+        assertThat(payloadCaptor.getValue()).isInstanceOf(GuestTokenRefreshDto.class);
+        GuestTokenRefreshDto refreshDto = (GuestTokenRefreshDto) payloadCaptor.getValue();
+        assertThat(refreshDto.getGuestToken()).isEqualTo("new-guest-token");
+        assertThat(refreshDto.getIsRefreshed()).isEqualTo("Y");
     }
 
     @Test

@@ -55,12 +55,16 @@ public class ChatStompAuthChannelInterceptor implements ChannelInterceptor {
         Long userId;
         String uuid = null;
         String username = null;
+        String guestToken = null;
+        String isRefreshed = "N";
         boolean isGuest = false;
         if (guestYn != null && "Y".equals(guestYn.getIsGuestYn())) {
             AuthGuestResponse guestUser = chatService.isValidGuestToken(token);
             userId = guestUser.getUserId();
             uuid = guestUser.getUuId();
             username = guestUser.getUsername();
+            guestToken = guestUser.getGuestToken();
+            isRefreshed = guestUser.getIsRefreshed();
             isGuest = true;
         } else {
             AuthUserResponse authUser = chatService.isValidAccessToken(token);
@@ -76,6 +80,10 @@ public class ChatStompAuthChannelInterceptor implements ChannelInterceptor {
         if (!isGuest) {
             username = chatService.getUsername(userId, token);
         }
-        return new ChatUserPrincipal(userId, uuid, isGuest, username);
+        if (isGuest) {
+            return new ChatUserPrincipal(
+                    userId, uuid, true, username, guestToken, isRefreshed);
+        }
+        return new ChatUserPrincipal(userId, uuid, false, username);
     }
 }

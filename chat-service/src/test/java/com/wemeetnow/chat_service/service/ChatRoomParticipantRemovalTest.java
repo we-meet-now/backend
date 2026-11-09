@@ -77,7 +77,8 @@ class ChatRoomParticipantRemovalTest {
                 ROOM_ID, OWNER_ID, REMOVED_USER_IDS, AUTHORIZATION);
 
         assertThat(removed).containsExactlyElementsOf(REMOVED_USER_IDS);
-        verify(chatParticipantRepository).removeByChatRoomIdAndUserIds(ROOM_ID, REMOVED_USER_IDS);
+        verify(chatParticipantRepository)
+                .removeByChatRoomIdAndUserIds(ROOM_ID, REMOVED_USER_IDS, OWNER_ID.toString());
     }
 
     @Test
@@ -91,7 +92,8 @@ class ChatRoomParticipantRemovalTest {
                 .hasFieldOrPropertyWithValue("httpStatus", HttpStatus.FORBIDDEN);
 
         verify(authServiceClient, never()).getUserById(AUTHORIZATION, REMOVED_USER_IDS.get(0));
-        verify(chatParticipantRepository, never()).removeByChatRoomIdAndUserIds(ROOM_ID, REMOVED_USER_IDS);
+        verify(chatParticipantRepository, never())
+                .removeByChatRoomIdAndUserIds(ROOM_ID, REMOVED_USER_IDS, "10");
     }
 
     @Test
@@ -104,7 +106,8 @@ class ChatRoomParticipantRemovalTest {
                 .hasFieldOrPropertyWithValue("apiStatusCode", ApiStatusCode.RESOURCE_NOT_FOUND)
                 .hasFieldOrPropertyWithValue("httpStatus", HttpStatus.NOT_FOUND);
 
-        verify(chatParticipantRepository, never()).removeByChatRoomIdAndUserIds(ROOM_ID, REMOVED_USER_IDS);
+        verify(chatParticipantRepository, never())
+                .removeByChatRoomIdAndUserIds(ROOM_ID, REMOVED_USER_IDS, OWNER_ID.toString());
     }
 
     @Test
@@ -116,7 +119,8 @@ class ChatRoomParticipantRemovalTest {
                 .hasFieldOrPropertyWithValue("httpStatus", HttpStatus.BAD_REQUEST);
 
         verify(chatRoomRepository, never()).findById(ROOM_ID);
-        verify(chatParticipantRepository, never()).removeByChatRoomIdAndUserIds(ROOM_ID, REMOVED_USER_IDS);
+        verify(chatParticipantRepository, never())
+                .removeByChatRoomIdAndUserIds(ROOM_ID, REMOVED_USER_IDS, OWNER_ID.toString());
     }
 
     @Test
@@ -131,7 +135,7 @@ class ChatRoomParticipantRemovalTest {
         verify(chatRoomRepository, never()).findById(ROOM_ID);
         verify(authServiceClient, never()).getUserById(AUTHORIZATION, OWNER_ID);
         verify(chatParticipantRepository, never())
-                .removeByChatRoomIdAndUserIds(ROOM_ID, REMOVED_USER_IDS);
+                .removeByChatRoomIdAndUserIds(ROOM_ID, REMOVED_USER_IDS, OWNER_ID.toString());
     }
 
     @Test
@@ -147,7 +151,7 @@ class ChatRoomParticipantRemovalTest {
                 .hasFieldOrPropertyWithValue("httpStatus", HttpStatus.NOT_FOUND);
 
         verify(chatParticipantRepository, never())
-                .removeByChatRoomIdAndUserIds(ROOM_ID, REMOVED_USER_IDS);
+                .removeByChatRoomIdAndUserIds(ROOM_ID, REMOVED_USER_IDS, OWNER_ID.toString());
     }
 
     @Test
@@ -166,7 +170,7 @@ class ChatRoomParticipantRemovalTest {
                 .hasFieldOrPropertyWithValue("httpStatus", HttpStatus.NOT_FOUND);
 
         verify(chatParticipantRepository, never())
-                .removeByChatRoomIdAndUserIds(ROOM_ID, REMOVED_USER_IDS);
+                .removeByChatRoomIdAndUserIds(ROOM_ID, REMOVED_USER_IDS, OWNER_ID.toString());
     }
 
     private ChatRoom roomOwnedBy(Long userId) {

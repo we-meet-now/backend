@@ -127,7 +127,7 @@ public class ChatRoomService {
     // ChatRoomService.java
     @Transactional
     public void leaveRoom(Long roomId, Long userId) {
-        chatParticipantsRepository.deleteByChatRoomIdAndUserId(roomId, userId);
+        chatParticipantsRepository.deleteByChatRoomIdAndUserId(roomId, userId, userId.toString());
     }
 
     @Transactional
@@ -337,7 +337,8 @@ public class ChatRoomService {
                     "퇴장 대상 중 채팅방 참여자가 아닌 사용자가 있습니다: " + usersNotInRoom);
         }
 
-        chatParticipantsRepository.removeByChatRoomIdAndUserIds(roomId, removedUserIdList);
+        chatParticipantsRepository.removeByChatRoomIdAndUserIds(
+                roomId, removedUserIdList, requesterUserId.toString());
         return List.copyOf(removedUserIdList);
     }
 

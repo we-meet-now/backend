@@ -24,14 +24,22 @@ public interface ChatParticipantRepository extends JpaRepository<ChatParticipant
     List<Long> findByChatRoomId(@Param("roomId") Long roomId, @Param("userId") Long userId);
 
     @Modifying
-    @Query("UPDATE ChatParticipant cp SET cp.useYn = 'N' WHERE cp.chatRoomId = :roomId AND cp.userId = :userId")
-    void deleteByChatRoomIdAndUserId(@Param("roomId") Long roomId, @Param("userId") Long userId);
+    @Query("UPDATE ChatParticipant cp SET cp.useYn = 'N', cp.mdfyUserId = :mdfyUserId, " +
+            "cp.mdfyDate = CURRENT_TIMESTAMP " +
+            "WHERE cp.chatRoomId = :roomId AND cp.userId = :userId")
+    void deleteByChatRoomIdAndUserId(
+            @Param("roomId") Long roomId,
+            @Param("userId") Long userId,
+            @Param("mdfyUserId") String mdfyUserId);
 
     @Modifying
-    @Query("UPDATE ChatParticipant cp SET cp.useYn = 'N' " +
+    @Query("UPDATE ChatParticipant cp SET cp.useYn = 'N', cp.mdfyUserId = :mdfyUserId, " +
+            "cp.mdfyDate = CURRENT_TIMESTAMP " +
             "WHERE cp.chatRoomId = :roomId AND cp.userId IN :userIds AND cp.useYn = 'Y'")
     int removeByChatRoomIdAndUserIds(
-            @Param("roomId") Long roomId, @Param("userIds") List<Long> userIds);
+            @Param("roomId") Long roomId,
+            @Param("userIds") List<Long> userIds,
+            @Param("mdfyUserId") String mdfyUserId);
 
     @Query("SELECT cp FROM ChatParticipant cp WHERE cp.chatRoomId = :roomId AND cp.useYn = 'Y'")
     List<ChatParticipant> findByAnonymousChatRoomId(Long roomId);

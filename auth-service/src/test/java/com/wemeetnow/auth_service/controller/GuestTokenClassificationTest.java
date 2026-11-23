@@ -6,6 +6,9 @@ import com.wemeetnow.auth_service.dto.CommonApiResponse;
 import com.wemeetnow.auth_service.dto.GuestCheckRequestDto;
 import com.wemeetnow.auth_service.dto.GuestIdRequestDto;
 import com.wemeetnow.auth_service.dto.GuestYnDto;
+import com.wemeetnow.auth_service.dto.ChatGuestTokenInfoDto;
+import com.wemeetnow.auth_service.domain.enums.ErrorCode;
+import com.wemeetnow.auth_service.exception.CustomException;
 import com.wemeetnow.auth_service.service.UserService;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -25,6 +28,7 @@ import java.util.Date;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -148,6 +152,37 @@ class GuestTokenClassificationTest {
                 controller.getUserIdFromGuestToken(request, httpRequest);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        verifyNoInteractions(userService);
+    }
+
+    @Test
+    void issuesGuestTokenForUuidThroughPublicEndpoint() {
+        String uuid = "existing-guest-uuid";
+        String guestToken = "signed-guest-token";
+        GuestIdRequestDto request = new GuestIdRequestDto();
+        request.setUuid(uuid);
+        when(userService.issueGuestToken(uuid)).thenReturn(ChatGuestTokenInfoDto.builder()
+                .uuId(uuid)
+                .guestToken(guestToken)
+                .build());
+
+        ResponseEntity<CommonApiResponse<ChatGuestTokenInfoDto>> response =
+                controller.getGuestTokenByUuid(request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().getStatusCode()).isEqualTo("2000");
+        assertThat(response.getBody().getData().getUuId()).isEqualTo(uuid);
+        assertThat(response.getBody().getData().getGuestToken()).isEqualTo(guestToken);
+        verify(userService).issueGuestToken(uuid);
+    }
+
+    @Test
+    void rejectsMissingUuidForPublicGuestTokenEndpoint() {
+        assertThatThrownBy(() -> controller.getGuestTokenByUuid(new GuestIdRequestDto()))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
         verifyNoInteractions(userService);
     }
 

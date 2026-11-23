@@ -226,6 +226,26 @@ public class UserService{
                 .build();
     }
 
+    public ChatGuestTokenInfoDto issueGuestToken(String uuid) {
+        if (uuid == null || uuid.isBlank()) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        if (userRepository.findByUuid(uuid).isEmpty()) {
+            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        }
+
+        String guestToken = jwtUtil.generateGuestToken(uuid);
+        if (guestToken == null || guestToken.isBlank() || "emptyString".equals(guestToken)) {
+            log.error("기존 게스트 UUID에 대한 토큰 생성에 실패했습니다.");
+            throw new CustomException(ErrorCode.GUEST_TOKEN_CREATE_FAILED);
+        }
+
+        return ChatGuestTokenInfoDto.builder()
+                .uuId(uuid)
+                .guestToken(guestToken)
+                .build();
+    }
+
     public Optional<User> getUserByUUID(String uuid) {
         return userRepository.findByUuid(uuid);
     }

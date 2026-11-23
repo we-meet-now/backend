@@ -133,6 +133,100 @@ $guestTokenB = $guestB.data.guestToken
 
 각 쌍은 반드시 같은 응답에서 받은 UUID와 guestToken을 함께 사용하세요. A의 UUID와 B의 guestToken을 섞으면 안 됩니다.
 
+### UUID만 가지고 guestToken을 만들 수 있나요?
+
+기존 게스트 UUID가 있으면 `POST /api/auth/v1/users/no-login/get-guest-token-by-uuid`로 그 UUID에 대한 guestToken을 발급할 수 있습니다. 요청 body는 UUID 하나이며 Authorization은 필요하지 않습니다. UUID는 게스트 인증 자격 증명이므로, 이 API를 호출할 수 있는 사람은 해당 UUID의 guestToken을 발급받을 수 있습니다. UUID를 비밀번호처럼 안전하게 보관하세요.
+
+이 API는 기존 UUID가 실제 사용자로 등록되어 있는지 확인하고 해당 사용자에 대한 guestToken을 반환합니다. 새 게스트 사용자를 생성하거나 UUID를 새로 만들지는 않습니다. 등록되지 않은 UUID는 `404`입니다.
+
+요청 입력 예시는 다음과 같습니다. UUID는 예시값이 아니라 DB에 등록된 실제 게스트 UUID로 바꿔야 합니다.
+
+| 항목 | 값 |
+|---|---|
+| HTTP method/path | `POST /api/auth/v1/users/no-login/get-guest-token-by-uuid` |
+| Request body | `{"uuid":"<기존 게스트 UUID>"}` |
+| Authorization | 불필요 |
+| Content-Type | `application/json` |
+
+요청 예시:
+
+```json
+{
+  "uuid": "123e4567-e89b-12d3-a456-426614174000"
+}
+```
+
+발급 성공 응답에는 요청한 UUID와 새 guestToken이 포함됩니다.
+
+```json
+{
+  "statusCode": "2000",
+  "data": {
+    "uuId": "123e4567-e89b-12d3-a456-426614174000",
+    "guestToken": "<발급된 JWT>"
+  },
+  "message": "UUID로 게스트 토큰 발급 성공"
+}
+```
+
+실제 응답의 `data.uuId`는 요청 UUID와 같아야 합니다. Chat API를 호출할 때는 `Authorization: Bearer <data.guestToken>`과 `?uuid=<data.uuId>`를 함께 사용합니다. Chat API의 쿼리 파라미터 이름은 소문자 `uuid`입니다.
+
+PowerShell 예시:
+
+```powershell
+$existingUuid = '123e4567-e89b-12d3-a456-426614174000'
+$guestTokenRequest = @{ uuid = $existingUuid } | ConvertTo-Json
+$guestCredential = Invoke-RestMethod `
+  -Method Post `
+  -Uri "$authApi/api/auth/v1/users/no-login/get-guest-token-by-uuid" `
+  -ContentType 'application/json' `
+  -Body $guestTokenRequest
+
+$guestCredential.data.uuId
+$guestCredential.data.guestToken
+```
+
+Swagger UI에서는 `http://localhost:6112/api/auth/v1/swagger-ui.html`을 열고 `POST /api/auth/v1/users/no-login/get-guest-token-by-uuid`의 **Try it out**을 누른 뒤 `{"uuid":"<기존 게스트 UUID>"}`를 입력해 실행하면 됩니다. Swagger의 UUID 예시값은 형식 안내용이므로 실제 등록 UUID로 교체하세요.
+
+### 기존 UUID의 guestToken 갱신
+
+기존 guestToken을 함께 보유하고 있으면 Auth 서비스의 `POST /api/auth/v1/users/get-guest-id`로 토큰을 검증하고 사용자 ID/이름을 확인할 수 있습니다. guestToken이 만료된 경우에도 기존 토큰에서 UUID를 확인할 수 있으면 새 guestToken을 발급합니다. 이 검증/갱신 API는 Authorization의 guestToken과 body의 UUID가 일치해야 합니다. guestToken을 분실하고 UUID만 남은 경우에는 앞 절의 `/no-login/get-guest-token-by-uuid`를 사용하세요.
+
+Swagger UI를 사용할 경우 `http://localhost:6112/api/auth/v1/swagger-ui.html`을 열고 `POST /api/auth/v1/users/get-guest-id`에서 **Try it out**을 누릅니다. Authorization 헤더와 JSON request body에 아래 값을 입력한 뒤 Execute를 누르세요.
+
+예상 입력:
+
+```http
+POST /api/auth/v1/users/get-guest-id
+Authorization: Bearer <기존 guestToken>
+Content-Type: application/json
+```
+
+```json
+{
+  "uuid": "123e4567-e89b-12d3-a456-426614174000"
+}
+```
+
+`uuid`에는 Authorization의 guestToken으로부터 확인되는 UUID와 정확히 같은 값을 넣어야 합니다. PowerShell 예시:
+
+```powershell
+$refreshBody = @{ uuid = $guestUuidA } | ConvertTo-Json
+$refreshHeaders = @{ Authorization = "Bearer $guestTokenA" }
+$guestInfo = Invoke-RestMethod `
+  -Method Post `
+  -Uri "$authApi/api/auth/v1/users/get-guest-id" `
+  -Headers $refreshHeaders `
+  -ContentType 'application/json' `
+  -Body $refreshBody
+
+$guestInfo.data.uuId
+$guestInfo.data.guestToken
+$guestInfo.data.isRefreshed
+```
+
+기대 결과는 HTTP `200`, `statusCode: "2000"`입니다. `data.isRefreshed`가 `"N"`이면 기존 guestToken이 아직 유효하여 그대로 반환된 것이고, `"Y"`이면 만료된 기존 토큰을 검증하고 새 guestToken을 발급한 것입니다. 이후 Chat API에는 응답의 `data.uuId`와 `data.guestToken`을 사용하세요. UUID와 token이 일치하지 않으면 인증 실패 응답을 받습니다.
+
 ## 5. 성공 요청
 
 ### A — 로그인 사용자 목록
@@ -322,6 +416,24 @@ Auth 서비스가 응답하지 않거나 서버 내부 오류가 발생하면 `5
 
 ### 비로그인 게스트로 실행
 
+#### UUID는 있지만 guestToken이 없는 경우
+
+1. Auth 서비스 Swagger UI `http://localhost:6112/api/auth/v1/swagger-ui.html`을 엽니다.
+2. `POST /api/auth/v1/users/no-login/get-guest-token-by-uuid`에서 **Try it out**을 누릅니다.
+3. Authorization은 비워 두고 Request Body에 기존 UUID를 입력합니다.
+
+   ```json
+   {
+     "uuid": "123e4567-e89b-12d3-a456-426614174000"
+   }
+   ```
+
+   UUID는 형식 참고용이므로 실제 등록되어 있는 UUID로 교체하세요. 성공 응답의 `data.guestToken`은 새 토큰이며, `data.uuId`는 요청 UUID와 같아야 합니다. UUID를 아는 사람은 토큰을 발급할 수 있으므로 공유하지 마세요.
+
+4. 아래 Chat API 요청의 Authorization에는 응답의 `data.guestToken`을, `uuid`에는 같은 응답의 `data.uuId`를 입력합니다.
+
+#### 새 게스트로 실행
+
 1. Auth 서비스 Swagger UI에서 `GET /api/auth/v1/users/no-login/get-guest-token`을 실행합니다.
 2. 한 번의 응답에서 `data.uuId`와 `data.guestToken`을 복사합니다. 두 값은 인증 쌍이므로 다른 발급 응답의 값을 섞지 마세요.
 3. Chat 서비스 API의 Authorization 입력란에 `Bearer <복사한 guestToken>`을 입력합니다.
@@ -329,7 +441,7 @@ Auth 서비스가 응답하지 않거나 서버 내부 오류가 발생하면 `5
 5. 요청 URL이 `GET /api/chat/v1/chat-rooms?uuid=<발급받은-UUID>` 형태인지 확인합니다.
 6. HTTP `200`, `statusCode: "2000"`, 응답의 `data.loginedUserId`와 DB의 UUID 매핑 결과를 대조합니다.
 
-게스트 B를 테스트할 때는 guest-token 발급 API를 다시 호출하여 새 UUID/token 쌍을 받고, 두 값을 모두 B 요청에 사용합니다. 게스트는 로그인하지 않아도 되지만 UUID만으로는 호출할 수 없습니다.
+게스트 B를 테스트할 때는 B의 UUID에 대해 guestToken을 발급받고 두 값을 함께 사용합니다. Chat API에는 여전히 UUID와 guestToken이 모두 필요하며, UUID만 직접 보내면 `401`입니다.
 
 ### Swagger UI에서 실패 케이스 확인
 

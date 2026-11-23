@@ -3,6 +3,7 @@ package com.wemeetnow.auth_service.service;
 import com.wemeetnow.auth_service.config.jwt.JwtUtil;
 import com.wemeetnow.auth_service.domain.User;
 import com.wemeetnow.auth_service.domain.enums.ErrorCode;
+import com.wemeetnow.auth_service.dto.ChatGuestTokenInfoDto;
 import com.wemeetnow.auth_service.dto.SetUsernameResponseDto;
 import com.wemeetnow.auth_service.exception.CustomException;
 import com.wemeetnow.auth_service.repository.UserRepository;
@@ -19,6 +20,86 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class UserServiceTest {
+
+    @Test
+    void issuesGuestTokenForAnExistingUuid() {
+        String uuid = "existing-guest-uuid";
+        String guestToken = "signed-guest-token";
+        UserRepository userRepository = mock(UserRepository.class);
+        JwtUtil jwtUtil = mock(JwtUtil.class);
+        when(userRepository.findByUuid(uuid)).thenReturn(Optional.of(mock(User.class)));
+        when(jwtUtil.generateGuestToken(uuid)).thenReturn(guestToken);
+        UserService userService = new UserService(
+                mock(BCryptPasswordEncoder.class),
+                userRepository,
+                jwtUtil
+        );
+
+        ChatGuestTokenInfoDto response = userService.issueGuestToken(uuid);
+
+        assertThat(response.getUuId()).isEqualTo(uuid);
+        assertThat(response.getGuestToken()).isEqualTo(guestToken);
+        verify(userRepository).findByUuid(uuid);
+        verify(jwtUtil).generateGuestToken(uuid);
+    }
+
+    @Test
+    void rejectsBlankUuidWhenIssuingGuestToken() {
+        UserRepository userRepository = mock(UserRepository.class);
+        JwtUtil jwtUtil = mock(JwtUtil.class);
+        UserService userService = new UserService(
+                mock(BCryptPasswordEncoder.class),
+                userRepository,
+                jwtUtil
+        );
+
+        assertThatThrownBy(() -> userService.issueGuestToken(" "))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(userRepository, never()).findByUuid(" ");
+        verify(jwtUtil, never()).generateGuestToken(" ");
+    }
+
+    @Test
+    void rejectsUnknownUuidWhenIssuingGuestToken() {
+        String uuid = "unknown-guest-uuid";
+        UserRepository userRepository = mock(UserRepository.class);
+        JwtUtil jwtUtil = mock(JwtUtil.class);
+        when(userRepository.findByUuid(uuid)).thenReturn(Optional.empty());
+        UserService userService = new UserService(
+                mock(BCryptPasswordEncoder.class),
+                userRepository,
+                jwtUtil
+        );
+
+        assertThatThrownBy(() -> userService.issueGuestToken(uuid))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+
+        verify(jwtUtil, never()).generateGuestToken(uuid);
+    }
+
+    @Test
+    void rejectsGuestTokenGenerationFailure() {
+        String uuid = "existing-guest-uuid";
+        UserRepository userRepository = mock(UserRepository.class);
+        JwtUtil jwtUtil = mock(JwtUtil.class);
+        when(userRepository.findByUuid(uuid)).thenReturn(Optional.of(mock(User.class)));
+        when(jwtUtil.generateGuestToken(uuid)).thenReturn("emptyString");
+        UserService userService = new UserService(
+                mock(BCryptPasswordEncoder.class),
+                userRepository,
+                jwtUtil
+        );
+
+        assertThatThrownBy(() -> userService.issueGuestToken(uuid))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.GUEST_TOKEN_CREATE_FAILED);
+    }
 
     @Test
     void returnsEmptyWhenUserIdDoesNotExist() {

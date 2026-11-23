@@ -71,6 +71,12 @@ public class ChatRoomController {
                     "게스트는 Auth 서비스의 GET /api/auth/v1/users/no-login/get-guest-token 응답에서 " +
                     "data.uuId와 data.guestToken을 받아, uuid에는 uuId를 입력하고 Authorization에는 " +
                     "해당 guestToken을 Bearer 형식으로 입력합니다. 두 값은 같은 발급 응답의 쌍이어야 합니다. " +
+                    "UUID는 있지만 guestToken이 없는 경우 Auth 서비스 Swagger UI " +
+                    "(http://localhost:6112/api/auth/v1/swagger-ui.html)에서 POST " +
+                    "/api/auth/v1/users/no-login/get-guest-token-by-uuid를 실행하고, Request Body에 " +
+                    "{\"uuid\":\"<기존 게스트 UUID>\"}를 입력하세요. 응답 data.guestToken과 data.uuId를 " +
+                    "이 API의 Authorization과 uuid 입력란에 사용합니다. 이 발급 API는 Authorization이 필요하지 않으며, " +
+                    "UUID를 아는 사람은 해당 게스트 토큰을 발급할 수 있습니다. " +
                     "Swagger UI에서는 Try it out을 누르고 해당 사용자 유형의 예시를 선택한 뒤 실제 발급 값으로 " +
                     "교체하여 Execute를 누르세요. UUID만 전달하거나 토큰과 UUID를 서로 다르게 조합하면 401을 반환합니다. " +
                     "성공 시 참여 채팅방과 채팅방별 미읽음 메시지 수를 반환합니다."
@@ -96,7 +102,9 @@ public class ChatRoomController {
     public ResponseEntity<CommonApiResponse<ChatRoomListResponseDto>> getChatRoomListByUserId(
             @Parameter(
                     description = "로그인 사용자의 AccessToken 또는 비로그인 게스트의 guestToken. " +
-                            "실제 토큰을 `Bearer <token>` 형식으로 입력하세요. 게스트는 uuid와 같은 발급 응답의 guestToken이어야 합니다.",
+                            "실제 토큰을 `Bearer <token>` 형식으로 입력하세요. 게스트 토큰이 없다면 Auth 서비스의 " +
+                            "POST /api/auth/v1/users/no-login/get-guest-token-by-uuid에 기존 UUID를 보내 발급받은 뒤 " +
+                            "응답 data.guestToken을 사용하세요. 게스트는 uuid와 같은 발급 응답의 토큰이어야 합니다.",
                     examples = {
                             @ExampleObject(name = "로그인 사용자", value = "Bearer <발급받은 AccessToken>"),
                             @ExampleObject(name = "비로그인 게스트", value = "Bearer <발급받은 guestToken>")
@@ -104,6 +112,8 @@ public class ChatRoomController {
             @RequestHeader(value = AUTH_HEADER, required = false) String token,
             @Parameter(
                     description = "비로그인 게스트의 UUID. GET /api/auth/v1/users/no-login/get-guest-token 응답 data.uuId를 입력하세요. " +
+                            "기존 UUID만 있고 guestToken이 없으면 Auth 서비스의 POST " +
+                            "/api/auth/v1/users/no-login/get-guest-token-by-uuid Request Body에 해당 UUID를 넣어 토큰을 발급받으세요. " +
                             "로그인 사용자는 이 값을 보내지 마세요. 전달하면 게스트 인증으로 처리되며 해당 guestToken이 Authorization에 필요합니다.",
                     examples = {
                             @ExampleObject(name = "로그인 사용자", value = ""),

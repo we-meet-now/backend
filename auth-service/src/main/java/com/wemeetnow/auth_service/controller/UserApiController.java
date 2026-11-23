@@ -817,6 +817,49 @@ public class UserApiController {
     }
 
     @Operation(
+            summary = "기존 UUID로 게스트 토큰 발급",
+            description = "이미 게스트 사용자로 등록된 UUID를 요청 본문에 전달하여 새 guestToken을 발급합니다. " +
+                    "Authorization은 필요하지 않습니다. UUID를 아는 사람은 해당 게스트로 인증할 수 있으므로 " +
+                    "UUID를 비밀번호처럼 안전하게 보관해야 합니다. UUID는 기존 사용자와 일치해야 하며 새 사용자를 생성하지 않습니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "게스트 토큰 발급 성공",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class),
+                            examples = @io.swagger.v3.oas.annotations.media.ExampleObject(
+                                    name = "게스트 토큰 발급 성공",
+                                    value = "{\"statusCode\":\"2000\",\"data\":{\"uuId\":\"123e4567-e89b-12d3-a456-426614174000\",\"guestToken\":\"<발급된 JWT>\"},\"message\":\"UUID로 게스트 토큰 발급 성공\"}"))),
+            @ApiResponse(responseCode = "400", description = "uuid가 누락되거나 공백임",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "404", description = "등록된 게스트 UUID가 아님",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "500", description = "게스트 토큰 생성 중 서버 오류",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
+    @PostMapping("/no-login/get-guest-token-by-uuid")
+    public ResponseEntity<CommonApiResponse<ChatGuestTokenInfoDto>> getGuestTokenByUuid(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "이미 발급되어 게스트 사용자로 등록된 UUID",
+                    required = true,
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = GuestIdRequestDto.class),
+                            examples = @io.swagger.v3.oas.annotations.media.ExampleObject(
+                                    name = "기존 게스트 UUID",
+                                    value = "{\"uuid\":\"123e4567-e89b-12d3-a456-426614174000\"}")))
+            @RequestBody(required = false) GuestIdRequestDto requestDto) {
+        if (requestDto == null || requestDto.getUuid() == null || requestDto.getUuid().isBlank()) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        ChatGuestTokenInfoDto responseDto = userService.issueGuestToken(requestDto.getUuid());
+        return ResponseEntity.ok(CommonApiResponse.<ChatGuestTokenInfoDto>builder()
+                .statusCode("2000")
+                .data(responseDto)
+                .message("UUID로 게스트 토큰 발급 성공")
+                .build());
+    }
+
+    @Operation(
             summary = "토큰 유형 확인",
             description = "Authorization 헤더 인증 없이 요청 본문의 guestToken으로 토큰 유형을 확인합니다. " +
                     "유효한 게스트 토큰은 isGuestYn=Y, 유효한 AccessToken은 isGuestYn=N으로 반환하며, " +

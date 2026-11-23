@@ -25,6 +25,7 @@ public class JwtFilter extends OncePerRequestFilter {
 
     private static final List<RequestMatcher> NO_LOGIN_MATCHERS = List.of(
             new AntPathRequestMatcher("/api/chat/v1/chats/all", "GET"),
+            new AntPathRequestMatcher("/api/chat/v1/chat-rooms", "GET"),
             new AntPathRequestMatcher("/api/chat/v1/chat-rooms/all", "GET"),
             new AntPathRequestMatcher("/api/chat/v1/chat-participants/all", "GET")
     );

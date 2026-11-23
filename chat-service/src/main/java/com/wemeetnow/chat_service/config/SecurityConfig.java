@@ -35,6 +35,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET,
                                 "/api/chat/v1/chats/all",
+                                "/api/chat/v1/chat-rooms",
                                 "/api/chat/v1/chat-rooms/all",
                                 "/api/chat/v1/chat-participants/all",
                                 "/api/chat/v1/swagger-ui.html"

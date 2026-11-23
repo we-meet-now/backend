@@ -11,7 +11,9 @@ import com.wemeetnow.chat_service.service.ChatRoomService;
 import com.wemeetnow.chat_service.service.ChatService;
 import com.wemeetnow.chat_service.service.ChatUserInfo;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -24,6 +26,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.util.List;
 
@@ -62,22 +65,88 @@ public class ChatRoomController {
 
     @Operation(
             summary = "내 채팅방 목록 조회",
-            description = "JWT 토큰으로 로그인한 사용자가 참여 중인 채팅방 목록과 " +
-                          "각 채팅방의 읽지 않은 메시지 수를 함께 반환합니다."
+            description = "로그인 사용자와 비로그인 게스트가 같은 API로 자신의 채팅방 목록을 조회합니다. " +
+                    "로그인 사용자는 Auth 서비스의 POST /api/auth/v1/users/login 응답 data.accessToken을 " +
+                    "Authorization에 Bearer 형식으로 입력하고 uuid는 비워 둡니다. " +
+                    "게스트는 Auth 서비스의 GET /api/auth/v1/users/no-login/get-guest-token 응답에서 " +
+                    "data.uuId와 data.guestToken을 받아, uuid에는 uuId를 입력하고 Authorization에는 " +
+                    "해당 guestToken을 Bearer 형식으로 입력합니다. 두 값은 같은 발급 응답의 쌍이어야 합니다. " +
+                    "Swagger UI에서는 Try it out을 누르고 해당 사용자 유형의 예시를 선택한 뒤 실제 발급 값으로 " +
+                    "교체하여 Execute를 누르세요. UUID만 전달하거나 토큰과 UUID를 서로 다르게 조합하면 401을 반환합니다. " +
+                    "성공 시 참여 채팅방과 채팅방별 미읽음 메시지 수를 반환합니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "채팅방 목록 조회 성공",
-                    content = @Content(schema = @Schema(implementation = ChatRoomListResponseDto.class))),
-            @ApiResponse(responseCode = "500", description = "서버 오류 (토큰 인증 실패 등)",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class), examples = {
+                            @ExampleObject(name = "로그인 사용자 성공", summary = "AccessToken으로 목록 조회",
+                                    value = "{\"statusCode\":\"2000\",\"data\":{\"loginedUserId\":123,\"chatRoomList\":[{\"chatRoom\":{\"chatRoomId\":501,\"chatRoomNm\":\"A 테스트 모임\"},\"isNotReadCount\":2}]},\"message\":\"채팅방 목록 조회 성공\"}"),
+                            @ExampleObject(name = "비로그인 게스트 성공", summary = "UUID와 짝이 맞는 guestToken으로 목록 조회",
+                                    value = "{\"statusCode\":\"2000\",\"data\":{\"loginedUserId\":456,\"chatRoomList\":[]},\"message\":\"채팅방 목록 조회 성공\"}")
+                    })),
+            @ApiResponse(responseCode = "401", description = "AccessToken 또는 uuid와 게스트 토큰이 없거나 유효하지 않음",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class), examples = {
+                            @ExampleObject(name = "인증 값 누락", value = "{\"statusCode\":\"4010\",\"data\":null,\"message\":\"Authorization AccessToken이 필요합니다.\"}"),
+                            @ExampleObject(name = "게스트 토큰 누락", value = "{\"statusCode\":\"4010\",\"data\":null,\"message\":\"게스트 UUID와 게스트 토큰이 필요합니다.\"}"),
+                            @ExampleObject(name = "UUID와 토큰 불일치", value = "{\"statusCode\":\"4010\",\"data\":null,\"message\":\"유효하지 않은 게스트 토큰 또는 UUID입니다.\"}")
+                    })),
+            @ApiResponse(responseCode = "500", description = "인증 서비스 오류 또는 서버 오류",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
     @GetMapping("")
     public ResponseEntity<CommonApiResponse<ChatRoomListResponseDto>> getChatRoomListByUserId(
-            @RequestHeader(AUTH_HEADER) String token,
-            HttpServletRequest request) {
-        log.info("request: {}", request);
-        AuthUserResponse authUserResponse = chatService.isValidAccessToken(token);
-        Long loginedUserId = authUserResponse.getUserId();
+            @Parameter(
+                    description = "로그인 사용자의 AccessToken 또는 비로그인 게스트의 guestToken. " +
+                            "실제 토큰을 `Bearer <token>` 형식으로 입력하세요. 게스트는 uuid와 같은 발급 응답의 guestToken이어야 합니다.",
+                    examples = {
+                            @ExampleObject(name = "로그인 사용자", value = "Bearer <발급받은 AccessToken>"),
+                            @ExampleObject(name = "비로그인 게스트", value = "Bearer <발급받은 guestToken>")
+                    })
+            @RequestHeader(value = AUTH_HEADER, required = false) String token,
+            @Parameter(
+                    description = "비로그인 게스트의 UUID. GET /api/auth/v1/users/no-login/get-guest-token 응답 data.uuId를 입력하세요. " +
+                            "로그인 사용자는 이 값을 보내지 마세요. 전달하면 게스트 인증으로 처리되며 해당 guestToken이 Authorization에 필요합니다.",
+                    examples = {
+                            @ExampleObject(name = "로그인 사용자", value = ""),
+                            @ExampleObject(name = "비로그인 게스트", value = "123e4567-e89b-12d3-a456-426614174000")
+                    })
+            @RequestParam(value = "uuid", required = false) String uuid) {
+        Long loginedUserId;
+        if (uuid != null) {
+            if (uuid.isBlank() || token == null || token.isBlank()) {
+                throw unauthorized("게스트 UUID와 게스트 토큰이 필요합니다.");
+            }
+
+            try {
+                AuthGuestResponse guestUser = chatService.isValidGuestToken(token, uuid);
+                if (guestUser == null || guestUser.getUserId() == null) {
+                    throw unauthorized("유효하지 않은 게스트 토큰 또는 UUID입니다.");
+                }
+                loginedUserId = guestUser.getUserId();
+            } catch (IllegalArgumentException e) {
+                throw unauthorized("유효하지 않은 게스트 토큰 또는 UUID입니다.");
+            }
+        } else {
+            if (token == null || token.isBlank()) {
+                throw unauthorized("Authorization AccessToken이 필요합니다.");
+            }
+
+            AuthUserResponse authUserResponse;
+            try {
+                authUserResponse = chatService.isValidAccessToken(token);
+            } catch (RestClientResponseException e) {
+                if (!e.getStatusCode().is4xxClientError()) {
+                    throw e;
+                }
+                throw unauthorized("유효하지 않은 AccessToken입니다.");
+            } catch (IllegalArgumentException e) {
+                throw unauthorized("유효하지 않은 AccessToken입니다.");
+            }
+            if (authUserResponse == null || authUserResponse.getUserId() == null) {
+                throw unauthorized("유효하지 않은 AccessToken입니다.");
+            }
+            loginedUserId = authUserResponse.getUserId();
+        }
+
         List<ChatRoom> chatRoomList = chatRoomService.findByUserId(loginedUserId);
 
         List<ChatRoomWithNotReadCountDto> chatRoomListWithNotReadCount = chatRoomList.stream()
@@ -97,6 +166,10 @@ public class ChatRoomController {
                 .data(responseDto)
                 .message("채팅방 목록 조회 성공")
                 .build());
+    }
+
+    private ChatRoomInviteException unauthorized(String message) {
+        return new ChatRoomInviteException(ApiStatusCode.UNAUTHORIZED, HttpStatus.UNAUTHORIZED, message);
     }
 
     @Operation(

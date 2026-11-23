@@ -2,6 +2,7 @@ package com.wemeetnow.chat_service.controller;
 
 import com.wemeetnow.chat_service.domain.Chat;
 import com.wemeetnow.chat_service.domain.ChatRoom;
+import com.wemeetnow.chat_service.dto.AuthGuestResponse;
 import com.wemeetnow.chat_service.dto.AuthUserResponse;
 import com.wemeetnow.chat_service.dto.ChatResponseDto;
 import com.wemeetnow.chat_service.dto.CreateChatRoomRequestDto;
@@ -10,6 +11,7 @@ import com.wemeetnow.chat_service.dto.EnterRoomResponseDto;
 import com.wemeetnow.chat_service.dto.GuestYnDto;
 import com.wemeetnow.chat_service.dto.InviteChatParticipantsRequestDto;
 import com.wemeetnow.chat_service.dto.RemoveChatParticipantsRequestDto;
+import com.wemeetnow.chat_service.exception.ChatRoomInviteException;
 import com.wemeetnow.chat_service.service.ChatRoomService;
 import com.wemeetnow.chat_service.service.ChatService;
 import com.wemeetnow.chat_service.service.CommonService;
@@ -18,10 +20,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.web.client.HttpServerErrorException;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -38,6 +42,95 @@ class ChatRoomControllerTest {
         chatRoomService = mock(ChatRoomService.class);
         chatService = mock(ChatService.class);
         controller = new ChatRoomController(chatRoomService, chatService, mock(CommonService.class));
+    }
+
+    @Test
+    void returnsChatRoomsForAuthenticatedUser() {
+        AuthUserResponse authUser = new AuthUserResponse();
+        authUser.setUserId(9L);
+        when(chatService.isValidAccessToken("Bearer access-token")).thenReturn(authUser);
+        when(chatRoomService.findByUserId(9L)).thenReturn(List.of());
+
+        var response = controller.getChatRoomListByUserId("Bearer access-token", null);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().getData().getLoginedUserId()).isEqualTo(9L);
+        assertThat(response.getBody().getData().getChatRoomList()).isEmpty();
+        verify(chatService).isValidAccessToken("Bearer access-token");
+        verify(chatService, never()).isValidGuestToken(
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void returnsChatRoomsForGuestUsingUuidAndGuestToken() {
+        AuthGuestResponse guestUser = AuthGuestResponse.builder()
+                .userId(12L)
+                .uuId("guest-uuid")
+                .build();
+        when(chatService.isValidGuestToken("Bearer guest-token", "guest-uuid")).thenReturn(guestUser);
+        when(chatRoomService.findByUserId(12L)).thenReturn(List.of());
+
+        var response = controller.getChatRoomListByUserId("Bearer guest-token", "guest-uuid");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().getData().getLoginedUserId()).isEqualTo(12L);
+        assertThat(response.getBody().getData().getChatRoomList()).isEmpty();
+        verify(chatService).isValidGuestToken("Bearer guest-token", "guest-uuid");
+        verify(chatService, never()).isValidAccessToken(org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void rejectsMissingIdentity() {
+        assertThatThrownBy(() -> controller.getChatRoomListByUserId(null, null))
+                .isInstanceOf(ChatRoomInviteException.class)
+                .hasMessage("Authorization AccessToken이 필요합니다.");
+
+        verify(chatRoomService, never()).findByUserId(org.mockito.ArgumentMatchers.anyLong());
+    }
+
+    @Test
+    void rejectsGuestUuidWithoutGuestToken() {
+        assertThatThrownBy(() -> controller.getChatRoomListByUserId(null, "guest-uuid"))
+                .isInstanceOf(ChatRoomInviteException.class)
+                .hasMessage("게스트 UUID와 게스트 토큰이 필요합니다.");
+
+        verify(chatService, never()).isValidGuestToken(
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString());
+        verify(chatRoomService, never()).findByUserId(org.mockito.ArgumentMatchers.anyLong());
+    }
+
+    @Test
+    void rejectsInvalidGuestTokenAndUuid() {
+        when(chatService.isValidGuestToken("Bearer bad-token", "guest-uuid"))
+                .thenThrow(new IllegalArgumentException("invalid guest token"));
+
+        assertThatThrownBy(() -> controller.getChatRoomListByUserId("Bearer bad-token", "guest-uuid"))
+                .isInstanceOf(ChatRoomInviteException.class)
+                .hasMessage("유효하지 않은 게스트 토큰 또는 UUID입니다.");
+
+        verify(chatRoomService, never()).findByUserId(org.mockito.ArgumentMatchers.anyLong());
+    }
+
+    @Test
+    void rejectsInvalidAccessToken() {
+        when(chatService.isValidAccessToken(org.mockito.ArgumentMatchers.anyString()))
+                .thenThrow(new IllegalArgumentException("invalid access token"));
+
+        assertThatThrownBy(() -> controller.getChatRoomListByUserId("invalid-token", null))
+                .isInstanceOf(ChatRoomInviteException.class)
+                .hasMessage("유효하지 않은 AccessToken입니다.");
+
+        verify(chatRoomService, never()).findByUserId(org.mockito.ArgumentMatchers.anyLong());
+    }
+
+    @Test
+    void doesNotConvertAuthServiceServerErrorsIntoUnauthorizedResponses() {
+        HttpServerErrorException authServiceError =
+                new HttpServerErrorException(HttpStatus.INTERNAL_SERVER_ERROR);
+        when(chatService.isValidAccessToken("auth-service-error")).thenThrow(authServiceError);
+
+        assertThatThrownBy(() -> controller.getChatRoomListByUserId("auth-service-error", null))
+                .isSameAs(authServiceError);
     }
 
     @Test

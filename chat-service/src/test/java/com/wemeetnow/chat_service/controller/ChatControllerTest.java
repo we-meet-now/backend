@@ -36,7 +36,6 @@ class ChatControllerTest {
     void sendsLoginMessageUsingAuthenticatedPrincipal() throws Exception {
         ChatDto chatDto = new ChatDto();
         chatDto.setChatRoomId(13L);
-        chatDto.setUserId(42L);
         chatDto.setMessage("guest message");
         chatDto.setChatType(ChatType.CHAT);
         ChatResponseDto expected = mock(ChatResponseDto.class);
@@ -50,10 +49,9 @@ class ChatControllerTest {
     }
 
     @Test
-    void sendsGuestMessageUsingTokenIdentityAndMatchingUuid() throws Exception {
+    void sendsGuestMessageUsingTokenIdentityWithoutClientUuid() throws Exception {
         ChatDto chatDto = new ChatDto();
         chatDto.setChatRoomId(13L);
-        chatDto.setUuId("guest-uuid");
         chatDto.setMessage("guest message");
         chatDto.setChatType(ChatType.CHAT);
         ChatResponseDto expected = mock(ChatResponseDto.class);
@@ -85,38 +83,9 @@ class ChatControllerTest {
     }
 
     @Test
-    void rejectsLoginUserIdThatDoesNotMatchAuthenticatedToken() {
-        ChatDto chatDto = new ChatDto();
-        chatDto.setChatRoomId(13L);
-        chatDto.setUserId(99L);
-        chatDto.setMessage("message");
-        chatDto.setChatType(ChatType.CHAT);
-
-        assertThatThrownBy(() -> chatController.sendMessage(
-                chatDto, principal(42L, null, false, null)))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("요청 userId가 인증된 사용자와 일치하지 않습니다.");
-    }
-
-    @Test
-    void rejectsGuestUuidThatDoesNotMatchAuthenticatedToken() {
-        ChatDto chatDto = new ChatDto();
-        chatDto.setChatRoomId(13L);
-        chatDto.setUuId("different-uuid");
-        chatDto.setMessage("message");
-        chatDto.setChatType(ChatType.CHAT);
-
-        assertThatThrownBy(() -> chatController.sendMessage(
-                chatDto, principal(42L, "guest-uuid", true, null)))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("요청 uuId가 인증된 게스트와 일치하지 않습니다.");
-    }
-
-    @Test
     void sendsRefreshedGuestTokenOnlyToAuthenticatedUserQueue() throws Exception {
         ChatDto chatDto = new ChatDto();
         chatDto.setChatRoomId(13L);
-        chatDto.setUuId("guest-uuid");
         chatDto.setMessage("message");
         chatDto.setChatType(ChatType.CHAT);
         ChatUserPrincipal principal = new ChatUserPrincipal(
@@ -140,7 +109,6 @@ class ChatControllerTest {
     void rejectsMessagesWithoutAnAuthenticatedPrincipal() {
         ChatDto chatDto = new ChatDto();
         chatDto.setChatRoomId(13L);
-        chatDto.setUserId(42L);
         chatDto.setMessage("guest message");
         chatDto.setChatType(ChatType.CHAT);
 

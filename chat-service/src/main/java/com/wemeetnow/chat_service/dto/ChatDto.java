@@ -9,14 +9,12 @@ import lombok.ToString;
 @Setter
 public class ChatDto {
     private Long chatRoomId;
-    private Long userId;
-    private String uuId;
     private String message;
     private ChatType chatType;
 
     @Override
     public String toString() {
-        return String.format("chatRoomId : %d, userId : %d, message: %s, chatType: %s",
-                chatRoomId, userId, message, chatType);
+        return String.format("chatRoomId : %d, message: %s, chatType: %s",
+                chatRoomId, message, chatType);
     }
 }

@@ -14,7 +14,7 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class EnterRoomResponseDto {
-    @Schema(description = "게스트 사용자 UUID. guestToken과 함께 Chat API에 전달합니다.")
+    @Schema(description = "신규 게스트 세션 발급 시 반환되는 UUID. Chat API 요청에는 포함하지 않습니다.")
     private String uuId;
     private String statusCode;
     private String statusMsg;

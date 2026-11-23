@@ -94,7 +94,7 @@ class GuestSessionServiceTest {
             return user;
         });
         when(jwtUtil.generateGuestAccessToken(anyString()))
-                .thenReturn("first-access-token", "second-access-token");
+                .thenReturn("first-access-token", "second-access-token", "third-access-token");
         when(guestSessionRepository.save(any(GuestSession.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -110,13 +110,26 @@ class GuestSessionServiceTest {
                         ? Optional.of(session)
                         : Optional.empty());
 
-        GuestSessionResponseDto refreshed = userService.refreshGuestSession(created.getRefreshToken());
+        GuestSessionResponseDto firstRefresh = userService.refreshGuestSession(created.getRefreshToken());
+        String firstRefreshHash = session.getRefreshTokenHash();
+        GuestSessionResponseDto secondRefresh = userService.refreshGuestSession(firstRefresh.getRefreshToken());
 
-        assertThat(refreshed.getUuId()).isEqualTo(created.getUuId());
-        assertThat(refreshed.getGuestToken()).isEqualTo("second-access-token");
-        assertThat(refreshed.getRefreshToken()).isNotEqualTo(created.getRefreshToken());
-        assertThat(session.getRefreshTokenHash()).hasSize(64).isNotEqualTo(oldHash);
+        assertThat(firstRefresh.getUuId()).isEqualTo(created.getUuId());
+        assertThat(firstRefresh.getGuestToken()).isEqualTo("second-access-token");
+        assertThat(firstRefresh.getRefreshToken()).isNotEqualTo(created.getRefreshToken());
+        assertThat(firstRefreshHash).hasSize(64).isNotEqualTo(oldHash);
+        assertThat(secondRefresh.getUuId()).isEqualTo(created.getUuId());
+        assertThat(secondRefresh.getGuestToken()).isEqualTo("third-access-token");
+        assertThat(secondRefresh.getRefreshToken()).isNotEqualTo(firstRefresh.getRefreshToken());
+        assertThat(session.getRefreshTokenHash())
+                .hasSize(64)
+                .isNotEqualTo(firstRefreshHash)
+                .isNotEqualTo(secondRefresh.getRefreshToken());
         assertThatThrownBy(() -> userService.refreshGuestSession(created.getRefreshToken()))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.GUEST_SESSION_UNAUTHORIZED);
+        assertThatThrownBy(() -> userService.refreshGuestSession(firstRefresh.getRefreshToken()))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.GUEST_SESSION_UNAUTHORIZED);

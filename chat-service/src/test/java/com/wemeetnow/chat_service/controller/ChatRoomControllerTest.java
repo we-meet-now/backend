@@ -86,6 +86,39 @@ class ChatRoomControllerTest {
     }
 
     @Test
+    void returnsChatRoomsForGuestUsingOnlyGuestToken() {
+        String guestToken = "guest-token-without-uuid";
+        GuestYnDto guestYnDto = new GuestYnDto();
+        guestYnDto.setIsGuestYn("Y");
+        when(chatRoomService.isGuestToken(guestToken)).thenReturn(guestYnDto);
+        when(chatService.isValidGuestToken(guestToken))
+                .thenReturn(AuthGuestResponse.builder().userId(19L).uuId("server-resolved-uuid").build());
+        when(chatRoomService.findByUserId(19L)).thenReturn(List.of());
+
+        var response = controller.getChatRoomListByUserId(guestToken, null, null);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().getData().getLoginedUserId()).isEqualTo(19L);
+        verify(chatService).isValidGuestToken(guestToken);
+    }
+
+    @Test
+    void rejectsInvalidGuestTokenWithoutUuid() {
+        String guestToken = "invalid-guest-token";
+        GuestYnDto guestYnDto = new GuestYnDto();
+        guestYnDto.setIsGuestYn("Y");
+        when(chatRoomService.isGuestToken(guestToken)).thenReturn(guestYnDto);
+        when(chatService.isValidGuestToken(guestToken))
+                .thenThrow(new IllegalArgumentException("invalid guest token"));
+
+        assertThatThrownBy(() -> controller.getChatRoomListByUserId(guestToken, null, null))
+                .isInstanceOf(ChatRoomInviteException.class)
+                .hasMessage("유효하지 않은 게스트 토큰입니다.");
+
+        verify(chatRoomService, never()).findByUserId(org.mockito.ArgumentMatchers.anyLong());
+    }
+
+    @Test
     void rejectsMissingIdentity() {
         assertThatThrownBy(() -> controller.getChatRoomListByUserId(null, null))
                 .isInstanceOf(ChatRoomInviteException.class)
@@ -142,6 +175,72 @@ class ChatRoomControllerTest {
         assertThat(response.getHeaders().getFirst(HttpHeaders.CACHE_CONTROL)).isEqualTo("no-store");
         assertThat(response.getBody().getData().getLoginedUserId()).isEqualTo(18L);
         verify(commonService).fetchGuestBrowserSessionFromAuthService("opaque-session-id");
+    }
+
+    @Test
+    void returnsRoomHistoryForGuestUsingOnlyGuestToken() {
+        String guestToken = "guest-token-without-uuid";
+        GuestYnDto guestYnDto = new GuestYnDto();
+        guestYnDto.setIsGuestYn("Y");
+        when(chatRoomService.isGuestToken(guestToken)).thenReturn(guestYnDto);
+        when(chatService.isValidGuestToken(guestToken))
+                .thenReturn(AuthGuestResponse.builder().userId(19L).uuId("server-resolved-uuid").build());
+        when(chatService.getChatList(5L, 19L)).thenReturn(List.of());
+        MockHttpServletRequest request = new MockHttpServletRequest();
+
+        var response = controller.enterChatRoom(5L, request, guestToken, null);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().getData().getLoginedUserId()).isEqualTo(19L);
+        verify(chatService).isValidGuestToken(guestToken);
+    }
+
+    @Test
+    void entersRoomForGuestUsingOnlyGuestToken() {
+        String guestToken = "guest-token-without-uuid";
+        GuestYnDto guestYnDto = new GuestYnDto();
+        guestYnDto.setIsGuestYn("Y");
+        when(chatRoomService.isGuestToken(guestToken)).thenReturn(guestYnDto);
+        when(chatService.isValidGuestToken(guestToken))
+                .thenReturn(AuthGuestResponse.builder()
+                        .userId(19L)
+                        .uuId("server-resolved-uuid")
+                        .guestToken(guestToken)
+                        .isRefreshed("N")
+                        .build());
+        when(chatRoomService.isMember(5L, 19L)).thenReturn(true);
+        when(chatRoomService.enterRoomAndMarkRead(5L, 19L))
+                .thenReturn(new EnterRoomResponseDto("2000", "success", 0));
+        when(chatService.getChatList(5L, 19L)).thenReturn(List.of());
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + guestToken);
+        var response = controller.enterRoomAndMarkRead(request(5L), request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().getLoginedUserId()).isEqualTo(19L);
+        assertThat(response.getBody().getUuId()).isNull();
+        assertThat(response.getBody().getGuestToken()).isNull();
+        verify(chatService).isValidGuestToken(guestToken);
+    }
+
+    @Test
+    void returnsUnauthorizedForInvalidGuestTokenWhenEnteringRoom() {
+        String guestToken = "invalid-guest-token";
+        GuestYnDto guestYnDto = new GuestYnDto();
+        guestYnDto.setIsGuestYn("Y");
+        when(chatRoomService.isGuestToken(guestToken)).thenReturn(guestYnDto);
+        when(chatService.isValidGuestToken(guestToken))
+                .thenThrow(new IllegalArgumentException("invalid guest token"));
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + guestToken);
+
+        var response = controller.enterRoomAndMarkRead(request(5L), request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(response.getBody().getStatusCode()).isEqualTo("4010");
+        assertThat(response.getBody().getStatusMsg()).isEqualTo("유효하지 않은 게스트 토큰입니다.");
+        verify(chatRoomService, never()).isMember(5L, 19L);
     }
 
     @Test

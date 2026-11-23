@@ -52,7 +52,7 @@ public class ChatController {
     @MessageMapping("/chat.sendMessage")
     @SendTo("/api/chat/v1/message/topic/public")
     public ChatResponseDto sendMessage(@Payload ChatDto chatDto, Principal principal) throws Exception {
-        Long userId = authenticatedUserId(chatDto, principal);
+        Long userId = authenticatedUserId(principal);
         sendRefreshedGuestToken((ChatUserPrincipal) principal);
         log.info("chat message: roomId={}, userId={}, chatType={}",
                 chatDto.getChatRoomId(), userId, chatDto.getChatType());
@@ -69,7 +69,7 @@ public class ChatController {
     @MessageMapping("/chat.addUser")
     @SendTo("/api/chat/v1/message/topic/public")
     public ChatResponseDto addUser(@Payload ChatDto chatMessageDto, Principal principal) throws Exception {
-        Long userId = authenticatedUserId(chatMessageDto, principal);
+        Long userId = authenticatedUserId(principal);
         sendRefreshedGuestToken((ChatUserPrincipal) principal);
         String content = userId + " 님이 입장했습니다.";
         log.info("chat participant joined: roomId={}, userId={}", chatMessageDto.getChatRoomId(), userId);
@@ -82,26 +82,12 @@ public class ChatController {
         );
     }
 
-    private Long authenticatedUserId(ChatDto chatDto, Principal principal) {
+    private Long authenticatedUserId(Principal principal) {
         if (!(principal instanceof ChatUserPrincipal authenticatedUser)) {
             throw new IllegalArgumentException("WebSocket 연결에 인증된 토큰이 없습니다.");
         }
-
-        boolean hasGuestUuid = chatDto.getUuId() != null && !chatDto.getUuId().isBlank();
-        boolean hasUserId = chatDto.getUserId() != null;
-
-        if (authenticatedUser.guest()) {
-            if (authenticatedUser.browserSession()) {
-                if (hasUserId || (hasGuestUuid && !authenticatedUser.uuid().equals(chatDto.getUuId()))) {
-                    throw new IllegalArgumentException("요청 identity가 인증된 게스트와 일치하지 않습니다.");
-                }
-            } else if (hasGuestUuid == hasUserId
-                    || !hasGuestUuid
-                    || !authenticatedUser.uuid().equals(chatDto.getUuId())) {
-                throw new IllegalArgumentException("요청 uuId가 인증된 게스트와 일치하지 않습니다.");
-            }
-        } else if (hasGuestUuid || !hasUserId || !authenticatedUser.userId().equals(chatDto.getUserId())) {
-            throw new IllegalArgumentException("요청 userId가 인증된 사용자와 일치하지 않습니다.");
+        if (authenticatedUser.userId() == null || authenticatedUser.userId() <= 0) {
+            throw new IllegalArgumentException("인증된 사용자 정보가 올바르지 않습니다.");
         }
         return authenticatedUser.userId();
     }

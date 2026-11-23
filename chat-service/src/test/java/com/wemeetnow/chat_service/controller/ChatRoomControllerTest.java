@@ -21,6 +21,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
 import jakarta.servlet.http.Cookie;
 import org.springframework.web.client.HttpClientErrorException;
@@ -215,7 +216,7 @@ class ChatRoomControllerTest {
 
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + guestToken);
-        var response = controller.enterRoomAndMarkRead(request(5L), request);
+        var response = invokeEnterRoom(request(5L), request);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody().getLoginedUserId()).isEqualTo(19L);
@@ -235,7 +236,7 @@ class ChatRoomControllerTest {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + guestToken);
 
-        var response = controller.enterRoomAndMarkRead(request(5L), request);
+        var response = invokeEnterRoom(request(5L), request);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         assertThat(response.getBody().getStatusCode()).isEqualTo("4010");
@@ -295,7 +296,7 @@ class ChatRoomControllerTest {
         mockLogin(userId);
         when(chatRoomService.isMember(roomId, userId)).thenReturn(false);
 
-        var response = controller.enterRoomAndMarkRead(request(roomId), requestWithToken());
+        var response = invokeEnterRoom(request(roomId), requestWithToken());
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
         assertThat(response.getBody().getStatusCode()).isEqualTo("4030");
@@ -329,7 +330,7 @@ class ChatRoomControllerTest {
                         .message("Hello")
                         .build()));
 
-        var response = controller.enterRoomAndMarkRead(request(roomId), requestWithToken());
+        var response = invokeEnterRoom(request(roomId), requestWithToken());
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody().getLoginedUserId()).isEqualTo(userId);
@@ -348,7 +349,7 @@ class ChatRoomControllerTest {
         guestSession.setGuestTokenExpiresInSeconds(1800);
         when(chatRoomService.generateGuestSession()).thenReturn(guestSession);
 
-        var response = controller.enterRoomAndMarkRead(request(5L), new MockHttpServletRequest());
+        var response = invokeEnterRoom(request(5L), new MockHttpServletRequest());
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getHeaders().getFirst(HttpHeaders.CACHE_CONTROL)).isEqualTo("no-store");
@@ -373,7 +374,7 @@ class ChatRoomControllerTest {
 
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setCookies(new Cookie("guest_session", "opaque-session-id"));
-        var response = controller.enterRoomAndMarkRead(request(5L), request);
+        var response = invokeEnterRoom(request(5L), request);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getHeaders().getFirst(HttpHeaders.CACHE_CONTROL)).isEqualTo("no-store");
@@ -482,6 +483,27 @@ class ChatRoomControllerTest {
         EnterRoomRequestDto requestDto = new EnterRoomRequestDto();
         requestDto.setRoomId(roomId);
         return requestDto;
+    }
+
+    private ResponseEntity<EnterRoomResponseDto> invokeEnterRoom(
+            EnterRoomRequestDto requestDto,
+            MockHttpServletRequest request
+    ) {
+        String browserSessionId = null;
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if ("guest_session".equals(cookie.getName())) {
+                    browserSessionId = cookie.getValue();
+                    break;
+                }
+            }
+        }
+        return controller.enterRoomAndMarkRead(
+                requestDto,
+                request.getHeader(HttpHeaders.AUTHORIZATION),
+                browserSessionId
+        );
     }
 
     private MockHttpServletRequest requestWithToken() {

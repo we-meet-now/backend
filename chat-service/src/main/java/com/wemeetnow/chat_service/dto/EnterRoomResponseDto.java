@@ -16,8 +16,11 @@ import java.util.List;
 public class EnterRoomResponseDto {
     @Schema(description = "신규 게스트 세션 발급 시 반환되는 UUID. Chat API 요청에는 포함하지 않습니다.")
     private String uuId;
+    @Schema(description = "처리 결과 코드. 2000은 입장 성공, 2030은 신규 게스트 자격증명 발급입니다.", example = "2000")
     private String statusCode;
+    @Schema(description = "처리 결과 메시지", example = "success")
     private String statusMsg;
+    @Schema(description = "이번 요청에서 읽음 처리한 메시지 수", example = "2")
     private int markedReadCount;
     @Schema(description = "Chat API 요청용 guestToken")
     private String guestToken;
@@ -27,8 +30,11 @@ public class EnterRoomResponseDto {
     private long guestTokenExpiresInSeconds;
     @Schema(description = "refreshToken 만료 시각")
     private Instant refreshTokenExpiresAt;
-    private String isRefreshed; // 토큰 갱신 여부 (Y/N)
+    @Schema(description = "guestToken을 요청 처리 중 갱신했는지 여부 (Y/N)")
+    private String isRefreshed;
+    @Schema(description = "인증 정보에서 서버가 확인한 사용자 ID")
     private Long loginedUserId;
+    @Schema(description = "입장 성공 시 채팅 내역. 신규 게스트 자격증명 발급 응답에서는 생략됩니다.")
     private List<ChatResponseDto> chatList;
 
     public EnterRoomResponseDto(String statusCode, String statusMsg, int markedCount) {

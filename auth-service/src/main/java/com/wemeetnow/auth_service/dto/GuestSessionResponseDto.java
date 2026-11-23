@@ -9,7 +9,7 @@ import java.time.Instant;
 @Getter
 @Builder
 public class GuestSessionResponseDto {
-    @Schema(description = "게스트 사용자 식별 UUID")
+    @Schema(description = "게스트 사용자 식별 UUID. 참고·서버 확인용이며 일반 Chat API 요청에는 보내지 않습니다.")
     private String uuId;
 
     @Schema(description = "Chat API 요청용 guestToken. 약 30분 후 만료됩니다.")

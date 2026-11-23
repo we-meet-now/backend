@@ -809,7 +809,10 @@ public class UserApiController {
             @ApiResponse(responseCode = "201", description = "게스트 세션 생성 성공",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class),
                             examples = @io.swagger.v3.oas.annotations.media.ExampleObject(
-                                    value = "{\"statusCode\":\"2000\",\"data\":{\"uuId\":\"123e4567-e89b-12d3-a456-426614174000\",\"guestToken\":\"<guestToken>\",\"refreshToken\":\"<refreshToken>\",\"guestTokenExpiresInSeconds\":1800,\"refreshTokenExpiresAt\":\"<ISO-8601 timestamp>\"},\"message\":\"게스트 세션 생성 성공\"}"))),
+                                    value = "{\"statusCode\":\"2000\",\"data\":{\"uuId\":\"123e4567-e89b-12d3-a456-426614174000\",\"guestToken\":\"<guestToken>\",\"refreshToken\":\"<refreshToken>\",\"guestTokenExpiresInSeconds\":1800,\"refreshTokenExpiresAt\":\"<ISO-8601 timestamp>\"},\"message\":\"게스트 세션 생성 성공\"}")),
+                    headers = @io.swagger.v3.oas.annotations.headers.Header(
+                            name = HttpHeaders.CACHE_CONTROL,
+                            description = "no-store. 응답 자격증명을 캐시하지 마세요.")),
             @ApiResponse(responseCode = "500", description = "게스트 세션 생성 실패",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
@@ -845,10 +848,13 @@ public class UserApiController {
             @ApiResponse(responseCode = "200", description = "게스트 토큰 갱신 성공",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class),
                             examples = @io.swagger.v3.oas.annotations.media.ExampleObject(
-                                    value = "{\"statusCode\":\"2000\",\"data\":{\"uuId\":\"123e4567-e89b-12d3-a456-426614174000\",\"guestToken\":\"<새 guestToken>\",\"refreshToken\":\"<새 refreshToken>\",\"guestTokenExpiresInSeconds\":1800,\"refreshTokenExpiresAt\":\"<ISO-8601 timestamp>\"},\"message\":\"게스트 토큰 갱신 성공\"}"))),
+                                    value = "{\"statusCode\":\"2000\",\"data\":{\"uuId\":\"123e4567-e89b-12d3-a456-426614174000\",\"guestToken\":\"<새 guestToken>\",\"refreshToken\":\"<새 refreshToken>\",\"guestTokenExpiresInSeconds\":1800,\"refreshTokenExpiresAt\":\"<ISO-8601 timestamp>\"},\"message\":\"게스트 토큰 갱신 성공\"}")),
+                    headers = @io.swagger.v3.oas.annotations.headers.Header(
+                            name = HttpHeaders.CACHE_CONTROL,
+                            description = "no-store. 응답 자격증명을 캐시하지 마세요.")),
             @ApiResponse(responseCode = "400", description = "refreshToken 누락",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
-            @ApiResponse(responseCode = "401", description = "유효하지 않거나 만료된 refreshToken",
+            @ApiResponse(responseCode = "401", description = "유효하지 않거나 만료·폐기·회전되어 이미 사용된 refreshToken",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
     @PostMapping("/no-login/guest-sessions/refresh")

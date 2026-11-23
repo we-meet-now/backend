@@ -64,13 +64,18 @@ public class GuestBrowserSessionController {
 
     @Operation(
             summary = "브라우저 게스트 세션 생성",
-            description = "비로그인 브라우저용 게스트를 생성하고 불투명한 세션 ID를 HttpOnly 쿠키로 설정합니다. UUID와 세션 ID는 응답 본문에 포함하지 않습니다. 프런트엔드는 credential을 포함해 호출해야 하며, app.example.com과 api.example.com처럼 동일 사이트의 커스텀 도메인을 사용해야 합니다."
+            description = "요청 본문과 Authorization 헤더 없이 호출합니다. 비로그인 브라우저용 게스트를 생성하고 불투명한 세션 ID를 guest_session HttpOnly 쿠키로 설정합니다. 응답 본문에는 UUID, 세션 ID, 토큰이 포함되지 않습니다. 브라우저 fetch에서는 credentials: include를 사용하고, 프런트와 API는 app.example.com과 api.example.com처럼 같은 사이트의 도메인을 사용해야 합니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "브라우저 게스트 세션 생성 성공",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class),
                             examples = @io.swagger.v3.oas.annotations.media.ExampleObject(
-                                    value = "{\"statusCode\":\"2000\",\"data\":{\"expiresAt\":\"<ISO-8601 timestamp>\",\"absoluteExpiresAt\":\"<ISO-8601 timestamp>\"},\"message\":\"브라우저 게스트 세션 생성 성공\"}"))),
+                                    value = "{\"statusCode\":\"2000\",\"data\":{\"expiresAt\":\"<ISO-8601 timestamp>\",\"absoluteExpiresAt\":\"<ISO-8601 timestamp>\"},\"message\":\"브라우저 게스트 세션 생성 성공\"}")),
+                    headers = @io.swagger.v3.oas.annotations.headers.Header(
+                            name = HttpHeaders.SET_COOKIE,
+                            description = "guest_session 쿠키. HttpOnly; Secure; SameSite=Lax; Path=/ 속성으로 설정됩니다.")),
+            @ApiResponse(responseCode = "401", description = "허용되지 않은 브라우저 Origin",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
             @ApiResponse(responseCode = "500", description = "게스트 세션 생성 실패",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
@@ -98,12 +103,17 @@ public class GuestBrowserSessionController {
 
     @Operation(
             summary = "브라우저 게스트 세션 갱신",
-            description = "현재 guest_session 쿠키를 검증하고 세션 ID를 회전시킵니다. 새 HttpOnly 쿠키를 설정하며 기존 세션 ID는 즉시 무효화됩니다. 세션의 절대 만료 시각은 연장되지 않습니다."
+            description = "요청 본문, Authorization 헤더, UUID 없이 현재 guest_session 쿠키로 호출합니다. 세션 ID를 회전하고 새 HttpOnly 쿠키를 Set-Cookie 응답 헤더로 설정합니다. 회전 전 쿠키 값은 즉시 무효화되며 절대 만료 시각은 연장되지 않습니다. 브라우저 fetch에서는 credentials: include를 설정하세요."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "브라우저 게스트 세션 갱신 성공",
-                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
-            @ApiResponse(responseCode = "401", description = "쿠키가 없거나 세션이 만료·폐기됨",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class),
+                            examples = @io.swagger.v3.oas.annotations.media.ExampleObject(
+                                    value = "{\"statusCode\":\"2000\",\"data\":{\"expiresAt\":\"<ISO-8601 timestamp>\",\"absoluteExpiresAt\":\"<ISO-8601 timestamp>\"},\"message\":\"브라우저 게스트 세션 갱신 성공\"}")),
+                    headers = @io.swagger.v3.oas.annotations.headers.Header(
+                            name = HttpHeaders.SET_COOKIE,
+                            description = "새 guest_session 쿠키. 기존 쿠키 값은 더 이상 유효하지 않습니다.")),
+            @ApiResponse(responseCode = "401", description = "쿠키가 없거나 세션이 만료·폐기되었거나 허용되지 않은 Origin",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
     @PostMapping("/refresh")
@@ -158,10 +168,17 @@ public class GuestBrowserSessionController {
 
     @Operation(
             summary = "브라우저 게스트 세션 폐기",
-            description = "현재 guest_session 쿠키에 해당하는 세션을 폐기하고 브라우저 쿠키를 삭제합니다. 이미 없는 세션도 성공으로 처리합니다."
+            description = "요청 본문과 Authorization 헤더 없이 현재 guest_session 쿠키를 폐기합니다. 브라우저 쿠키를 만료시키는 Set-Cookie 응답을 반환합니다. 이미 없거나 폐기된 세션도 성공으로 처리합니다. 브라우저 fetch에서는 credentials: include를 설정하세요."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "브라우저 게스트 세션 폐기 완료",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class),
+                            examples = @io.swagger.v3.oas.annotations.media.ExampleObject(
+                                    value = "{\"statusCode\":\"2000\",\"data\":null,\"message\":\"브라우저 게스트 세션 폐기 완료\"}")),
+                    headers = @io.swagger.v3.oas.annotations.headers.Header(
+                            name = HttpHeaders.SET_COOKIE,
+                            description = "만료 처리된 guest_session 쿠키")),
+            @ApiResponse(responseCode = "401", description = "허용되지 않은 브라우저 Origin",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
     @PostMapping("/revoke")

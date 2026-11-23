@@ -89,9 +89,11 @@ public class ChatRoomController {
                     "기존 guestToken과 UUID를 함께 보내 refreshToken을 등록할 수 있습니다. " +
                     "UUID만 있고 guestToken 또는 refreshToken이 없다면 기존 게스트를 복구할 수 없습니다. " +
                     "Swagger UI에서는 Try it out을 누르고 해당 사용자 유형의 예시를 선택한 뒤 실제 발급 값으로 " +
-                    "교체하여 Execute를 누르세요. UUID만 전달하거나 토큰과 UUID를 서로 다르게 조합하면 401을 반환합니다. " +
+                    "교체하여 Execute를 누르세요. UUID query parameter는 하위 호환용이며 신규 요청에는 넣지 않습니다. " +
                     "신규 클라이언트는 AccessToken/guestToken 또는 guest_session 쿠키만 보내며 UUID는 URL과 요청 본문에 넣지 않습니다. " +
-                    "서버가 인증 자격증명에서 UUID를 확인합니다. 성공 시 참여 채팅방과 채팅방별 미읽음 메시지 수를 반환합니다."
+                    "서버가 인증 자격증명에서 UUID를 확인합니다. 신규 요청은 guestToken 또는 AccessToken만 보내고 UUID와 refreshToken은 보내지 않습니다. " +
+                    "성공 시 참여 채팅방과 채팅방별 미읽음 메시지 수를 반환합니다. " +
+                    "Swagger UI에서는 Authorization 예시를 실제 AccessToken 또는 guestToken으로 교체하세요. 브라우저 쿠키 방식은 Auth와 Chat을 같은 공개 API 호스트로 호출해야 합니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "채팅방 목록 조회 성공",
@@ -112,6 +114,8 @@ public class ChatRoomController {
     @GetMapping("")
     public ResponseEntity<CommonApiResponse<ChatRoomListResponseDto>> getChatRoomListByUserId(
             @Parameter(
+                    name = HttpHeaders.AUTHORIZATION,
+                    in = ParameterIn.HEADER,
                     description = "로그인 사용자의 AccessToken 또는 비로그인 게스트의 guestToken. " +
                             "실제 토큰을 `Bearer <token>` 형식으로 입력하세요. 게스트는 uuid와 같은 발급 응답의 토큰이어야 합니다. " +
                             "토큰이 만료되면 안전하게 보관한 refreshToken을 Auth 서비스의 POST " +
@@ -121,7 +125,7 @@ public class ChatRoomController {
                             @ExampleObject(name = "비로그인 게스트", value = "Bearer <발급받은 guestToken>")
                     })
             @RequestHeader(value = AUTH_HEADER, required = false) String token,
-            @Parameter(deprecated = true,
+            @Parameter(hidden = true, deprecated = true,
                     description = "하위 호환용 UUID query parameter이며 신규 요청에는 사용하지 마세요. " +
                             "모바일 게스트는 Authorization의 guestToken만 보내고, 브라우저 게스트는 guest_session 쿠키만 사용합니다. " +
                             "서버가 토큰 또는 쿠키에서 UUID와 사용자를 확인합니다.",
@@ -230,26 +234,41 @@ public class ChatRoomController {
 
     @Operation(
             summary = "채팅방 입장 (채팅 내역 조회)",
-            description = "로그인 사용자는 AccessToken, 모바일 게스트는 guestToken, 브라우저 게스트는 guest_session HttpOnly 쿠키로 인증해 채팅 내역을 조회합니다. " +
-                    "UUID는 토큰 또는 쿠키에서 서버가 확인하므로 요청 URL과 본문에 넣지 않습니다."
+            description = "roomId에 해당하는 채팅 내역을 조회합니다. 로그인 사용자는 Authorization 헤더에 AccessToken을, " +
+                    "모바일 게스트는 guestToken을 Bearer 방식으로 보내고, 브라우저 게스트는 guest_session HttpOnly 쿠키를 사용합니다. " +
+                    "서버는 인증 정보로 요청 사용자를 확인하며 UUID나 userId는 요청 URL과 본문에 넣지 않습니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "채팅방 입장 및 채팅 내역 조회 성공",
-                    content = @Content(schema = @Schema(implementation = EnterChatRoomResponseDto.class))),
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class),
+                            examples = @ExampleObject(
+                                    name = "채팅 내역 조회 성공",
+                                    value = "{\"statusCode\":\"2000\",\"data\":{\"loginedUserId\":456,\"chatList\":[{\"chatId\":23,\"chatRoomId\":501,\"userId\":456,\"message\":\"안녕하세요\",\"chatType\":\"CHAT\"}]},\"message\":\"채팅방 입장 성공\"}"))),
             @ApiResponse(responseCode = "401", description = "로그인 토큰 또는 게스트 브라우저 세션 쿠키가 유효하지 않음",
-                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class),
+                            examples = @ExampleObject(
+                                    value = "{\"statusCode\":\"4010\",\"data\":null,\"message\":\"유효하지 않은 게스트 브라우저 세션입니다.\"}"))),
             @ApiResponse(responseCode = "500", description = "서버 오류 (토큰 인증 실패, 잘못된 roomId 등)",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
     @GetMapping("/roomId={roomId}")
     public ResponseEntity<CommonApiResponse<EnterChatRoomResponseDto>> enterChatRoom(
+            @Parameter(description = "조회할 채팅방 ID", example = "501", required = true)
             @PathVariable("roomId") Long roomId,
             HttpServletRequest request,
+            @Parameter(
+                    name = HttpHeaders.AUTHORIZATION,
+                    in = ParameterIn.HEADER,
+                    description = "로그인 AccessToken 또는 모바일 guestToken. `Bearer <token>` 형식으로 입력하세요.",
+                    examples = {
+                            @ExampleObject(name = "로그인", value = "Bearer <accessToken>"),
+                            @ExampleObject(name = "게스트", value = "Bearer <guestToken>")
+                    })
             @RequestHeader(value = AUTH_HEADER, required = false) String token,
             @Parameter(
                     name = GUEST_SESSION_COOKIE,
                     in = ParameterIn.COOKIE,
-                    description = "브라우저 게스트 세션 쿠키"
+                    description = "브라우저 게스트 세션 쿠키. Auth의 guest-browser-sessions API가 설정한 HttpOnly 쿠키를 사용합니다."
             )
             @CookieValue(value = GUEST_SESSION_COOKIE, required = false) String guestSessionId) {
         log.info("roomId: {}", roomId);
@@ -461,34 +480,68 @@ public class ChatRoomController {
     }
 
     @Operation(
-            summary = "채팅방 입장 및 채팅 내역 조회",
-            description = "Authorization 헤더의 사용자 또는 기존 게스트 토큰으로 요청자를 확인합니다. 브라우저 게스트는 guest_session HttpOnly 쿠키로 인증할 수 있으며, 이 경우 UUID와 Authorization 헤더는 필요하지 않습니다. " +
-                    "요청 본문의 필수 roomId 채팅방 참여자만 채팅 내역을 조회할 수 있으며, " +
-                    "성공하면 채팅별 작성자 userId와 username을 포함한 목록을 반환하고 읽지 않은 메시지를 읽음 처리합니다. " +
-                    "Authorization과 브라우저 쿠키가 모두 없으면 모바일/기존 클라이언트용 게스트 세션을 발급하고 응답의 uuId, guestToken, refreshToken을 반환합니다. " +
-                    "refreshToken은 갱신 전용 비밀값이므로 안전한 저장소에 보관하고 일반 채팅 요청에 보내지 마세요. " +
-                    "해당 사용자 프로필이 없거나 username이 null이면 username도 null로 반환합니다."
+            summary = "채팅방 입장 및 읽음 처리",
+            description = "요청 본문의 roomId를 기준으로 현재 인증 사용자가 채팅방 참여자인지 확인하고 채팅 내역을 반환하며 읽지 않은 메시지를 읽음 처리합니다. " +
+                    "로그인 사용자와 모바일 게스트는 Authorization 헤더에 각각 AccessToken 또는 guestToken을 `Bearer <token>` 형식으로 보냅니다. " +
+                    "브라우저 게스트는 Auth의 guest-browser-sessions API가 설정한 guest_session HttpOnly 쿠키를 사용합니다. " +
+                    "요청 본문에는 roomId만 넣고 UUID와 userId는 보내지 마세요. " +
+                    "Authorization과 쿠키가 모두 없는 경우 신규 게스트 자격증명을 발급하는 하위 호환 동작이 실행됩니다. " +
+                    "신규 브라우저 흐름은 먼저 Auth의 브라우저 세션 생성 API를 호출하고, 기존 게스트 흐름은 토큰 발급 API를 사용하세요."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "채팅방 입장 및 채팅 내역 조회 성공",
                     content = @Content(schema = @Schema(implementation = EnterRoomResponseDto.class),
+                            examples = {
+                                    @ExampleObject(
+                                            name = "인증 사용자 입장 성공",
+                                            summary = "인증된 사용자의 채팅 내역과 읽음 처리 결과",
+                                            value = "{\"statusCode\":\"2000\",\"statusMsg\":\"success\",\"markedReadCount\":2,\"isRefreshed\":\"N\",\"loginedUserId\":456,\"chatList\":[{\"chatId\":23,\"chatRoomId\":501,\"userId\":456,\"username\":\"guest-user\",\"message\":\"안녕하세요\",\"chatType\":\"CHAT\"}]}"),
+                                    @ExampleObject(
+                                            name = "신규 게스트 자격증명 발급 (하위 호환)",
+                                            summary = "Authorization과 guest_session 쿠키가 모두 없는 경우",
+                                            value = "{\"statusCode\":\"2030\",\"statusMsg\":\"success\",\"markedReadCount\":0,\"uuId\":\"123e4567-e89b-12d3-a456-426614174000\",\"guestToken\":\"<guestToken>\",\"refreshToken\":\"<refreshToken>\",\"guestTokenExpiresInSeconds\":1800,\"refreshTokenExpiresAt\":\"<ISO-8601 timestamp>\",\"isRefreshed\":\"N\"}")
+                            })),
+            @ApiResponse(responseCode = "403", description = "요청 사용자가 채팅방 참여자가 아님",
+                    content = @Content(schema = @Schema(implementation = EnterRoomResponseDto.class),
                             examples = @ExampleObject(
-                                    name = "Authorization이 없는 신규 게스트",
-                                    value = "{\"statusCode\":\"2030\",\"statusMsg\":\"success\",\"markedReadCount\":0,\"uuId\":\"123e4567-e89b-12d3-a456-426614174000\",\"guestToken\":\"<guestToken>\",\"refreshToken\":\"<refreshToken>\",\"guestTokenExpiresInSeconds\":1800,\"refreshTokenExpiresAt\":\"<ISO-8601 timestamp>\",\"isRefreshed\":\"N\"}"))),
-            @ApiResponse(responseCode = "403", description = "채팅방 참여자가 아님",
-                    content = @Content(schema = @Schema(implementation = EnterRoomResponseDto.class))),
-            @ApiResponse(responseCode = "401", description = "AccessToken, guestToken 또는 게스트 브라우저 세션 쿠키가 없거나 유효하지 않음",
-                    content = @Content(schema = @Schema(implementation = EnterRoomResponseDto.class))),
+                                    value = "{\"statusCode\":\"4030\",\"statusMsg\":\"채팅방 접근 권한이 없습니다.\",\"markedReadCount\":0,\"loginedUserId\":456}"))),
+            @ApiResponse(responseCode = "401", description = "Authorization 토큰 또는 guest_session 쿠키가 유효하지 않음",
+                    content = @Content(schema = @Schema(implementation = EnterRoomResponseDto.class),
+                            examples = @ExampleObject(
+                                    value = "{\"statusCode\":\"4010\",\"statusMsg\":\"유효하지 않은 게스트 토큰입니다.\",\"markedReadCount\":0}"))),
             @ApiResponse(responseCode = "500", description = "서버 오류",
-                    content = @Content(schema = @Schema(implementation = EnterRoomResponseDto.class)))
+                    content = @Content(schema = @Schema(implementation = EnterRoomResponseDto.class),
+                            examples = @ExampleObject(
+                                    value = "{\"statusCode\":\"5005\",\"statusMsg\":\"fail\",\"markedReadCount\":0}")))
     })
     @PostMapping("/enter-room")
     public ResponseEntity<EnterRoomResponseDto> enterRoomAndMarkRead(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "입장할 채팅방 ID. UUID와 userId는 보내지 않습니다.",
+                    required = true,
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = EnterRoomRequestDto.class),
+                            examples = @ExampleObject(
+                                    name = "채팅방 입장",
+                                    value = "{\"roomId\":501}")))
             @RequestBody EnterRoomRequestDto requestDto,
-            HttpServletRequest request) {
+            @Parameter(
+                    name = HttpHeaders.AUTHORIZATION,
+                    in = ParameterIn.HEADER,
+                    description = "로그인 AccessToken 또는 모바일 guestToken. `Bearer <token>` 형식으로 입력하세요. 브라우저 쿠키 인증 시 비워 둡니다.",
+                    examples = {
+                            @ExampleObject(name = "로그인", value = "Bearer <accessToken>"),
+                            @ExampleObject(name = "게스트", value = "Bearer <guestToken>")
+                    })
+            @RequestHeader(value = AUTH_HEADER, required = false) String authorizationHeader,
+            @Parameter(
+                    name = GUEST_SESSION_COOKIE,
+                    in = ParameterIn.COOKIE,
+                    description = "브라우저 인증용 HttpOnly 쿠키. Auth의 브라우저 게스트 세션 생성 API로 설정하세요."
+            )
+            @CookieValue(value = GUEST_SESSION_COOKIE, required = false) String browserSessionId) {
         try {
-            String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-            String browserSessionId = guestBrowserSessionId(request);
             if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
                 String token = authorizationHeader.substring("Bearer ".length());
                 Long userId;
@@ -620,19 +673,6 @@ public class ChatRoomController {
                     .markedReadCount(0)
                     .build());
         }
-    }
-
-    private String guestBrowserSessionId(HttpServletRequest request) {
-        jakarta.servlet.http.Cookie[] cookies = request.getCookies();
-        if (cookies == null) {
-            return null;
-        }
-        for (jakarta.servlet.http.Cookie cookie : cookies) {
-            if (GUEST_SESSION_COOKIE.equals(cookie.getName()) && !cookie.getValue().isBlank()) {
-                return cookie.getValue();
-            }
-        }
-        return null;
     }
 
     @Operation(

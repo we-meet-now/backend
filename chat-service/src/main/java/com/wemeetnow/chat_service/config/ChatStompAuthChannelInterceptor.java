@@ -2,9 +2,11 @@ package com.wemeetnow.chat_service.config;
 
 import com.wemeetnow.chat_service.dto.AuthGuestResponse;
 import com.wemeetnow.chat_service.dto.AuthUserResponse;
+import com.wemeetnow.chat_service.dto.GuestBrowserSessionDto;
 import com.wemeetnow.chat_service.dto.GuestYnDto;
 import com.wemeetnow.chat_service.service.ChatRoomService;
 import com.wemeetnow.chat_service.service.ChatService;
+import com.wemeetnow.chat_service.service.CommonService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.messaging.Message;
@@ -17,6 +19,7 @@ import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.stereotype.Component;
 
 import java.security.Principal;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -24,6 +27,7 @@ public class ChatStompAuthChannelInterceptor implements ChannelInterceptor {
 
     private final ChatRoomService chatRoomService;
     private final ChatService chatService;
+    private final CommonService commonService;
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -35,6 +39,9 @@ public class ChatStompAuthChannelInterceptor implements ChannelInterceptor {
 
         String authorizationHeader = accessor.getFirstNativeHeader(HttpHeaders.AUTHORIZATION);
         if (authorizationHeader == null) {
+            if (accessor.getCommand() == StompCommand.CONNECT) {
+                return authenticateBrowserGuest(message, accessor);
+            }
             return message;
         }
         if (!authorizationHeader.startsWith("Bearer ")) {
@@ -47,6 +54,31 @@ public class ChatStompAuthChannelInterceptor implements ChannelInterceptor {
         }
 
         accessor.setUser(resolveUserPrincipal(message, token));
+        return message;
+    }
+
+    private Message<?> authenticateBrowserGuest(Message<?> message, StompHeaderAccessor accessor) {
+        Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
+        Object sessionId = sessionAttributes == null
+                ? null
+                : sessionAttributes.get(GuestBrowserSessionHandshakeInterceptor.SESSION_ID_ATTRIBUTE);
+        if (!(sessionId instanceof String guestSessionId) || guestSessionId.isBlank()) {
+            throw new MessageDeliveryException(message, "인증 헤더 또는 게스트 세션 쿠키가 필요합니다.");
+        }
+
+        GuestBrowserSessionDto guest = commonService.fetchGuestBrowserSessionFromAuthService(guestSessionId);
+        if (guest.getUserId() == null || guest.getUuid() == null || guest.getUuid().isBlank()) {
+            throw new MessageDeliveryException(message, "게스트 브라우저 세션에서 사용자 정보를 확인할 수 없습니다.");
+        }
+        accessor.setUser(new ChatUserPrincipal(
+                guest.getUserId(),
+                guest.getUuid(),
+                true,
+                guest.getUsername(),
+                null,
+                "N",
+                true
+        ));
         return message;
     }
 

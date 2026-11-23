@@ -25,6 +25,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Tag(name = "사용자 API", description = "회원가입, 로그인, 사용자 정보 조회 관련 API")
 @Slf4j
@@ -295,7 +296,7 @@ public class UserApiController {
 
     @Operation(
             summary = "GuestToken으로 userId 및 username 조회",
-            description = "Authorization 헤더의 guest Bearer 토큰과 요청 UUID를 검증하고 UUID에 연결된 사용자 userId와 username을 반환합니다. 요청 본문의 UUID가 있으면 토큰의 UUID와 일치해야 하며, 만료된 토큰은 갱신된 guest token도 반환합니다."
+            description = "Authorization 헤더의 guest Bearer 토큰과 요청 UUID를 검증하고 UUID에 연결된 사용자 userId와 username을 반환합니다. 요청 본문의 UUID가 있으면 토큰의 UUID와 일치해야 하며, 만료된 토큰은 갱신하지 않습니다. guest refreshToken API를 사용해야 합니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "userId 조회 성공", useReturnTypeSchema = true),
@@ -316,7 +317,8 @@ public class UserApiController {
         String token = authorizationHeader.substring("Bearer ".length()).trim();
         String uuid = JwtUtil.getUUID(token);
         String requestUuid = requestDto != null ? requestDto.getUuid() : null;
-        if (token.isEmpty() || uuid == null || (requestUuid != null && !requestUuid.equals(uuid))) {
+        if (token.isEmpty() || uuid == null || JwtUtil.isExpired(token)
+                || (requestUuid != null && !requestUuid.equals(uuid))) {
             return invalidGuestTokenResponse("게스트 토큰이 유효하지 않습니다.");
         }
         if (!userService.validUUID(uuid)) {
@@ -328,14 +330,6 @@ public class UserApiController {
                             .message("유효하지 않은 UUID입니다.")
                             .build()
             );
-        }
-
-        String guestToken = token;
-        String isRefreshed = "N";
-        if (JwtUtil.isExpired(token)) {
-            // 만료된 토큰일 경우에만 새로운 GuestToken을 발급하고, 만료되지 않았다면 기존 토큰을 그대로 반환
-            guestToken = jwtUtil.generateGuestToken(uuid);
-            isRefreshed = "Y";
         }
 
         User findUser = userService.getUserByUUID(uuid).orElse(null);
@@ -358,15 +352,17 @@ public class UserApiController {
                 .statusCd("2000")
                 .statusMsg("success")
                 .isGuestYn("Y")
-                .guestToken(guestToken)
-                .isRefreshed(isRefreshed)
+                .guestToken(token)
+                .isRefreshed("N")
                 .build();
 
-        return ResponseEntity.ok(CommonApiResponse.<GuestUserDto>builder()
-                .statusCode("2000")
-                .data(responseDto)
-                .message("userId 조회 성공")
-                .build());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(CommonApiResponse.<GuestUserDto>builder()
+                        .statusCode("2000")
+                        .data(responseDto)
+                        .message("userId 조회 성공")
+                        .build());
     }
 
     private ResponseEntity<CommonApiResponse<GuestUserDto>> invalidGuestTokenResponse(String message) {
@@ -805,58 +801,222 @@ public class UserApiController {
                 .build());
     }
 
-    @GetMapping("/no-login/get-guest-token")
-    public ResponseEntity<CommonApiResponse<ChatGuestTokenInfoDto>> getGuestTokenWithNoLogin() {
-        ChatGuestTokenInfoDto responseDto = userService.issueGuestToken();
-
-        return ResponseEntity.ok(CommonApiResponse.<ChatGuestTokenInfoDto>builder()
-                .statusCode("2000")
-                .data(responseDto)
-                .message("게스트 토큰 생성 성공 성공")
-                .build());
+    @Operation(
+            summary = "게스트 세션 생성",
+            description = "인증 없이 호출할 수 있으며 Request Body는 필요하지 않습니다. 첫 접속 시 새 게스트 사용자와 세션을 생성하고 UUID, 30분 guestToken, 30일 유휴/최대 180일 유효 refreshToken을 반환합니다. refreshToken 원문은 발급 응답에서만 제공되므로 안전한 저장소에 보관하세요."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "게스트 세션 생성 성공",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class),
+                            examples = @io.swagger.v3.oas.annotations.media.ExampleObject(
+                                    value = "{\"statusCode\":\"2000\",\"data\":{\"uuId\":\"123e4567-e89b-12d3-a456-426614174000\",\"guestToken\":\"<guestToken>\",\"refreshToken\":\"<refreshToken>\",\"guestTokenExpiresInSeconds\":1800,\"refreshTokenExpiresAt\":\"<ISO-8601 timestamp>\"},\"message\":\"게스트 세션 생성 성공\"}"))),
+            @ApiResponse(responseCode = "500", description = "게스트 세션 생성 실패",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
+    @PostMapping("/no-login/guest-sessions")
+    public ResponseEntity<CommonApiResponse<GuestSessionResponseDto>> createGuestSession(
+            HttpServletRequest request
+    ) {
+        AtomicReference<String> guestUuid = new AtomicReference<>();
+        return userLogService.executeWithLogging(
+                request,
+                () -> resolvePersistedGuestUserId(guestUuid.get()),
+                "/api/auth/v1/users/no-login/guest-sessions",
+                () -> {
+                    GuestSessionResponseDto responseDto = userService.createGuestSession();
+                    guestUuid.set(responseDto.getUuId());
+                    return ResponseEntity.status(HttpStatus.CREATED)
+                            .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                            .body(CommonApiResponse.<GuestSessionResponseDto>builder()
+                                    .statusCode("2000")
+                                    .data(responseDto)
+                                    .message("게스트 세션 생성 성공")
+                                    .build());
+                },
+                response -> response.getStatusCode().value()
+        );
     }
 
     @Operation(
-            summary = "기존 UUID로 게스트 토큰 발급",
-            description = "이미 게스트 사용자로 등록된 UUID를 요청 본문에 전달하여 새 guestToken을 발급합니다. " +
-                    "Authorization은 필요하지 않습니다. UUID를 아는 사람은 해당 게스트로 인증할 수 있으므로 " +
-                    "UUID를 비밀번호처럼 안전하게 보관해야 합니다. UUID는 기존 사용자와 일치해야 하며 새 사용자를 생성하지 않습니다."
+            summary = "guestToken 및 refreshToken 갱신",
+            description = "인증 헤더와 UUID 대신 Request Body의 refreshToken으로 인증합니다. 유효한 refreshToken을 검증하고 회전 방식으로 새 guestToken과 refreshToken을 발급합니다. 기존 refreshToken은 즉시 무효화됩니다. UUID만으로는 세션을 갱신할 수 없습니다."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "게스트 토큰 발급 성공",
+            @ApiResponse(responseCode = "200", description = "게스트 토큰 갱신 성공",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class),
                             examples = @io.swagger.v3.oas.annotations.media.ExampleObject(
-                                    name = "게스트 토큰 발급 성공",
-                                    value = "{\"statusCode\":\"2000\",\"data\":{\"uuId\":\"123e4567-e89b-12d3-a456-426614174000\",\"guestToken\":\"<발급된 JWT>\"},\"message\":\"UUID로 게스트 토큰 발급 성공\"}"))),
-            @ApiResponse(responseCode = "400", description = "uuid가 누락되거나 공백임",
+                                    value = "{\"statusCode\":\"2000\",\"data\":{\"uuId\":\"123e4567-e89b-12d3-a456-426614174000\",\"guestToken\":\"<새 guestToken>\",\"refreshToken\":\"<새 refreshToken>\",\"guestTokenExpiresInSeconds\":1800,\"refreshTokenExpiresAt\":\"<ISO-8601 timestamp>\"},\"message\":\"게스트 토큰 갱신 성공\"}"))),
+            @ApiResponse(responseCode = "400", description = "refreshToken 누락",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
-            @ApiResponse(responseCode = "404", description = "등록된 게스트 UUID가 아님",
-                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
-            @ApiResponse(responseCode = "500", description = "게스트 토큰 생성 중 서버 오류",
+            @ApiResponse(responseCode = "401", description = "유효하지 않거나 만료된 refreshToken",
                     content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
     })
-    @PostMapping("/no-login/get-guest-token-by-uuid")
-    public ResponseEntity<CommonApiResponse<ChatGuestTokenInfoDto>> getGuestTokenByUuid(
+    @PostMapping("/no-login/guest-sessions/refresh")
+    public ResponseEntity<CommonApiResponse<GuestSessionResponseDto>> refreshGuestSession(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    description = "이미 발급되어 게스트 사용자로 등록된 UUID",
+                    description = "현재 보유한 refreshToken. 갱신 성공 시 이 값은 즉시 무효화됩니다.",
+                    required = true,
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = GuestSessionRefreshRequestDto.class),
+                            examples = @io.swagger.v3.oas.annotations.media.ExampleObject(
+                                    value = "{\"refreshToken\":\"<저장된 refreshToken>\"}")))
+            @RequestBody(required = false) GuestSessionRefreshRequestDto requestDto,
+            HttpServletRequest request
+    ) {
+        AtomicReference<String> guestUuid = new AtomicReference<>();
+        return userLogService.executeWithLogging(
+                request,
+                () -> resolvePersistedGuestUserId(guestUuid.get()),
+                "/api/auth/v1/users/no-login/guest-sessions/refresh",
+                () -> {
+                    GuestSessionResponseDto responseDto = userService.refreshGuestSession(
+                            requestDto == null ? null : requestDto.getRefreshToken());
+                    guestUuid.set(responseDto.getUuId());
+                    return ResponseEntity.ok()
+                            .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                            .body(CommonApiResponse.<GuestSessionResponseDto>builder()
+                                    .statusCode("2000")
+                                    .data(responseDto)
+                                    .message("게스트 토큰 갱신 성공")
+                                    .build());
+                },
+                response -> response.getStatusCode().value()
+        );
+    }
+
+    @Operation(
+            summary = "기존 게스트의 refreshToken 등록",
+            description = "기존 클라이언트 전환용 API입니다. Authorization의 아직 유효한 guestToken과 Request Body의 동일한 UUID를 함께 검증한 뒤 refreshToken을 등록하고 새 guestToken을 발급합니다. UUID만으로는 호출할 수 없으며 만료된 guestToken은 등록할 수 없습니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "기존 게스트 세션 등록 성공",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class),
+                            examples = @io.swagger.v3.oas.annotations.media.ExampleObject(
+                                    value = "{\"statusCode\":\"2000\",\"data\":{\"uuId\":\"123e4567-e89b-12d3-a456-426614174000\",\"guestToken\":\"<새 guestToken>\",\"refreshToken\":\"<새 refreshToken>\",\"guestTokenExpiresInSeconds\":1800,\"refreshTokenExpiresAt\":\"<ISO-8601 timestamp>\"},\"message\":\"기존 게스트 세션 등록 성공\"}"))),
+            @ApiResponse(responseCode = "400", description = "UUID 누락",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "401", description = "유효하지 않거나 만료된 guestToken 또는 UUID 불일치",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
+    @PostMapping("/no-login/guest-sessions/upgrade")
+    public ResponseEntity<CommonApiResponse<GuestSessionResponseDto>> upgradeGuestSession(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "기존 guestToken에 포함된 UUID. Authorization 토큰과 반드시 일치해야 합니다.",
                     required = true,
                     content = @Content(
                             mediaType = "application/json",
                             schema = @Schema(implementation = GuestIdRequestDto.class),
                             examples = @io.swagger.v3.oas.annotations.media.ExampleObject(
-                                    name = "기존 게스트 UUID",
                                     value = "{\"uuid\":\"123e4567-e89b-12d3-a456-426614174000\"}")))
-            @RequestBody(required = false) GuestIdRequestDto requestDto) {
-        if (requestDto == null || requestDto.getUuid() == null || requestDto.getUuid().isBlank()) {
-            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
-        }
+            @RequestBody(required = false) GuestIdRequestDto requestDto,
+            @Parameter(
+                    name = HttpHeaders.AUTHORIZATION,
+                    in = ParameterIn.HEADER,
+                    description = "같은 UUID를 포함하며 아직 만료되지 않은 기존 guestToken",
+                    required = true,
+                    example = "Bearer <유효한 guestToken>")
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorizationHeader,
+            HttpServletRequest request
+    ) {
+        String guestToken = authorizationHeader != null && authorizationHeader.startsWith("Bearer ")
+                ? authorizationHeader.substring("Bearer ".length()).trim()
+                : null;
+        AtomicReference<String> guestUuid = new AtomicReference<>();
+        return userLogService.executeWithLogging(
+                request,
+                () -> resolvePersistedGuestUserId(guestUuid.get()),
+                "/api/auth/v1/users/no-login/guest-sessions/upgrade",
+                () -> {
+                    GuestSessionResponseDto responseDto = userService.upgradeGuestSession(
+                            requestDto == null ? null : requestDto.getUuid(),
+                            guestToken);
+                    guestUuid.set(responseDto.getUuId());
+                    return ResponseEntity.ok()
+                            .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                            .body(CommonApiResponse.<GuestSessionResponseDto>builder()
+                                    .statusCode("2000")
+                                    .data(responseDto)
+                                    .message("기존 게스트 세션 등록 성공")
+                                    .build());
+                },
+                response -> response.getStatusCode().value()
+        );
+    }
 
-        ChatGuestTokenInfoDto responseDto = userService.issueGuestToken(requestDto.getUuid());
-        return ResponseEntity.ok(CommonApiResponse.<ChatGuestTokenInfoDto>builder()
-                .statusCode("2000")
-                .data(responseDto)
-                .message("UUID로 게스트 토큰 발급 성공")
-                .build());
+    @Operation(
+            summary = "게스트 세션 폐기",
+            description = "인증 없이 Request Body의 refreshToken으로 해당 게스트 세션을 폐기합니다. 폐기 이후 해당 비밀값으로는 갱신할 수 없습니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "게스트 세션 폐기 성공",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "400", description = "refreshToken 누락",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class))),
+            @ApiResponse(responseCode = "401", description = "유효하지 않거나 이미 폐기된 refreshToken",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
+    @PostMapping("/no-login/guest-sessions/revoke")
+    public ResponseEntity<CommonApiResponse<Void>> revokeGuestSession(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "폐기할 현재 refreshToken",
+                    required = true,
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = GuestSessionRefreshRequestDto.class),
+                            examples = @io.swagger.v3.oas.annotations.media.ExampleObject(
+                                    value = "{\"refreshToken\":\"<저장된 refreshToken>\"}")))
+            @RequestBody(required = false) GuestSessionRefreshRequestDto requestDto,
+            HttpServletRequest request
+    ) {
+        AtomicReference<String> guestUuid = new AtomicReference<>();
+        return userLogService.executeWithLogging(
+                request,
+                () -> resolvePersistedGuestUserId(guestUuid.get()),
+                "/api/auth/v1/users/no-login/guest-sessions/revoke",
+                () -> {
+                    guestUuid.set(userService.revokeGuestSession(
+                            requestDto == null ? null : requestDto.getRefreshToken()));
+                    return ResponseEntity.ok(CommonApiResponse.<Void>builder()
+                            .statusCode("2000")
+                            .data(null)
+                            .message("게스트 세션 폐기 성공")
+                            .build());
+                },
+                response -> response.getStatusCode().value()
+        );
+    }
+
+    private String resolvePersistedGuestUserId(String uuid) {
+        if (uuid == null || uuid.isBlank()) {
+            return null;
+        }
+        return userService.getUserByUUID(uuid)
+                .map(User::getId)
+                .map(String::valueOf)
+                .orElse(null);
+    }
+
+    @Operation(
+            summary = "게스트 토큰 발급 (이전 버전)",
+            description = "하위 호환용 API이며 refreshToken을 발급하지 않습니다. 신규 클라이언트는 POST /no-login/guest-sessions를 사용하세요."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "이전 방식의 게스트 토큰 발급 성공",
+                    content = @Content(schema = @Schema(implementation = CommonApiResponse.class)))
+    })
+    @Deprecated
+    @GetMapping("/no-login/get-guest-token")
+    public ResponseEntity<CommonApiResponse<ChatGuestTokenInfoDto>> getGuestTokenWithNoLogin() {
+        ChatGuestTokenInfoDto responseDto = userService.issueGuestToken();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(CommonApiResponse.<ChatGuestTokenInfoDto>builder()
+                        .statusCode("2000")
+                        .data(responseDto)
+                        .message("게스트 토큰 생성 성공")
+                        .build());
     }
 
     @Operation(

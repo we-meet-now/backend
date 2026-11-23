@@ -15,6 +15,7 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final ChatStompAuthChannelInterceptor authChannelInterceptor;
+    private final GuestBrowserSessionHandshakeInterceptor guestBrowserSessionHandshakeInterceptor;
 
     @Value("${front.url}")
     private String frontUrl;
@@ -40,11 +41,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         // SockJS를 사용하는 엔드포인트 등록
         registry.addEndpoint("/api/chat/v1/message/ws-chat")
                 .setAllowedOriginPatterns(frontUrl)
+                .addInterceptors(guestBrowserSessionHandshakeInterceptor)
                 .withSockJS();
 
         // SockJS 없는 순수 WebSocket도 추가
         registry.addEndpoint("/api/chat/v1/message/ws-chat")
                 .setAllowedOriginPatterns(frontUrl)
+                .addInterceptors(guestBrowserSessionHandshakeInterceptor)
         ;
     }
 }

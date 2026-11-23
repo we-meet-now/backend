@@ -1,12 +1,12 @@
 package com.wemeetnow.auth_service.service;
 
-import com.wemeetnow.auth_service.config.common.GlobalExceptionHandler;
 import com.wemeetnow.auth_service.config.jwt.JwtUtil;
+import com.wemeetnow.auth_service.domain.GuestSession;
 import com.wemeetnow.auth_service.domain.User;
 import com.wemeetnow.auth_service.domain.enums.ErrorCode;
 import com.wemeetnow.auth_service.dto.*;
 import com.wemeetnow.auth_service.exception.CustomException;
-import org.springframework.http.ResponseEntity;
+import com.wemeetnow.auth_service.repository.GuestSessionRepository;
 import com.wemeetnow.auth_service.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -18,10 +18,22 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Base64;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
+
+import static com.wemeetnow.auth_service.config.jwt.JwtExpirationEnums.GUEST_ACCESS_TOKEN_EXPIRATION_TIME;
+import static com.wemeetnow.auth_service.config.jwt.JwtExpirationEnums.GUEST_REFRESH_TOKEN_ABSOLUTE_EXPIRATION_TIME;
+import static com.wemeetnow.auth_service.config.jwt.JwtExpirationEnums.GUEST_REFRESH_TOKEN_IDLE_EXPIRATION_TIME;
 
 @Service
 @RequiredArgsConstructor
@@ -31,6 +43,8 @@ public class UserService{
     private final BCryptPasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
+    private final GuestSessionRepository guestSessionRepository;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     @Transactional
     public UserJoinResponseDto join(UserJoinRequestDto joinRequestDto) {
@@ -197,8 +211,6 @@ public class UserService{
 
     @Transactional
     public Long saveGuestUser(String uuid) {
-        log.info("게스트 토큰 생성 로직 진행");
-
         User guestUser = new User(uuid);
         User savedUser = userRepository.save(guestUser);
         return savedUser.getId();
@@ -226,24 +238,140 @@ public class UserService{
                 .build();
     }
 
-    public ChatGuestTokenInfoDto issueGuestToken(String uuid) {
+    @Transactional
+    public GuestSessionResponseDto createGuestSession() {
+        String uuid = UUID.randomUUID().toString();
+        User guestUser = userRepository.save(new User(uuid));
+        if (guestUser.getId() == null) {
+            throw new CustomException(ErrorCode.GUEST_USER_CREATE_FAILED);
+        }
+        return createGuestSessionForUser(guestUser);
+    }
+
+    @Transactional
+    public GuestSessionResponseDto upgradeGuestSession(String uuid, String guestToken) {
         if (uuid == null || uuid.isBlank()) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        if (userRepository.findByUuid(uuid).isEmpty()) {
-            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        if (guestToken == null || guestToken.isBlank() || JwtUtil.isExpired(guestToken)) {
+            throw new CustomException(ErrorCode.GUEST_SESSION_UNAUTHORIZED);
         }
 
-        String guestToken = jwtUtil.generateGuestToken(uuid);
-        if (guestToken == null || guestToken.isBlank() || "emptyString".equals(guestToken)) {
-            log.error("기존 게스트 UUID에 대한 토큰 생성에 실패했습니다.");
+        String tokenUuid = JwtUtil.getUUID(guestToken);
+        if (!uuid.equals(tokenUuid)) {
+            throw new CustomException(ErrorCode.GUEST_SESSION_UNAUTHORIZED);
+        }
+
+        User guestUser = userRepository.findByUuid(tokenUuid)
+                .orElseThrow(() -> new CustomException(ErrorCode.GUEST_SESSION_UNAUTHORIZED));
+        return createGuestSessionForUser(guestUser);
+    }
+
+    @Transactional
+    public GuestSessionResponseDto refreshGuestSession(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        Instant now = Instant.now();
+        GuestSession session = guestSessionRepository.findActiveByRefreshTokenHashForUpdate(
+                        hashRefreshToken(refreshToken))
+                .orElseThrow(() -> new CustomException(ErrorCode.GUEST_SESSION_UNAUTHORIZED));
+        if (session.isExpiredAt(now)) {
+            throw new CustomException(ErrorCode.GUEST_SESSION_UNAUTHORIZED);
+        }
+
+        User guestUser = session.getUser();
+        String guestToken = jwtUtil.generateGuestAccessToken(guestUser.getUuid());
+        if (!isGeneratedTokenValid(guestToken)) {
             throw new CustomException(ErrorCode.GUEST_TOKEN_CREATE_FAILED);
         }
 
-        return ChatGuestTokenInfoDto.builder()
+        String rotatedRefreshToken = generateRefreshToken();
+        session.rotate(
+                hashRefreshToken(rotatedRefreshToken),
+                now,
+                now.plus(GUEST_REFRESH_TOKEN_IDLE_EXPIRATION_TIME.getValue(), ChronoUnit.MILLIS)
+        );
+        guestSessionRepository.save(session);
+        return toGuestSessionResponse(guestUser.getUuid(), guestToken, rotatedRefreshToken, session.getExpiresAt());
+    }
+
+    @Transactional
+    public String revokeGuestSession(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        GuestSession session = guestSessionRepository.findActiveByRefreshTokenHashForUpdate(
+                        hashRefreshToken(refreshToken))
+                .orElseThrow(() -> new CustomException(ErrorCode.GUEST_SESSION_UNAUTHORIZED));
+        session.revoke(Instant.now());
+        guestSessionRepository.save(session);
+        return session.getUser().getUuid();
+    }
+
+    private GuestSessionResponseDto createGuestSessionForUser(User guestUser) {
+        Instant now = Instant.now();
+        Instant idleExpiration = now.plus(
+                GUEST_REFRESH_TOKEN_IDLE_EXPIRATION_TIME.getValue(), ChronoUnit.MILLIS);
+        Instant absoluteExpiration = now.plus(
+                GUEST_REFRESH_TOKEN_ABSOLUTE_EXPIRATION_TIME.getValue(), ChronoUnit.MILLIS);
+        String guestToken = jwtUtil.generateGuestAccessToken(guestUser.getUuid());
+        if (!isGeneratedTokenValid(guestToken)) {
+            throw new CustomException(ErrorCode.GUEST_TOKEN_CREATE_FAILED);
+        }
+
+        String refreshToken = generateRefreshToken();
+        GuestSession session = new GuestSession(
+                guestUser,
+                hashRefreshToken(refreshToken),
+                now,
+                idleExpiration,
+                absoluteExpiration
+        );
+        guestSessionRepository.save(session);
+        return toGuestSessionResponse(
+                guestUser.getUuid(),
+                guestToken,
+                refreshToken,
+                session.getExpiresAt()
+        );
+    }
+
+    private GuestSessionResponseDto toGuestSessionResponse(
+            String uuid,
+            String guestToken,
+            String refreshToken,
+            Instant refreshTokenExpiresAt
+    ) {
+        return GuestSessionResponseDto.builder()
                 .uuId(uuid)
                 .guestToken(guestToken)
+                .refreshToken(refreshToken)
+                .guestTokenExpiresInSeconds(GUEST_ACCESS_TOKEN_EXPIRATION_TIME.getValue() / 1000)
+                .refreshTokenExpiresAt(refreshTokenExpiresAt)
                 .build();
+    }
+
+    private String generateRefreshToken() {
+        byte[] randomBytes = new byte[32];
+        SECURE_RANDOM.nextBytes(randomBytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
+    }
+
+    private String hashRefreshToken(String refreshToken) {
+        try {
+            byte[] hash = MessageDigest.getInstance("SHA-256")
+                    .digest(refreshToken.getBytes(StandardCharsets.US_ASCII));
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is not available", exception);
+        }
+    }
+
+    private boolean isGeneratedTokenValid(String token) {
+        return token != null && !token.isBlank() && !"emptyString".equals(token);
     }
 
     public Optional<User> getUserByUUID(String uuid) {

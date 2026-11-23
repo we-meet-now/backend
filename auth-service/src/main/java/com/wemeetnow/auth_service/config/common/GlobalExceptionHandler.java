@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.lang.reflect.Field;
 import java.util.List;
@@ -36,6 +37,7 @@ public class GlobalExceptionHandler {
                 fieldName = jsonEx.getPath().get(0).getFieldName();
                 expectedType = getExpectedType(StoreRecommendRequestDto.class, fieldName);
             }
+
         }
 
         String errorMessage = String.format("%s 필드의 데이터 타입이 올바르지 않습니다. 기대되는 타입: %s", fieldName, expectedType);
@@ -45,6 +47,17 @@ public class GlobalExceptionHandler {
                         .statusCode("4000") // JSON 포맷 에러 공통 코드
                         .data(null)
                         .message(errorMessage)
+                        .build()
+        );
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<CommonApiResponse<Void>> handleNoResourceFound(NoResourceFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                CommonApiResponse.<Void>builder()
+                        .statusCode("4040")
+                        .data(null)
+                        .message("요청한 API를 찾을 수 없습니다.")
                         .build()
         );
     }

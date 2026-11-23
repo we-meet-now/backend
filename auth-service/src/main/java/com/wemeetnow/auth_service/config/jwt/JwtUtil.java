@@ -19,6 +19,7 @@ import java.security.Key;
 import java.util.Date;
 
 import static com.wemeetnow.auth_service.config.jwt.JwtExpirationEnums.ACCESS_TOKEN_EXPIRATION_TIME;
+import static com.wemeetnow.auth_service.config.jwt.JwtExpirationEnums.GUEST_ACCESS_TOKEN_EXPIRATION_TIME;
 import static com.wemeetnow.auth_service.config.jwt.JwtExpirationEnums.REFRESH_TOKEN_EXPIRATION_TIME;
 
 @Slf4j
@@ -157,7 +158,6 @@ public class JwtUtil {
             claims.put("userId", userId);
             claims.put("email", email);
             claims.put("role", role);
-            log.info("22enter doGenerateToken()" + SECRET_KEY);
             return Jwts.builder()
                     .setClaims(claims)
                     .setIssuedAt(new Date(System.currentTimeMillis()))
@@ -177,7 +177,6 @@ public class JwtUtil {
             claims.put("userId", null);
             claims.put("email", null);
             claims.put("role", Role.ROLE_USER);
-            log.info("22enter doGenerateToken()" + SECRET_KEY);
             return Jwts.builder()
                     .setClaims(claims)
                     .setIssuedAt(new Date(System.currentTimeMillis()))
@@ -220,6 +219,15 @@ public class JwtUtil {
         }
         catch (Exception e) {
             log.error("raised error: {}",e.getMessage());
+            return null;
+        }
+    }
+
+    public String generateGuestAccessToken(String uuid) {
+        try {
+            return doGenerateGuestToken(uuid, GUEST_ACCESS_TOKEN_EXPIRATION_TIME.getValue());
+        } catch (Exception e) {
+            log.error("게스트 AccessToken 생성에 실패했습니다.", e);
             return null;
         }
     }

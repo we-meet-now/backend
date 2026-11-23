@@ -9,10 +9,12 @@ import com.wemeetnow.chat_service.dto.CreateChatRoomRequestDto;
 import com.wemeetnow.chat_service.dto.EnterRoomRequestDto;
 import com.wemeetnow.chat_service.dto.EnterRoomResponseDto;
 import com.wemeetnow.chat_service.dto.GuestYnDto;
+import com.wemeetnow.chat_service.dto.GuestBrowserSessionDto;
 import com.wemeetnow.chat_service.dto.InviteChatParticipantsRequestDto;
 import com.wemeetnow.chat_service.dto.RemoveChatParticipantsRequestDto;
 import com.wemeetnow.chat_service.exception.ChatRoomInviteException;
 import com.wemeetnow.chat_service.service.ChatRoomService;
+import com.wemeetnow.chat_service.service.ChatGuestTokenInfo;
 import com.wemeetnow.chat_service.service.ChatService;
 import com.wemeetnow.chat_service.service.CommonService;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,6 +22,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockHttpServletRequest;
+import jakarta.servlet.http.Cookie;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 
 import java.util.List;
@@ -35,13 +39,15 @@ class ChatRoomControllerTest {
 
     private ChatRoomService chatRoomService;
     private ChatService chatService;
+    private CommonService commonService;
     private ChatRoomController controller;
 
     @BeforeEach
     void setUp() {
         chatRoomService = mock(ChatRoomService.class);
         chatService = mock(ChatService.class);
-        controller = new ChatRoomController(chatRoomService, chatService, mock(CommonService.class));
+        commonService = mock(CommonService.class);
+        controller = new ChatRoomController(chatRoomService, chatService, commonService);
     }
 
     @Test
@@ -83,9 +89,59 @@ class ChatRoomControllerTest {
     void rejectsMissingIdentity() {
         assertThatThrownBy(() -> controller.getChatRoomListByUserId(null, null))
                 .isInstanceOf(ChatRoomInviteException.class)
-                .hasMessage("Authorization AccessToken이 필요합니다.");
+                .hasMessage("AccessToken 또는 게스트 브라우저 세션 쿠키가 필요합니다.");
 
         verify(chatRoomService, never()).findByUserId(org.mockito.ArgumentMatchers.anyLong());
+    }
+
+    @Test
+    void returnsChatRoomsForBrowserGuestUsingHttpOnlySessionCookie() {
+        GuestBrowserSessionDto guest = new GuestBrowserSessionDto();
+        guest.setUserId(18L);
+        guest.setUuid("browser-guest-uuid");
+        when(commonService.fetchGuestBrowserSessionFromAuthService("opaque-session-id"))
+                .thenReturn(guest);
+        when(chatRoomService.findByUserId(18L)).thenReturn(List.of());
+
+        var response = controller.getChatRoomListByUserId(null, null, "opaque-session-id");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().getData().getLoginedUserId()).isEqualTo(18L);
+        verify(commonService).fetchGuestBrowserSessionFromAuthService("opaque-session-id");
+        verify(chatService, never()).isValidAccessToken(org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void rejectsExpiredBrowserGuestSessionCookie() {
+        when(commonService.fetchGuestBrowserSessionFromAuthService("expired-session-id"))
+                .thenThrow(new HttpClientErrorException(HttpStatus.UNAUTHORIZED));
+
+        assertThatThrownBy(() -> controller.getChatRoomListByUserId(null, null, "expired-session-id"))
+                .isInstanceOf(ChatRoomInviteException.class)
+                .hasMessage("유효하지 않거나 만료된 게스트 브라우저 세션입니다.");
+        verify(chatRoomService, never()).findByUserId(org.mockito.ArgumentMatchers.anyLong());
+    }
+
+    @Test
+    void returnsRoomHistoryForBrowserGuestUsingCookie() {
+        GuestBrowserSessionDto guest = new GuestBrowserSessionDto();
+        guest.setUserId(18L);
+        guest.setUuid("server-side-uuid");
+        when(commonService.fetchGuestBrowserSessionFromAuthService("opaque-session-id"))
+                .thenReturn(guest);
+        when(chatService.getChatList(5L, 18L)).thenReturn(List.of());
+
+        var response = controller.enterChatRoom(
+                5L,
+                new MockHttpServletRequest(),
+                null,
+                "opaque-session-id"
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getHeaders().getFirst(HttpHeaders.CACHE_CONTROL)).isEqualTo("no-store");
+        assertThat(response.getBody().getData().getLoginedUserId()).isEqualTo(18L);
+        verify(commonService).fetchGuestBrowserSessionFromAuthService("opaque-session-id");
     }
 
     @Test
@@ -182,6 +238,51 @@ class ChatRoomControllerTest {
         assertThat(response.getBody().getChatList().get(0).getChatId()).isEqualTo(23L);
         assertThat(response.getBody().getChatList().get(0).getUsername()).isEqualTo("author-name");
         verify(chatRoomService).isMember(roomId, userId);
+    }
+
+    @Test
+    void issuesNewGuestSessionWhenEnteringWithoutAuthorization() {
+        ChatGuestTokenInfo guestSession = new ChatGuestTokenInfo();
+        guestSession.setUuId("new-guest-uuid");
+        guestSession.setGuestToken("short-lived-guest-token");
+        guestSession.setRefreshToken("opaque-refresh-secret");
+        guestSession.setGuestTokenExpiresInSeconds(1800);
+        when(chatRoomService.generateGuestSession()).thenReturn(guestSession);
+
+        var response = controller.enterRoomAndMarkRead(request(5L), new MockHttpServletRequest());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getHeaders().getFirst(HttpHeaders.CACHE_CONTROL)).isEqualTo("no-store");
+        assertThat(response.getBody().getUuId()).isEqualTo("new-guest-uuid");
+        assertThat(response.getBody().getGuestToken()).isEqualTo("short-lived-guest-token");
+        assertThat(response.getBody().getRefreshToken()).isEqualTo("opaque-refresh-secret");
+        assertThat(response.getBody().getGuestTokenExpiresInSeconds()).isEqualTo(1800);
+        verify(chatRoomService).generateGuestSession();
+    }
+
+    @Test
+    void entersRoomForBrowserGuestWithoutReturningUuidOrTokens() {
+        GuestBrowserSessionDto guest = new GuestBrowserSessionDto();
+        guest.setUserId(18L);
+        guest.setUuid("server-side-uuid");
+        when(commonService.fetchGuestBrowserSessionFromAuthService("opaque-session-id"))
+                .thenReturn(guest);
+        when(chatRoomService.isMember(5L, 18L)).thenReturn(true);
+        when(chatRoomService.enterRoomAndMarkRead(5L, 18L))
+                .thenReturn(new EnterRoomResponseDto("2000", "success", 0));
+        when(chatService.getChatList(5L, 18L)).thenReturn(List.of());
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setCookies(new Cookie("guest_session", "opaque-session-id"));
+        var response = controller.enterRoomAndMarkRead(request(5L), request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getHeaders().getFirst(HttpHeaders.CACHE_CONTROL)).isEqualTo("no-store");
+        assertThat(response.getBody().getLoginedUserId()).isEqualTo(18L);
+        assertThat(response.getBody().getUuId()).isNull();
+        assertThat(response.getBody().getGuestToken()).isNull();
+        assertThat(response.getBody().getRefreshToken()).isNull();
+        verify(commonService).fetchGuestBrowserSessionFromAuthService("opaque-session-id");
     }
 
     @Test

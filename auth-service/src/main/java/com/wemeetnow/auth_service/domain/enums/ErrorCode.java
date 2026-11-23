@@ -19,7 +19,8 @@ public enum ErrorCode {
     FRIEND_ALREADY_EXISTS(HttpStatus.CONFLICT, "4090", "이미 친구이거나 친구 초대가 존재하는 사용자입니다."),
     // 게스트 인증 관련 에러
     GUEST_USER_CREATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "5051", "게스트 토큰 생성 중 사용자 생성에 실패했습니다."),
-    GUEST_TOKEN_CREATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "5050", "게스트 토큰 생성에 실패했습니다.");
+    GUEST_TOKEN_CREATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "5050", "게스트 토큰 생성에 실패했습니다."),
+    GUEST_SESSION_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "4010", "게스트 세션이 유효하지 않거나 만료되었습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

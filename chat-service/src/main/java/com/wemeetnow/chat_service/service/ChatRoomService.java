@@ -156,15 +156,15 @@ public class ChatRoomService {
     }
 
     @Transactional
-    public ChatGuestTokenInfo generateGuestToken() {
+    public ChatGuestTokenInfo generateGuestSession() {
         try {
             RestClient restClient = restClientBuilder
                     .baseUrl(AUTH_SERVICE_URL)
                     .build();
 
             // Auth Service 호출: CommonApiResponse 형태로 응답받음
-            CommonApiResponse<ChatGuestTokenInfo> response = restClient.get()
-                    .uri("/api/auth/v1/users/no-login/get-guest-token")
+            CommonApiResponse<ChatGuestTokenInfo> response = restClient.post()
+                    .uri("/api/auth/v1/users/no-login/guest-sessions")
                     .accept(MediaType.APPLICATION_JSON)
                     .retrieve()
                     .body(new org.springframework.core.ParameterizedTypeReference<CommonApiResponse<ChatGuestTokenInfo>>() {});

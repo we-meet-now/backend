@@ -2,9 +2,11 @@ package com.wemeetnow.chat_service.config;
 
 import com.wemeetnow.chat_service.dto.AuthGuestResponse;
 import com.wemeetnow.chat_service.dto.AuthUserResponse;
+import com.wemeetnow.chat_service.dto.GuestBrowserSessionDto;
 import com.wemeetnow.chat_service.dto.GuestYnDto;
 import com.wemeetnow.chat_service.service.ChatRoomService;
 import com.wemeetnow.chat_service.service.ChatService;
+import com.wemeetnow.chat_service.service.CommonService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
@@ -13,6 +15,8 @@ import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.MessageBuilder;
+
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -23,13 +27,15 @@ class ChatStompAuthChannelInterceptorTest {
 
     private ChatRoomService chatRoomService;
     private ChatService chatService;
+    private CommonService commonService;
     private ChatStompAuthChannelInterceptor interceptor;
 
     @BeforeEach
     void setUp() {
         chatRoomService = mock(ChatRoomService.class);
         chatService = mock(ChatService.class);
-        interceptor = new ChatStompAuthChannelInterceptor(chatRoomService, chatService);
+        commonService = mock(CommonService.class);
+        interceptor = new ChatStompAuthChannelInterceptor(chatRoomService, chatService, commonService);
     }
 
     @Test
@@ -86,6 +92,33 @@ class ChatStompAuthChannelInterceptorTest {
         Message<?> authenticated = intercept(StompCommand.SEND, "Bearer guest-token");
 
         assertThat(StompHeaderAccessor.wrap(authenticated).getUser().getName()).isEqualTo("42");
+    }
+
+    @Test
+    void resolvesBrowserGuestFromHandshakeCookieOnConnect() {
+        GuestBrowserSessionDto guest = new GuestBrowserSessionDto();
+        guest.setUserId(54L);
+        guest.setUuid("browser-guest-uuid");
+        guest.setUsername("browser-guest");
+        when(commonService.fetchGuestBrowserSessionFromAuthService("opaque-session-id"))
+                .thenReturn(guest);
+
+        StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.CONNECT);
+        accessor.setSessionAttributes(Map.of(
+                GuestBrowserSessionHandshakeInterceptor.SESSION_ID_ATTRIBUTE,
+                "opaque-session-id"
+        ));
+        accessor.setLeaveMutable(true);
+        Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+
+        Message<?> authenticated = interceptor.preSend(message, mock(MessageChannel.class));
+
+        ChatUserPrincipal principal = (ChatUserPrincipal) StompHeaderAccessor.wrap(authenticated).getUser();
+        assertThat(principal.userId()).isEqualTo(54L);
+        assertThat(principal.uuid()).isEqualTo("browser-guest-uuid");
+        assertThat(principal.guest()).isTrue();
+        assertThat(principal.browserSession()).isTrue();
+        assertThat(principal.guestToken()).isNull();
     }
 
     private Message<?> interceptConnect(String authorizationHeader) {

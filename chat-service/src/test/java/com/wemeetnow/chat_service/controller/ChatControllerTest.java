@@ -67,6 +67,24 @@ class ChatControllerTest {
     }
 
     @Test
+    void sendsBrowserGuestMessageWithoutClientSuppliedUuidOrUserId() throws Exception {
+        ChatDto chatDto = new ChatDto();
+        chatDto.setChatRoomId(13L);
+        chatDto.setMessage("browser guest message");
+        chatDto.setChatType(ChatType.CHAT);
+        ChatResponseDto expected = mock(ChatResponseDto.class);
+        when(chatService.saveMessage(13L, 54L, "browser guest message", ChatType.CHAT, "browser-guest"))
+                .thenReturn(expected);
+        ChatUserPrincipal principal = new ChatUserPrincipal(
+                54L, "server-resolved-uuid", true, "browser-guest", null, "N", true);
+
+        ChatResponseDto response = chatController.sendMessage(chatDto, principal);
+
+        assertThat(response).isSameAs(expected);
+        verify(chatService).saveMessage(13L, 54L, "browser guest message", ChatType.CHAT, "browser-guest");
+    }
+
+    @Test
     void rejectsLoginUserIdThatDoesNotMatchAuthenticatedToken() {
         ChatDto chatDto = new ChatDto();
         chatDto.setChatRoomId(13L);

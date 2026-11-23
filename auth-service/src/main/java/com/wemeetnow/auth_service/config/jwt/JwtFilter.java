@@ -33,7 +33,7 @@ public class JwtFilter extends OncePerRequestFilter {
             new AntPathRequestMatcher("/api/auth/v1/friends/all", "GET"),
             new AntPathRequestMatcher("/api/auth/v1/users/no-login/**"),
             new AntPathRequestMatcher("/api/auth/v1/users/is-guest-token"),
-            new AntPathRequestMatcher("/api/auth/v1/users/get-guest-id") // 만료된 게스트 토큰도 갱신을 위해 호출 가능해야 함
+            new AntPathRequestMatcher("/api/auth/v1/users/get-guest-id") // 게스트 토큰 검증을 컨트롤러에서 수행
     );
 
     @Override
@@ -45,7 +45,6 @@ public class JwtFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         // token은 변경되면 안되기에 final키워드 사용
         final String authorizationHeader = request.getHeader(AUTHORIZATION);
-        log.info("authorizatonHeader: {}", authorizationHeader);
 
         if(authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")){
             filterChain.doFilter(request, response);

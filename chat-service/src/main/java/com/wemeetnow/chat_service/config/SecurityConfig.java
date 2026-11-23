@@ -37,6 +37,7 @@ public class SecurityConfig {
                                 "/api/chat/v1/chats/all",
                                 "/api/chat/v1/chat-rooms",
                                 "/api/chat/v1/chat-rooms/all",
+                                "/api/chat/v1/chat-rooms/roomId=*",
                                 "/api/chat/v1/chat-participants/all",
                                 "/api/chat/v1/swagger-ui.html"
                         ).permitAll()

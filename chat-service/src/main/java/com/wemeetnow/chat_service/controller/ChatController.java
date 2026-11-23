@@ -89,15 +89,18 @@ public class ChatController {
 
         boolean hasGuestUuid = chatDto.getUuId() != null && !chatDto.getUuId().isBlank();
         boolean hasUserId = chatDto.getUserId() != null;
-        if (hasGuestUuid == hasUserId) {
-            throw new IllegalArgumentException("게스트는 uuId, 로그인 사용자는 userId 중 하나만 전달해야 합니다.");
-        }
 
         if (authenticatedUser.guest()) {
-            if (!hasGuestUuid || !authenticatedUser.uuid().equals(chatDto.getUuId())) {
+            if (authenticatedUser.browserSession()) {
+                if (hasUserId || (hasGuestUuid && !authenticatedUser.uuid().equals(chatDto.getUuId()))) {
+                    throw new IllegalArgumentException("요청 identity가 인증된 게스트와 일치하지 않습니다.");
+                }
+            } else if (hasGuestUuid == hasUserId
+                    || !hasGuestUuid
+                    || !authenticatedUser.uuid().equals(chatDto.getUuId())) {
                 throw new IllegalArgumentException("요청 uuId가 인증된 게스트와 일치하지 않습니다.");
             }
-        } else if (!hasUserId || !authenticatedUser.userId().equals(chatDto.getUserId())) {
+        } else if (hasGuestUuid || !hasUserId || !authenticatedUser.userId().equals(chatDto.getUserId())) {
             throw new IllegalArgumentException("요청 userId가 인증된 사용자와 일치하지 않습니다.");
         }
         return authenticatedUser.userId();

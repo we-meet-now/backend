@@ -17,7 +17,7 @@ class PublicTableReadFilterTest {
         assertThat(filter.skips(request("GET", "/api/chat/v1/chat-rooms"))).isTrue();
         assertThat(filter.skips(request("GET", "/api/chat/v1/chat-rooms/all"))).isTrue();
         assertThat(filter.skips(request("GET", "/api/chat/v1/chat-participants/all"))).isTrue();
-        assertThat(filter.skips(request("GET", "/api/chat/v1/chat-rooms/roomId=1"))).isFalse();
+        assertThat(filter.skips(request("GET", "/api/chat/v1/chat-rooms/roomId=1"))).isTrue();
         assertThat(filter.skips(request("POST", "/api/chat/v1/chat-rooms"))).isFalse();
         assertThat(filter.skips(request("POST", "/api/chat/v1/chats/all"))).isFalse();
     }

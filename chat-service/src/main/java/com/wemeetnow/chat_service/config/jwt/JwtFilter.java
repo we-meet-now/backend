@@ -27,6 +27,7 @@ public class JwtFilter extends OncePerRequestFilter {
             new AntPathRequestMatcher("/api/chat/v1/chats/all", "GET"),
             new AntPathRequestMatcher("/api/chat/v1/chat-rooms", "GET"),
             new AntPathRequestMatcher("/api/chat/v1/chat-rooms/all", "GET"),
+            new AntPathRequestMatcher("/api/chat/v1/chat-rooms/roomId=*", "GET"),
             new AntPathRequestMatcher("/api/chat/v1/chat-participants/all", "GET")
     );
 

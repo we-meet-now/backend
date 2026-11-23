@@ -6,10 +6,8 @@ import com.wemeetnow.auth_service.dto.CommonApiResponse;
 import com.wemeetnow.auth_service.dto.GuestCheckRequestDto;
 import com.wemeetnow.auth_service.dto.GuestIdRequestDto;
 import com.wemeetnow.auth_service.dto.GuestYnDto;
-import com.wemeetnow.auth_service.dto.ChatGuestTokenInfoDto;
-import com.wemeetnow.auth_service.domain.enums.ErrorCode;
-import com.wemeetnow.auth_service.exception.CustomException;
 import com.wemeetnow.auth_service.service.UserService;
+import com.wemeetnow.auth_service.repository.UserRepository;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
@@ -28,7 +26,6 @@ import java.util.Date;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -83,7 +80,7 @@ class GuestTokenClassificationTest {
     }
 
     @Test
-    void keepsExpiredGuestTokenClassifiedAsGuestForRefresh() {
+    void keepsExpiredGuestTokenClassifiedAsGuest() {
         String uuid = "expired-guest-uuid";
         String token = createToken(null, uuid, Instant.now().minusSeconds(60));
         when(userService.getUserByUUID(uuid)).thenReturn(Optional.of(mock(User.class)));
@@ -97,6 +94,22 @@ class GuestTokenClassificationTest {
     }
 
     @Test
+    void rejectsExpiredGuestTokenInsteadOfRefreshingItFromTheAccessToken() {
+        String uuid = "expired-guest-uuid";
+        String token = createToken(null, uuid, Instant.now().minusSeconds(60));
+        GuestIdRequestDto request = new GuestIdRequestDto();
+        request.setUuid(uuid);
+        MockHttpServletRequest httpRequest = new MockHttpServletRequest();
+        httpRequest.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+
+        ResponseEntity<CommonApiResponse<com.wemeetnow.auth_service.dto.GuestUserDto>> response =
+                controller.getUserIdFromGuestToken(request, httpRequest);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        verifyNoInteractions(userService);
+    }
+
+    @Test
     void rejectsExpiredAccessToken() {
         String token = createToken(11L, null, Instant.now().minusSeconds(60));
 
@@ -106,6 +119,19 @@ class GuestTokenClassificationTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         assertThat(response.getBody().getStatusCode()).isEqualTo("4010");
         verifyNoInteractions(userService);
+    }
+
+    @Test
+    void createsShortLivedGuestAccessToken() {
+        Instant beforeIssue = Instant.now();
+        JwtUtil tokenUtil = new JwtUtil(mock(UserRepository.class));
+
+        String token = tokenUtil.generateGuestAccessToken("guest-uuid");
+        Instant expiration = JwtUtil.extractAllClaims(token).getExpiration().toInstant();
+
+        assertThat(JwtUtil.getUUID(token)).isEqualTo("guest-uuid");
+        assertThat(expiration).isAfter(beforeIssue.plusSeconds(1790));
+        assertThat(expiration).isBefore(beforeIssue.plusSeconds(1810));
     }
 
     @Test
@@ -152,37 +178,6 @@ class GuestTokenClassificationTest {
                 controller.getUserIdFromGuestToken(request, httpRequest);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
-        verifyNoInteractions(userService);
-    }
-
-    @Test
-    void issuesGuestTokenForUuidThroughPublicEndpoint() {
-        String uuid = "existing-guest-uuid";
-        String guestToken = "signed-guest-token";
-        GuestIdRequestDto request = new GuestIdRequestDto();
-        request.setUuid(uuid);
-        when(userService.issueGuestToken(uuid)).thenReturn(ChatGuestTokenInfoDto.builder()
-                .uuId(uuid)
-                .guestToken(guestToken)
-                .build());
-
-        ResponseEntity<CommonApiResponse<ChatGuestTokenInfoDto>> response =
-                controller.getGuestTokenByUuid(request);
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody().getStatusCode()).isEqualTo("2000");
-        assertThat(response.getBody().getData().getUuId()).isEqualTo(uuid);
-        assertThat(response.getBody().getData().getGuestToken()).isEqualTo(guestToken);
-        verify(userService).issueGuestToken(uuid);
-    }
-
-    @Test
-    void rejectsMissingUuidForPublicGuestTokenEndpoint() {
-        assertThatThrownBy(() -> controller.getGuestTokenByUuid(new GuestIdRequestDto()))
-                .isInstanceOf(CustomException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
-
         verifyNoInteractions(userService);
     }
 
